@@ -104,7 +104,7 @@ button { font: inherit; }
 .savebar .msg { font-size: 14px; color: var(--muted); }
 .savebar .msg.dirty { color: var(--warn-ink); font-weight: 600; }
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr;
+  position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr 1fr;
   background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
 }
 .tabbar button { height: var(--tabbar-h); border: 0; background: none; color: var(--muted); font-size: 15px; }
@@ -114,6 +114,35 @@ button { font: inherit; }
   background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 22px; font-size: 14px; z-index: 5; max-width: 90vw;
 }
 .toast.err { background: var(--err); color: #fff; }
+
+/* Jour (lot 2) */
+:root { --trip: #e6ebe9; --fix: #fde4bf; --fix-line: #e0a14a; --band: #e9f5f3; }
+@media (prefers-color-scheme: dark) { :root { --trip: #202c29; --fix: #4a3715; --fix-line: #d9992f; --band: #11231f; } }
+.daynav { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 10px; gap: 8px; }
+.daylabel { font-weight: 700; font-size: 18px; text-align: center; flex: 1; }
+.daytools { display: flex; gap: 10px; margin-bottom: 4px; }
+.daytools .btn { flex: 1; }
+.btnrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.tlwrap { position: relative; margin: 14px 0 0 46px; }
+.tlarea { position: relative; }
+.hline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
+.hline span { position: absolute; left: -46px; top: -9px; width: 40px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.band { position: absolute; left: 0; right: 0; background: var(--band); border-top: 2px dashed var(--accent); border-bottom: 2px dashed var(--accent); opacity: .9; }
+.band.real { border-style: solid; }
+.marker { position: absolute; left: 0; right: 0; border-top: 2px solid var(--muted); font-size: 12px; color: var(--muted); }
+.marker span { position: absolute; right: 0; top: 2px; }
+.blk { position: absolute; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; font: inherit; color: var(--ink);
+  border: 0; border-radius: 8px; padding: 3px 8px; overflow: hidden; line-height: 1.2; margin: 1px 0; }
+.blk .bn { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk .bt { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk.short { flex-direction: row; align-items: center; gap: 8px; padding-top: 0; padding-bottom: 0; }
+.b-trip { background: var(--trip); }
+.b-event, .b-appt { background: var(--fix); border-left: 4px solid var(--fix-line); }
+.b-mobile { background: var(--accent-soft); border-left: 4px solid var(--accent); }
+.b-mobile.done { opacity: .55; }
+.b-mobile.done .bn { text-decoration: line-through; }
+.hours-help { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.unplaced li { margin: 2px 0; }
 </style>
 </head>
 <body>
@@ -123,7 +152,26 @@ button { font: inherit; }
 </header>
 
 <main>
-  <section id="panel-recap" role="tabpanel" aria-labelledby="tab-recap"></section>
+  <section id="panel-day" role="tabpanel" aria-labelledby="tab-day">
+    <div id="day-head"></div>
+    <form id="appt-form" class="card" hidden novalidate autocomplete="off">
+      <h2 id="appt-heading">Nouveau rendez-vous</h2>
+      <label class="field"><span class="lbl">Titre</span><input type="text" id="appt-title" maxlength="40"></label>
+      <div class="grid2">
+        <label class="field"><span class="lbl">Début</span><input type="text" id="appt-start" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
+        <label class="field"><span class="lbl">Durée (minutes)</span><input type="text" id="appt-duration" inputmode="numeric" autocomplete="off" data-kind="int"></label>
+      </div>
+      <span class="err" id="appt-err" hidden></span>
+      <div class="btnrow">
+        <button type="submit" class="btn primary" id="appt-ok">Ajouter</button>
+        <button type="button" class="btn" data-appt="cancel">Annuler</button>
+        <button type="button" class="btn danger" data-appt="delete" id="appt-del" hidden>Supprimer</button>
+      </div>
+    </form>
+    <div id="day-timeline"></div>
+  </section>
+
+  <section id="panel-recap" role="tabpanel" aria-labelledby="tab-recap" hidden></section>
 
   <section id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
     <form id="settings-form" novalidate autocomplete="off">
@@ -137,7 +185,8 @@ button { font: inherit; }
 </main>
 
 <nav class="tabbar" role="tablist" aria-label="Navigation">
-  <button type="button" role="tab" id="tab-recap" data-tab="recap" aria-selected="true">Récapitulatif</button>
+  <button type="button" role="tab" id="tab-day" data-tab="day" aria-selected="true">Jour</button>
+  <button type="button" role="tab" id="tab-recap" data-tab="recap" aria-selected="false">Récapitulatif</button>
   <button type="button" role="tab" id="tab-settings" data-tab="settings" aria-selected="false">Réglages</button>
 </nav>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -148,8 +197,11 @@ button { font: inherit; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.1.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
-const DATA_VERSION = 1;
+const APP_VERSION = '0.2.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const DATA_VERSION = 2;               // réglages : 1 = lot 1, 2 = lot 2 (blocs mobiles)
+const DAYS_KEY = 'plandujour.jours';
+const DAYS_VERSION = 1;
+const KEEP_DAYS = 90;                 // les jours plus anciens sont purgés à l'enregistrement
 const STORAGE_KEY = 'plandujour.reglages';
 const DAY_NAMES = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const DAY_SHORT = ['', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
@@ -200,7 +252,10 @@ function defaultSettings() {
     ],
     saxophone: { minutes: 15, days: [1, 2, 4, 6, 7] },   // tous les jours sauf mercredi et vendredi (à régler)
     housework: { everyDays: 3, minutes: 30 },            // valeurs de départ à régler
-    relax: { floorMinutes: 30 }                          // plancher de détente, à valider
+    relax: { floorMinutes: 30 },                         // plancher de détente, à valider
+    mobileBlocks: [                                      // blocs mobiles personnalisés (lot 2)
+      { id: 'blk-concentration', name: 'Concentration', minutes: 90, zone: 'work', priority: 1 }
+    ]
   };
 }
 
@@ -215,7 +270,8 @@ function pickRange(v, def) {
 
 // Reconstruit un objet complet et sain à partir de données lues (migration incluse).
 function sanitize(raw) {
-  if (!raw || typeof raw !== 'object' || raw.version !== DATA_VERSION) return null;   // futur : migrations ici
+  // Migration : la version 1 (lot 1) n'a pas de blocs mobiles → valeurs de départ.
+  if (!raw || typeof raw !== 'object' || (raw.version !== 1 && raw.version !== 2)) return null;
   const d = defaultSettings();
   const t = raw.times || {};
   const s = defaultSettings();
@@ -249,7 +305,15 @@ function sanitize(raw) {
   const hw = raw.housework || {};
   s.housework = { everyDays: pickInt(hw.everyDays, d.housework.everyDays, 1, 60), minutes: pickInt(hw.minutes, d.housework.minutes, 0, 600) };
   s.relax = { floorMinutes: pickInt((raw.relax || {}).floorMinutes, d.relax.floorMinutes, 0, 600) };
+  s.mobileBlocks = raw.version === 2 ? sanitizeBlocks(raw.mobileBlocks, d.mobileBlocks) : d.mobileBlocks;
   return s;
+}
+
+function sanitizeBlocks(list, fallback) {
+  if (!Array.isArray(list)) return fallback;
+  return list
+    .filter((b) => b && typeof b.name === 'string' && b.name.trim() && Number.isInteger(b.minutes) && b.minutes >= 5 && b.minutes <= 600 && ZONES[b.zone])
+    .map((b) => ({ id: typeof b.id === 'string' ? b.id : newId(), name: b.name.trim().slice(0, 40), minutes: b.minutes, zone: b.zone, priority: pickInt(b.priority, 5, 1, 9) }));
 }
 
 // Retourne { settings, status } ; status : 'ok' | 'empty' | 'corrupt' | 'unavailable'.
@@ -278,6 +342,53 @@ function saveSettings(settings) {
 }
 
 function newId() { return 'ev-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// ---- Données des jours (lot 2) : rendez-vous, heures réelles, cases cochées ----
+function emptyDay() { return { arrival: null, departure: null, appointments: [], done: {} }; }
+function emptyDays() { return { version: DAYS_VERSION, days: {} }; }
+
+function sanitizeDays(raw) {
+  if (!raw || typeof raw !== 'object' || raw.version !== DAYS_VERSION || !raw.days || typeof raw.days !== 'object') return null;
+  const out = emptyDays();
+  Object.keys(raw.days).forEach((k) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+    const d = raw.days[k] || {};
+    const day = emptyDay();
+    day.arrival = isMinute(d.arrival) ? d.arrival : null;
+    day.departure = isMinute(d.departure) ? d.departure : null;
+    if (Array.isArray(d.appointments)) {
+      day.appointments = d.appointments
+        .filter((a) => a && typeof a.title === 'string' && a.title.trim() && isMinute(a.start) && Number.isInteger(a.duration) && a.duration >= 1 && a.duration <= 1440)
+        .map((a) => ({ id: typeof a.id === 'string' ? a.id : newId(), title: a.title.trim().slice(0, 40), start: a.start, duration: a.duration }));
+    }
+    if (d.done && typeof d.done === 'object') Object.keys(d.done).forEach((key) => { if (d.done[key] === true) day.done[key] = true; });
+    out.days[k] = day;
+  });
+  return out;
+}
+
+function loadDays() {
+  let text = null;
+  try {
+    text = window.localStorage.getItem(DAYS_KEY);
+    if (text === null) return emptyDays();
+    const clean = sanitizeDays(JSON.parse(text));
+    if (clean) return clean;
+  } catch (e) { /* illisible */ }
+  try { if (text !== null) window.localStorage.setItem(DAYS_KEY + '.sauvegarde', text); } catch (e) { /* ignoré */ }
+  return emptyDays();
+}
+
+function saveDays(data) {
+  try {
+    const limit = addDays(dateKey(new Date()), -KEEP_DAYS);
+    Object.keys(data.days).forEach((k) => { if (k < limit) delete data.days[k]; });
+    window.localStorage.setItem(DAYS_KEY, JSON.stringify(data));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 // ==== 5. VALIDATION ====
 function getPath(obj, path) { return path.split('.').reduce((o, k) => o[k], obj); }
@@ -308,8 +419,132 @@ function checkConsistency(s) {
   return out;
 }
 
+// ==== 5B. PLANNING (lot 2) ====
+// Fonctions pures : (réglages, données des jours, date) → plan. Aucun accès au DOM ni au stockage.
+const ZONES = { morning: 'Matin', work: 'Au travail', evening: 'Soir' };
+const SAX_PRIORITY = 2;               // le saxophone et le ménage sont placés le soir, après les blocs personnalisés de priorité 1
+const HOUSEWORK_PRIORITY = 3;
+const DEFAULT_APPT_MINUTES = 60;
+const ASSUMED_EVENT_MINUTES = 60;     // durée supposée d'un rendez-vous régulier sans durée renseignée
+
+function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function parseDateKey(k) { const p = k.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+function addDays(k, n) { const d = parseDateKey(k); d.setDate(d.getDate() + n); return dateKey(d); }
+function isoWeekday(k) { const g = parseDateKey(k).getDay(); return g === 0 ? 7 : g; }
+function daysBetween(a, b) { return Math.round((parseDateKey(b) - parseDateKey(a)) / 86400000); }
+
+function subtractInterval(free, s, e) {
+  const out = [];
+  free.forEach((f) => {
+    if (e <= f.start || s >= f.end) { out.push(f); return; }
+    if (s > f.start) out.push({ start: f.start, end: s });
+    if (e < f.end) out.push({ start: e, end: f.end });
+  });
+  return out;
+}
+
+// Le ménage est dû s'il n'a jamais été fait, ou si le dernier ménage fait avant ce jour date d'au moins N jours.
+function houseworkDue(settings, days, date) {
+  if (days[date] && days[date].done && days[date].done.house) return true;
+  let last = null;
+  Object.keys(days).forEach((k) => { if (k < date && days[k].done && days[k].done.house && (last === null || k > last)) last = k; });
+  return last === null || daysBetween(last, date) >= settings.housework.everyDays;
+}
+
+function buildPlan(settings, days, date) {
+  const t = settings.times;
+  const day = days[date] || emptyDay();
+  const weekday = isoWeekday(date);
+  const plan = {
+    date: date, weekday: weekday, planned: weekday <= 5, day: day,
+    fixed: [], mobile: [], unplaced: [], warnings: [], zones: null,
+    arrival: null, departure: null, arrivalReal: day.arrival !== null, departureReal: day.departure !== null
+  };
+  if (!plan.planned) return plan;
+
+  // Heures réelles du jour ; à défaut, le cas prudent de la fourchette (arrivée la plus tardive, départ le plus précoce).
+  const arrival = day.arrival !== null ? day.arrival : t.workArrival.max;
+  const departure = day.departure !== null ? day.departure : t.workDeparture.min;
+  plan.arrival = arrival;
+  plan.departure = departure;
+  plan.zones = { morning: { start: t.wake, end: t.leaveHome }, work: { start: arrival, end: departure }, evening: { start: t.homeArrival, end: t.bedtime } };
+
+  const fixed = [
+    { id: 'trip-go', kind: 'trip', name: 'Trajet aller', start: t.leaveHome, end: arrival, note: 'train ' + formatTime(t.trainOut) },
+    { id: 'trip-back', kind: 'trip', name: 'Trajet retour', start: departure, end: t.homeArrival, note: 'train ' + formatTime(t.trainBack) }
+  ];
+  settings.weeklyEvents.filter((e) => e.day === weekday).forEach((e) => {
+    fixed.push({ id: 'ev:' + e.id, kind: 'event', name: e.name, start: e.start, end: Math.min(1440, e.start + (e.duration || ASSUMED_EVENT_MINUTES)), assumed: !e.duration });
+  });
+  day.appointments.forEach((a) => {
+    fixed.push({ id: 'appt:' + a.id, kind: 'appt', apptId: a.id, name: a.title, start: a.start, end: Math.min(1440, a.start + a.duration) });
+  });
+  plan.fixed = fixed;
+
+  if (departure <= arrival) plan.warnings.push('Le départ du travail (' + formatTime(departure) + ') est avant l’arrivée (' + formatTime(arrival) + ').');
+  if (arrival <= t.leaveHome) plan.warnings.push('L’arrivée au travail (' + formatTime(arrival) + ') est avant le départ de chez toi (' + formatTime(t.leaveHome) + ').');
+  for (let i = 0; i < fixed.length; i++) {
+    for (let j = i + 1; j < fixed.length; j++) {
+      if (fixed[i].start < fixed[j].end && fixed[j].start < fixed[i].end) {
+        plan.warnings.push('« ' + fixed[i].name + ' » (' + formatTime(fixed[i].start) + '–' + formatTime(fixed[i].end) + ') chevauche « ' + fixed[j].name + ' » (' + formatTime(fixed[j].start) + '–' + formatTime(fixed[j].end) + ').');
+      }
+    }
+  }
+  fixed.filter((f) => f.kind === 'appt' && (f.start < t.wake || f.end > t.bedtime)).forEach((f) => {
+    plan.warnings.push('« ' + f.name + ' » sort de la journée (lever ' + formatTime(t.wake) + ', coucher ' + formatTime(t.bedtime) + ').');
+  });
+
+  // Plages libres de chaque zone, une fois retirés les blocs fixes.
+  const free = {};
+  Object.keys(plan.zones).forEach((z) => {
+    let list = plan.zones[z].start < plan.zones[z].end ? [{ start: plan.zones[z].start, end: plan.zones[z].end }] : [];
+    fixed.forEach((f) => { list = subtractInterval(list, f.start, f.end); });
+    free[z] = list;
+  });
+
+  // Blocs mobiles, placés par priorité dans la première plage libre assez longue de leur zone.
+  const mobile = settings.mobileBlocks.map((b, i) => ({ key: 'block:' + b.id, name: b.name, minutes: b.minutes, priority: b.priority, zone: b.zone, order: i }));
+  if (settings.saxophone.minutes > 0 && settings.saxophone.days.includes(weekday)) {
+    mobile.push({ key: 'sax', name: 'Saxophone', minutes: settings.saxophone.minutes, priority: SAX_PRIORITY, zone: 'evening', order: 100 });
+  }
+  if (settings.housework.minutes > 0 && houseworkDue(settings, days, date)) {
+    mobile.push({ key: 'house', name: 'Ménage', minutes: settings.housework.minutes, priority: HOUSEWORK_PRIORITY, zone: 'evening', order: 101 });
+  }
+  mobile.sort((a, b) => a.priority - b.priority || a.order - b.order);
+  mobile.forEach((m) => {
+    const slot = (free[m.zone] || []).find((f) => f.end - f.start >= m.minutes);
+    if (!slot) { plan.unplaced.push(m); return; }
+    m.kind = 'mobile';
+    m.start = slot.start;
+    m.end = slot.start + m.minutes;
+    m.done = day.done[m.key] === true;
+    free[m.zone] = subtractInterval(free[m.zone], m.start, m.end);
+    plan.mobile.push(m);
+  });
+  plan.mobile.sort((a, b) => a.start - b.start);
+  return plan;
+}
+
+// Répartit en colonnes les blocs qui se chevauchent (affichage uniquement).
+function layoutColumns(items) {
+  items.sort((a, b) => a.start - b.start || b.end - a.end);
+  let cluster = null;
+  const clusters = [];
+  items.forEach((it) => {
+    if (!cluster || it.start >= cluster.end) { cluster = { end: it.end, cols: [], items: [] }; clusters.push(cluster); }
+    let c = cluster.cols.findIndex((e) => e <= it.start);
+    if (c === -1) { c = cluster.cols.length; cluster.cols.push(0); }
+    cluster.cols[c] = it.end;
+    it.col = c;
+    cluster.end = Math.max(cluster.end, it.end);
+    cluster.items.push(it);
+  });
+  clusters.forEach((cl) => cl.items.forEach((it) => { it.colCount = cl.cols.length; }));
+  return items;
+}
+
 // ==== 6. VUE ====
-const $ = (sel, root) => (root || document).querySelector(sel);
+const $ =(sel, root) => (root || document).querySelector(sel);
 const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -349,6 +584,25 @@ function eventToRaw(e) {
   return { id: e.id, name: e.name, day: e.day, start: formatTime(e.start), duration: e.duration === null ? '' : String(e.duration) };
 }
 
+function blockRow(b) {
+  const zoneOptions = Object.keys(ZONES).map((z) => '<option value="' + z + '"' + (b.zone === z ? ' selected' : '') + '>' + ZONES[z] + '</option>').join('');
+  const prioOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((p) => '<option value="' + p + '"' + (Number(b.priority) === p ? ' selected' : '') + '>' + p + '</option>').join('');
+  return '<div class="event-row" data-id="' + esc(b.id) + '">' +
+    '<label class="field name"><span class="lbl">Nom</span><input type="text" maxlength="40" data-bl="name" value="' + esc(b.name) + '"></label>' +
+    '<label class="field"><span class="lbl">Durée (minutes)</span><input ' + INT_ATTRS + ' data-bl="minutes" value="' + esc(b.minutes) + '"></label>' +
+    '<label class="field"><span class="lbl">Où</span><select data-bl="zone">' + zoneOptions + '</select></label>' +
+    '<label class="field"><span class="lbl">Priorité</span><select data-bl="priority">' + prioOptions + '</select></label>' +
+    '<span></span>' +
+    '<button type="button" class="icon-btn del" data-action="del-block" aria-label="Supprimer ce bloc">✕</button>' +
+    '<span class="err" hidden></span></div>';
+}
+function readBlocksRaw() {
+  return $$('#blocks-list .event-row').map((row) => ({
+    id: row.dataset.id, name: $('[data-bl=name]', row).value, minutes: $('[data-bl=minutes]', row).value,
+    zone: $('[data-bl=zone]', row).value, priority: $('[data-bl=priority]', row).value
+  }));
+}
+
 function renderForm(s) {
   const t = s.times;
   const chips = [1, 2, 3, 4, 5, 6, 7].map((d) =>
@@ -372,6 +626,10 @@ function renderForm(s) {
       '<p class="help">Chaque semaine, à heure fixe (cours, répétition…).</p>' +
       '<div id="events-list">' + s.weeklyEvents.map((e) => eventRow(eventToRaw(e))).join('') + '</div>' +
       '<button type="button" class="btn" data-action="add-event">+ Ajouter</button></div>' +
+    '<div class="card"><h2>Blocs mobiles</h2>' +
+      '<p class="help">Placés automatiquement dans les plages libres, par priorité (1 = d’abord). Le saxophone (priorité 2) et le ménage (priorité 3) se placent le soir.</p>' +
+      '<div id="blocks-list">' + s.mobileBlocks.map(blockRow).join('') + '</div>' +
+      '<button type="button" class="btn" data-action="add-block">+ Ajouter un bloc</button></div>' +
     '<div class="card"><h2>Saxophone</h2>' +
       intField('saxophone.minutes', 'Durée par jour (minutes)', s.saxophone.minutes, 0, 600) +
       '<span class="lbl">Jours concernés</span><div class="chips" id="sax-days">' + chips + '</div></div>' +
@@ -416,10 +674,85 @@ function renderRecap(s, status) {
   const sxDays = s.saxophone.days.length === 7 ? 'tous les jours' : (s.saxophone.days.length ? s.saxophone.days.map((d) => DAY_SHORT[d]).join(', ') : 'aucun jour');
   const hwEvery = s.housework.everyDays === 1 ? 'tous les jours' : 'tous les ' + s.housework.everyDays + ' jours';
   html += '<div class="card"><h2>Rythme</h2><ul class="rows">' +
+    s.mobileBlocks.map((b) => '<li><span>' + esc(b.name) + '</span><span class="v">' + formatDuration(b.minutes) + ' · ' + ZONES[b.zone].toLowerCase() + ' · priorité ' + b.priority + '</span></li>').join('') +
     '<li><span>Saxophone</span><span class="v">' + formatDuration(s.saxophone.minutes) + ' · ' + sxDays + '</span></li>' +
     '<li><span>Ménage</span><span class="v">' + hwEvery + ' · ' + formatDuration(s.housework.minutes) + '</span></li>' +
     '<li><span>Détente</span><span class="v">plancher ' + formatDuration(s.relax.floorMinutes) + '</span></li></ul></div>';
   $('#panel-recap').innerHTML = html;
+}
+
+// ---- Vue du jour (lot 2) ----
+const PX = 1.5;   // pixels par minute sur la timeline
+
+function fmtDateLabel(k) {
+  const s = parseDateKey(k).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function hourField(field, label, value, range) {
+  return '<label class="field"><span class="lbl">' + label + '</span><input ' + TIME_ATTRS + ' data-kind="time" data-day-field="' + field +
+    '" placeholder="' + range + '" value="' + (value === null ? '' : formatTime(value)) + '"><span class="err" hidden></span></label>';
+}
+
+function renderDay() {
+  const t = current.times;
+  const plan = buildPlan(current, daysData.days, selectedDate);
+  let head = '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
+    '<div class="daylabel">' + esc(fmtDateLabel(selectedDate)) + '</div>' +
+    '<button type="button" class="icon-btn" data-day-nav="1" aria-label="Jour suivant">›</button></div>' +
+    '<div class="daytools"><button type="button" class="btn" data-day-nav="today">Aujourd’hui</button>' +
+    '<button type="button" class="btn primary" data-action="add-appt">+ Rendez-vous</button></div>';
+
+  if (weekendShift) head += '<div class="banner info">Aujourd’hui, c’est le week-end : le plan du prochain jour de semaine est affiché.</div>';
+  if (loadStatus === 'empty') head += '<div class="banner info">Tu utilises les valeurs de départ : enregistre tes réglages dans l’onglet Réglages.</div>';
+
+  if (!plan.planned) {
+    head += '<div class="banner info">Week-end : le plan n’est pas géré en version 1. Passe au jour précédent ou suivant.</div>';
+    $('#day-head').innerHTML = head;
+    $('#day-timeline').innerHTML = '';
+    return;
+  }
+
+  head += '<div class="card"><h2>Heures du jour</h2><div class="grid2">' +
+    hourField('arrival', 'Arrivée au travail', plan.day.arrival, formatRange(t.workArrival)) +
+    hourField('departure', 'Départ du travail', plan.day.departure, formatRange(t.workDeparture)) + '</div>' +
+    (plan.arrivalReal && plan.departureReal ? '' :
+      '<p class="hours-help">Saisis l’heure réelle. Sans elle, le plan prend le cas prudent : arrivée à ' + formatTime(plan.arrival) + ', départ à ' + formatTime(plan.departure) + '.</p>') + '</div>';
+
+  if (plan.unplaced.length) {
+    head += '<div class="banner warn"><strong>Ne tient pas dans la journée</strong> (rien n’est supprimé) :<ul class="unplaced">' +
+      plan.unplaced.map((m) => '<li>' + esc(m.name) + ' · ' + formatDuration(m.minutes) + ' · ' + ZONES[m.zone].toLowerCase() + '</li>').join('') + '</ul></div>';
+  }
+  if (plan.warnings.length) head += '<div class="banner warn"><strong>À vérifier</strong><ul>' + plan.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
+  $('#day-head').innerHTML = head;
+
+  // Timeline
+  const items = plan.fixed.concat(plan.mobile).map((b) => Object.assign({}, b));
+  let lo = Math.min.apply(null, [t.wake].concat(items.map((b) => b.start)));
+  let hi = Math.max.apply(null, [t.bedtime].concat(items.map((b) => b.end)));
+  lo = Math.floor(lo / 60) * 60;
+  hi = Math.ceil(hi / 60) * 60;
+  layoutColumns(items);
+  const y = (m) => (m - lo) * PX;
+  let html = '<div class="tlwrap"><div class="tlarea" style="height:' + (hi - lo) * PX + 'px">';
+  for (let m = lo; m <= hi; m += 60) html += '<div class="hline" style="top:' + y(m) + 'px"><span>' + pad2(m / 60) + ':00</span></div>';
+  if (plan.departure > plan.arrival) {
+    html += '<div class="band' + (plan.arrivalReal && plan.departureReal ? ' real' : '') + '" style="top:' + y(plan.arrival) + 'px;height:' + (plan.departure - plan.arrival) * PX + 'px"></div>';
+  }
+  html += '<div class="marker" style="top:' + y(t.wake) + 'px"><span>Lever ' + formatTime(t.wake) + '</span></div>';
+  html += '<div class="marker" style="top:' + y(t.bedtime) + 'px"><span>Coucher ' + formatTime(t.bedtime) + '</span></div>';
+  items.forEach((b) => {
+    const h = Math.max((b.end - b.start) * PX - 2, 22);
+    const w = 100 / b.colCount;
+    const attrs = b.kind === 'mobile' ? ' data-action="toggle-done" data-key="' + esc(b.key) + '"'
+      : b.kind === 'appt' ? ' data-action="edit-appt" data-id="' + esc(b.apptId) + '"' : ' tabindex="-1"';
+    const time = formatTime(b.start) + '–' + formatTime(b.end) + (b.assumed ? ' (durée supposée)' : '');
+    html += '<button type="button" class="blk b-' + b.kind + (b.done ? ' done' : '') + (h < 40 ? ' short' : '') + '"' + attrs +
+      ' style="top:' + y(b.start) + 'px;height:' + h + 'px;left:calc(' + b.col * w + '% + 1px);width:calc(' + w + '% - 3px)">' +
+      '<span class="bn">' + (b.done ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + time + (b.note ? ' · ' + esc(b.note) : '') + '</span></button>';
+  });
+  html += '</div></div>';
+  $('#day-timeline').innerHTML = html;
 }
 
 let toastTimer = null;
@@ -434,9 +767,11 @@ function showToast(message, kind) {
 
 function switchTab(name) {
   $$('.tabbar button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  $('#panel-day').hidden = name !== 'day';
   $('#panel-recap').hidden = name !== 'recap';
   $('#panel-settings').hidden = name !== 'settings';
-  $('#subtitle').textContent = name === 'recap' ? 'Tes contraintes, saisies une fois.' : 'Modifie, puis enregistre.';
+  $('#subtitle').textContent = { day: 'Ton plan, recalé autour des rendez-vous.', recap: 'Tes contraintes, saisies une fois.', settings: 'Modifie, puis enregistre.' }[name];
+  if (name === 'day') renderDay();
   window.scrollTo(0, 0);
 }
 
@@ -503,6 +838,16 @@ function readForm() {
     if (durEl.value.trim() !== '' && dur === null) { flag(durEl, 'Durée invalide', errors); ok = false; }
     if (ok) s.weeklyEvents.push({ id: row.dataset.id || newId(), name: name, day: Number($('[data-ev=day]', row).value), start: start, duration: dur });
   });
+  s.mobileBlocks = [];
+  $$('#blocks-list .event-row').forEach((row) => {
+    const nameEl = $('[data-bl=name]', row), minEl = $('[data-bl=minutes]', row);
+    const name = nameEl.value.trim();
+    const minutes = parseIntStrict(minEl.value);
+    let ok = true;
+    if (!name) { flag(nameEl, 'Nom obligatoire', errors); ok = false; }
+    if (minutes === null || minutes < 5 || minutes > 600) { flag(minEl, 'Durée entre 5 et 600 min', errors); ok = false; }
+    if (ok) s.mobileBlocks.push({ id: row.dataset.id || newId(), name: name, minutes: minutes, zone: $('[data-bl=zone]', row).value, priority: Number($('[data-bl=priority]', row).value) });
+  });
   return { settings: s, errors: errors };
 }
 
@@ -510,6 +855,10 @@ function readForm() {
 let current = null;     // réglages enregistrés (ou valeurs de départ)
 let loadStatus = 'empty';
 let dirty = false;
+let daysData = emptyDays();   // rendez-vous, heures réelles et cases cochées, par date
+let selectedDate = null;      // « AAAA-MM-JJ » du jour affiché
+let weekendShift = false;     // vrai si on a avancé au lundi parce qu'on est en week-end
+let editingApptId = null;     // null = nouveau rendez-vous
 
 function setDirty(value) {
   dirty = value;
@@ -518,7 +867,127 @@ function setDirty(value) {
   msg.classList.toggle('dirty', dirty);
 }
 
+function nextWeekday(k) { let d = k; while (isoWeekday(d) > 5) d = addDays(d, 1); return d; }
+
+function ensureDay() {
+  if (!daysData.days[selectedDate]) daysData.days[selectedDate] = emptyDay();
+  return daysData.days[selectedDate];
+}
+function persistDays() {
+  if (!saveDays(daysData)) showToast('Enregistrement impossible sur cet appareil', 'err');
+}
+
+function openApptEditor(id) {
+  const form = $('#appt-form');
+  const day = daysData.days[selectedDate] || emptyDay();
+  const appt = id ? day.appointments.find((a) => a.id === id) : null;
+  editingApptId = appt ? appt.id : null;
+  $('#appt-heading').textContent = appt ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous';
+  $('#appt-ok').textContent = appt ? 'Enregistrer' : 'Ajouter';
+  $('#appt-del').hidden = !appt;
+  $('#appt-title').value = appt ? appt.title : '';
+  $('#appt-start').value = appt ? formatTime(appt.start) : '';
+  $('#appt-duration').value = String(appt ? appt.duration : DEFAULT_APPT_MINUTES);
+  $('#appt-err').hidden = true;
+  $$('#appt-form [aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
+  form.hidden = false;
+  form.scrollIntoView({ block: 'center' });
+  $('#appt-title').focus();
+}
+function closeApptEditor() { $('#appt-form').hidden = true; editingApptId = null; }
+
+function submitAppt() {
+  const titleEl = $('#appt-title'), startEl = $('#appt-start'), durEl = $('#appt-duration');
+  const errs = [];
+  $$('#appt-form [aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
+  const title = titleEl.value.trim();
+  const start = parseTime(startEl.value);
+  const dur = parseIntStrict(durEl.value);
+  if (!title) { titleEl.setAttribute('aria-invalid', 'true'); errs.push('titre obligatoire'); }
+  if (start === null) { startEl.setAttribute('aria-invalid', 'true'); errs.push('heure de début invalide (ex. 09:00)'); }
+  if (dur === null || dur < 1 || dur > 1440) { durEl.setAttribute('aria-invalid', 'true'); errs.push('durée entre 1 et 1440 min'); }
+  const errEl = $('#appt-err');
+  if (errs.length) { errEl.textContent = 'À corriger : ' + errs.join(' ; ') + '.'; errEl.hidden = false; return; }
+  errEl.hidden = true;
+  const day = ensureDay();
+  if (editingApptId) {
+    const a = day.appointments.find((x) => x.id === editingApptId);
+    if (a) { a.title = title; a.start = start; a.duration = dur; }
+  } else {
+    day.appointments.push({ id: newId(), title: title, start: start, duration: dur });
+  }
+  persistDays();
+  closeApptEditor();
+  renderDay();
+}
+
+function commitHour(el) {
+  const field = el.dataset.dayField;
+  const text = el.value.trim();
+  const err = el.closest('.field').querySelector('.err');
+  err.hidden = true;
+  el.removeAttribute('aria-invalid');
+  if (text === '') {
+    ensureDay()[field] = null;
+  } else {
+    const v = parseTime(text);
+    if (v === null) { el.setAttribute('aria-invalid', 'true'); err.textContent = 'Heure invalide (ex. 07:35)'; err.hidden = false; return; }
+    ensureDay()[field] = v;
+  }
+  persistDays();
+  renderDay();
+}
+
+function bindDayEvents() {
+  const panel = $('#panel-day');
+  panel.addEventListener('click', (e) => {
+    const nav = e.target.closest('[data-day-nav]');
+    if (nav) {
+      weekendShift = false;
+      const v = nav.dataset.dayNav;
+      selectedDate = v === 'today' ? nextWeekday(dateKey(new Date())) : addDays(selectedDate, Number(v));
+      closeApptEditor();
+      renderDay();
+      return;
+    }
+    const act = e.target.closest('[data-action]');
+    if (act) {
+      if (act.dataset.action === 'add-appt') openApptEditor(null);
+      else if (act.dataset.action === 'edit-appt') openApptEditor(act.dataset.id);
+      else if (act.dataset.action === 'toggle-done') {
+        const day = ensureDay();
+        day.done[act.dataset.key] = !day.done[act.dataset.key];
+        persistDays();
+        renderDay();
+      }
+      return;
+    }
+    const appt = e.target.closest('[data-appt]');
+    if (appt) {
+      if (appt.dataset.appt === 'cancel') closeApptEditor();
+      else if (appt.dataset.appt === 'delete' && editingApptId) {
+        const day = ensureDay();
+        day.appointments = day.appointments.filter((a) => a.id !== editingApptId);
+        persistDays();
+        closeApptEditor();
+        renderDay();
+      }
+    }
+  });
+  panel.addEventListener('change', (e) => { if (e.target.matches('[data-day-field]')) commitHour(e.target); });
+  panel.addEventListener('focusin', (e) => {
+    const el = e.target;
+    if (el.matches && el.matches('[data-kind]')) setTimeout(() => { try { el.select(); } catch (x) { /* ignoré */ } }, 0);
+  });
+  panel.addEventListener('focusout', (e) => {
+    const el = e.target;
+    if (el.matches && el.matches('[data-kind=time]')) { const v = parseTime(el.value); if (v !== null) el.value = formatTime(v); }
+  });
+  $('#appt-form').addEventListener('submit', (e) => { e.preventDefault(); submitAppt(); });
+}
+
 function bindEvents() {
+  bindDayEvents();
   const form = $('#settings-form');
 
   $$('.tabbar button').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -559,6 +1028,17 @@ function bindEvents() {
       const raw = readEventsRaw().filter((r) => r.id !== row.dataset.id);
       $('#events-list').innerHTML = raw.map(eventRow).join('');
       setDirty(true);
+    } else if (action === 'add-block') {
+      const raw = readBlocksRaw();
+      raw.push({ id: newId(), name: '', minutes: '30', zone: 'evening', priority: '5' });
+      $('#blocks-list').innerHTML = raw.map(blockRow).join('');
+      const names = $$('#blocks-list [data-bl=name]');
+      names[names.length - 1].focus();
+      setDirty(true);
+    } else if (action === 'del-block') {
+      const row = btn.closest('.event-row');
+      $('#blocks-list').innerHTML = readBlocksRaw().filter((r) => r.id !== row.dataset.id).map(blockRow).join('');
+      setDirty(true);
     } else if (action === 'reset') {
       if (window.confirm('Remplacer les champs par les valeurs de départ ? Rien ne sera enregistré avant que tu appuies sur « Enregistrer ».')) {
         renderForm(defaultSettings());
@@ -585,6 +1065,7 @@ function bindEvents() {
     loadStatus = 'ok';
     renderForm(current);
     renderRecap(current, loadStatus);
+    renderDay();
     setDirty(false);
     const warnings = checkConsistency(current);
     showToast(warnings.length ? 'Enregistré · ' + warnings.length + ' point(s) à vérifier dans Récapitulatif' : 'Enregistré');
@@ -596,10 +1077,16 @@ function init() {
   const loaded = loadSettings();
   current = loaded.settings;
   loadStatus = loaded.status;
+  daysData = loadDays();
+  const today = dateKey(new Date());
+  selectedDate = nextWeekday(today);
+  weekendShift = selectedDate !== today;
   renderForm(current);
   renderRecap(current, loadStatus);
   setDirty(false);
   bindEvents();
+  switchTab('day');
+  window.PDJ = { buildPlan: buildPlan, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });

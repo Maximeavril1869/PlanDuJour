@@ -1,5 +1,5 @@
 /* Service worker — Plan du jour. Voir CONVENTIONS.md §10 : VERSION = APP_VERSION de index.html. */
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const CACHE = 'plandujour-' + VERSION;
 const ASSETS = [
   './',

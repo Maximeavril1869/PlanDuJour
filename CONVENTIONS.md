@@ -92,3 +92,15 @@ Un nouveau lot **ajoute** des sections ou des fonctions dans la section qui conv
 > Applique les conventions, ne propose pas de nouvelle refonte. Ce qui n'est pas bloquant va dans « À revoir plus tard ».
 
 Une session = un lot, avec un résultat que l'utilisateur teste sur son iPhone ou dans VSCode.
+
+## 13. Ajouts du lot 2 (rien de ce qui précède n'est modifié)
+
+- **Section `5B. PLANNING`** : fonctions pures `buildPlan(réglages, jours, date)`, `layoutColumns`, calculs de dates. Elles ne touchent ni le DOM ni le stockage.
+- **Jours** : clé `plandujour.jours`, objet versionné `{ version: 1, days: { "AAAA-MM-JJ": { arrival, departure, appointments, done } } }`. Les jours de plus de 90 jours sont purgés à l'enregistrement. Si les données sont illisibles, une copie brute est gardée sous `plandujour.jours.sauvegarde`.
+- **Enregistrement immédiat** pour les données du jour (rendez-vous, heures réelles, cases cochées) : pas de bouton « Enregistrer ». Le principe « Enregistrer » du §9 reste réservé aux réglages.
+- **Réglages en version 2** : ajout de `mobileBlocks`. La version 1 est migrée à la lecture (concentration par défaut ajoutée) et réécrite en version 2 au prochain enregistrement.
+- **Zones** : `morning` (lever → départ de chez soi), `work` (arrivée → départ du travail), `evening` (retour à la maison → coucher). Un bloc mobile se place dans la première plage libre de sa zone assez longue, par priorité croissante (1 = d'abord), à égalité dans l'ordre de saisie. Le saxophone a la priorité 2 et le ménage la priorité 3, tous deux le soir.
+- **Heure réelle absente** : le plan prend le cas prudent (arrivée la plus tardive de la fourchette, départ le plus précoce) et le dit à l'écran. La fourchette n'est jamais modifiée.
+- **Ménage** : dû si jamais fait, ou si le dernier ménage coché avant ce jour date d'au moins N jours.
+- **Rien n'est supprimé** quand un bloc ne tient pas : il est signalé (les propositions de coupe viennent au lot 3).
+- **Point d'accès pour les tests** : `window.PDJ` expose `buildPlan` et quelques utilitaires.
