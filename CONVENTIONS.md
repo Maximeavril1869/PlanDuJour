@@ -107,3 +107,12 @@ Une session = un lot, avec un résultat que l'utilisateur teste sur son iPhone o
 - **Enregistrement immédiat** pour les données du jour ; le bouton « Enregistrer » reste réservé aux réglages (§9).
 - **Migrations** : les réglages 1 et 2 sont convertis à la lecture (trajets, rendez-vous réguliers, saxophone, ménage et blocs mobiles deviennent des activités) puis réécrits en version 3 au prochain enregistrement. Les jours 1 sont convertis en jours 2. Si les jours sont illisibles, une copie brute est gardée sous `plandujour.jours.sauvegarde`.
 - **Point d'accès pour les tests** : `window.PDJ` expose `buildDay` et quelques utilitaires. `buildDay` est une fonction pure (réglages, données du jour, jour de semaine, heure actuelle) : aucun accès au DOM ni au stockage.
+
+## 14. Ajouts du lot 3 (rien de ce qui précède n'est modifié)
+
+- **« À confirmer »** : case facultative `confirm` sur une activité ou un bloc ponctuel (sans effet pour un bloc « sans heure », qui se confirme par le chrono). Quand l'heure de fin prévue est passée (ou que le jour est passé) sans heure réelle, le bloc apparaît dans la carte « À confirmer » avec « Fait » (enregistre les heures prévues comme heures réelles) et « Raté ».
+- **Raté** : `real[clé] = { start: null, end: null, missed: true }`. Le bloc quitte le plan : il ne pousse rien, son temps redevient disponible, il est listé dans « Ratés » avec « Rétablir ». Les blocs ratés restent dans les données pour les statistiques.
+- **Sous-tâches** : par jour et par bloc, dans `days[date].subtasks[clé]` = liste illimitée de `{ id, label, action, done }`. `label` et `action` (80 caractères maximum) sont des textes libres : l'utilisateur décide de leur contenu (voir §8). Elles sont supprimées avec le bloc ponctuel auquel elles appartiennent. Il n'existe pas de liste récurrente.
+- **Détente** : temps entre la fin du dernier bloc et le coucher (`relax` dans `buildDay`), affiché en permanence en haut du jour ; l'encart passe en alerte sous `relaxFloor`.
+- **Débordement** : l'app signale (chevauchement, détente trop courte, blocs après le coucher, bloc « sans heure » plus long que le plus grand temps disponible) sans rien supprimer ni proposer de coupe automatique. Les coupes automatiques de la première version du cahier des charges sont abandonnées.
+- Ajouts de champs facultatifs, lus avec une valeur par défaut : pas de changement de `DATA_VERSION` (réglages 3) ni de `DAYS_VERSION` (jours 2).

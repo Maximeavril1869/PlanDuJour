@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.3.0** (lots 1, 2 et refonte du modèle d'activités). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.4.0** (lots 1 à 3). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -8,8 +8,18 @@ Version actuelle : **0.3.0** (lots 1, 2 et refonte du modèle d'activités). Rè
 |---|---|---|---|
 | 1 | Saisie et stockage des contraintes | **Livré, à tester sur iPhone** | Voir ci-dessous |
 | 2 | Plan du jour et recalage autour des rendez-vous | **Livré, à tester sur iPhone** | J'ajoute un rendez-vous à 9h et le bloc « 1h30 de concentration » se décale seul ; la journée s'affiche en timeline ; je saisis l'heure réelle d'arrivée et de départ du jour |
-| 3 | Sous-tâches, détente et débordement | À faire | Je coche des sous-tâches et je les retrouve après fermeture de l'app ; la détente s'affiche en permanence ; quand ça déborde, l'app le dit et propose les coupes une par une |
-| 4 | Export, import et finitions iPhone / iPad | À faire | Je sauvegarde et restaure mes données par fichier ; l'app est confortable sur iPhone et iPad |
+| 3 | Sous-tâches, détente et blocs à confirmer | **Livré, à tester sur iPhone** | Je coche des sous-tâches et je les retrouve après fermeture de l'app ; la détente s'affiche en permanence ; les blocs « à confirmer » se confirment en un tap ; quand ça déborde, l'app le dit sans rien supprimer |
+| 4 | Export, import, statistiques et finitions iPhone / iPad | À faire | Je sauvegarde et restaure mes données par fichier ; l'app est confortable sur iPhone et iPad |
+
+### Lot 3 est fini quand, sur ton iPhone
+
+1. Dans **Réglages**, chaque activité a une case « À confirmer » (cochée par défaut pour le saxophone et le ménage). Elle est masquée pour une activité « sans heure ».
+2. Après l'heure de fin d'un bloc à confirmer, la carte **À confirmer** apparaît en haut du jour avec **Fait** et **Raté**. « Fait » enregistre les heures prévues ; « Raté » retire le bloc du plan et libère son temps (liste « Ratés », avec « Rétablir »). Pour un jour passé, tous les blocs à confirmer non pointés sont proposés.
+3. Sous un bloc (tape dessus, ou « Détails » pour un bloc sans heure), la section **Sous-tâches** accepte autant de lignes que nécessaire : libellé + action courte, case à cocher, suppression. La progression (par exemple 3/8) s'affiche sur le bloc et dans la liste « Sans heure ».
+4. Tout est conservé après fermeture de l'app.
+5. L'encart **Détente avant le coucher** est affiché en permanence en haut du jour ; il passe en alerte sous le minimum réglé.
+
+Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre) : tous les points, et les tests des lots 1 et 2 passent toujours.
 
 ### Lot 2 est fini quand, sur ton iPhone
 
@@ -46,19 +56,19 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 ## À valider
 
 - Plancher de détente : 30 min par défaut, ou autre valeur.
-- Ordre de coupe en cas de débordement : ménage, puis temps d'app, puis détente (lot 3).
-- Contenu du champ « dossier » : libellé court ou autre chose (lot 3).
 - Durée du ménage : 30 min par défaut, valeur inventée pour démarrer.
 - Durée du cours de saxophone et de l'orchestre : non renseignées, 1 h supposée en attendant (modifiable dans Réglages).
 - Jours et heure du ménage : lundi et jeudi à 17:30 par défaut, valeurs inventées pour démarrer.
+- Sous-tâches : propres à chaque jour (pas de liste récurrente) ; à confirmer à l'usage.
 
 ## À revoir plus tard
 
-- « Temps d'app » (dans l'ordre de coupe) n'est pas encore défini : qu'est-ce que c'est exactement ?
+- Les propositions de coupe automatiques (ménage, « temps d'app », détente) du cahier initial sont abandonnées : l'app signale le débordement sans rien proposer. À reprendre si le besoin revient.
+- Catégories pour les statistiques : pas créées ; regroupement par nom d'activité en attendant.
 - Les deux champs de fourchette sont limités à des heures du même jour ; pas de coucher après minuit.
 - Week-end : non planifié en version 1 (les jours de saxophone peuvent déjà inclure sam. et dim.).
 - Un bloc n'est jamais coupé en deux.
 - Pas de glisser-déposer.
-- Statistiques : les heures réelles sont déjà conservées (400 jours) ; l'écran de statistiques reste à définir.
+- Statistiques : les heures réelles, les confirmations et les « ratés » sont déjà conservés (400 jours) ; l'écran de statistiques reste à définir (lot 4 ?).
 - Le chrono tourne à la minute ; le bloc « en cours » se rafraîchit toutes les 15 secondes.
 - Rappels et alarmes : export `.ics` à étudier.

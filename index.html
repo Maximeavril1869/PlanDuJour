@@ -154,6 +154,18 @@ button { font: inherit; }
 .b-done .bn { text-decoration: line-through; }
 .b-running { outline: 2px solid var(--accent); }
 .hours-help { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.relax { display: flex; justify-content: space-between; align-items: center; background: var(--accent-soft); border-radius: 12px; padding: 10px 14px; margin: 10px 0; }
+.relax strong { font-size: 18px; }
+.relax.low { background: var(--warn-bg); color: var(--warn-ink); }
+.act-row .chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
+.chk input, .subchk input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
+.subh { margin: 14px 0 6px; font-size: 15px; }
+.subs { list-style: none; margin: 0 0 8px; padding: 0; }
+.subs li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.subs li:first-child { border-top: 0; }
+.subchk { display: flex; align-items: center; gap: 12px; flex: 1; min-height: 44px; }
+.subtxt small { display: block; color: var(--muted); font-size: 13px; }
+.sublabel.done { text-decoration: line-through; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -172,6 +184,15 @@ button { font: inherit; }
       <div id="bp-real" class="grid2">
         <label class="field"><span class="lbl">Début réel</span><input type="text" id="bp-real-start" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
         <label class="field"><span class="lbl">Fin réelle</span><input type="text" id="bp-real-end" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
+      </div>
+      <div id="bp-subs">
+        <h3 class="subh">Sous-tâches <span id="bp-subs-count"></span></h3>
+        <ul class="subs" id="bp-subs-list"></ul>
+        <div class="grid2">
+          <label class="field"><span class="lbl">Libellé</span><input type="text" id="sub-label" maxlength="80" autocomplete="off"></label>
+          <label class="field"><span class="lbl">Action courte</span><input type="text" id="sub-action" maxlength="80" autocomplete="off"></label>
+        </div>
+        <button type="button" class="btn small" data-bp="add-sub">+ Ajouter la sous-tâche</button>
       </div>
       <span class="err" id="bp-err" hidden></span>
       <div class="btnrow">
@@ -212,7 +233,7 @@ button { font: inherit; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.3.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.4.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
 const DAYS_KEY = 'plandujour.jours';
@@ -249,8 +270,8 @@ function parseIntStrict(text) {
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 
 // ==== 3. VALEURS PAR DÉFAUT ====
-function makeAct(id, name, days, mode, entry, start, duration) {
-  return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: duration };
+function makeAct(id, name, days, mode, entry, start, duration, confirm) {
+  return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: duration, confirm: confirm === true };
 }
 function defaultSettings() {
   return {
@@ -263,13 +284,13 @@ function defaultSettings() {
       makeAct('act-trajet-retour', 'Trajet retour', [1, 2, 3, 4, 5], 'fixed', 'end', 960, 75),      // 16:00–17:15
       makeAct('act-cours-sax', 'Cours de saxophone', [3], 'fixed', 'end', 1140, 60),                 // mercredi 19:00
       makeAct('act-orchestre', 'Orchestre', [5], 'fixed', 'end', 1170, 60),                          // vendredi 19:30
-      makeAct('act-sax', 'Saxophone', [1, 2, 4, 6, 7], 'flex', 'duration', 1035, 15),                // 17:15, glisse si retard
-      makeAct('act-menage', 'Ménage', [1, 4], 'flex', 'duration', 1050, 30),                         // 17:30, à régler
+      makeAct('act-sax', 'Saxophone', [1, 2, 4, 6, 7], 'flex', 'duration', 1035, 15, true),          // 17:15, glisse si retard, à confirmer
+      makeAct('act-menage', 'Ménage', [1, 4], 'flex', 'duration', 1050, 30, true),                   // 17:30, à régler, à confirmer
       makeAct('act-concentration', 'Concentration', [1, 2, 3, 4, 5], 'free', 'duration', null, 90)   // sans heure
     ]
   };
 }
-function emptyDay() { return { real: {}, ponctuels: [] }; }
+function emptyDay() { return { real: {}, ponctuels: [], subtasks: {} }; }
 function emptyDays() { return { version: DAYS_VERSION, days: {} }; }
 
 // ==== 4. STOCKAGE ====
@@ -290,7 +311,8 @@ function sanitizeActs(list, fallback) {
     if (!free && !isMinute(a.start)) return;
     out.push({
       id: typeof a.id === 'string' ? a.id : newId(), name: a.name.trim().slice(0, 40), days: cleanDays(a.days), mode: a.mode,
-      entry: a.entry === 'end' ? 'end' : 'duration', start: free ? null : a.start, duration: free ? a.duration : Math.min(a.duration, 1440 - a.start)
+      entry: a.entry === 'end' ? 'end' : 'duration', start: free ? null : a.start, duration: free ? a.duration : Math.min(a.duration, 1440 - a.start),
+      confirm: !free && a.confirm === true
     });
   });
   return out;
@@ -374,7 +396,14 @@ function cleanReal(r) {
   const s = isMinute(r.start) ? r.start : null;
   let e = isMinute(r.end) ? r.end : null;
   if (s !== null && e !== null && e <= s) e = null;
-  return s === null && e === null ? null : { start: s, end: e };
+  if (s === null && e === null) return r.missed === true ? { start: null, end: null, missed: true } : null;   // « raté » : aucun horaire réel
+  return { start: s, end: e };
+}
+function cleanSubtasks(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((t) => t && typeof t.label === 'string' && t.label.trim())
+    .map((t) => ({ id: typeof t.id === 'string' ? t.id : newId(), label: t.label.trim().slice(0, 80), action: typeof t.action === 'string' ? t.action.trim().slice(0, 80) : '', done: t.done === true }));
 }
 function cleanPonctuel(p) {
   if (!p || typeof p.name !== 'string' || !p.name.trim()) return null;
@@ -383,7 +412,8 @@ function cleanPonctuel(p) {
   if (mode !== 'free' && !isMinute(p.start)) return null;
   return {
     id: typeof p.id === 'string' ? p.id : newId(), name: p.name.trim().slice(0, 40), mode: mode, entry: p.entry === 'end' ? 'end' : 'duration',
-    start: mode === 'free' ? null : p.start, duration: mode === 'free' ? p.duration : Math.min(p.duration, 1440 - p.start)
+    start: mode === 'free' ? null : p.start, duration: mode === 'free' ? p.duration : Math.min(p.duration, 1440 - p.start),
+    confirm: mode !== 'free' && p.confirm === true
   };
 }
 function sanitizeDays(raw) {
@@ -404,6 +434,7 @@ function sanitizeDays(raw) {
     } else {
       if (d.real && typeof d.real === 'object') Object.keys(d.real).forEach((key) => { const r = cleanReal(d.real[key]); if (r) day.real[key] = r; });
       (Array.isArray(d.ponctuels) ? d.ponctuels : []).forEach((p) => { const c = cleanPonctuel(p); if (c) day.ponctuels.push(c); });
+      if (d.subtasks && typeof d.subtasks === 'object') Object.keys(d.subtasks).forEach((key) => { const l = cleanSubtasks(d.subtasks[key]); if (l.length) day.subtasks[key] = l; });
     }
     out.days[k] = day;
   });
@@ -446,19 +477,23 @@ function addDays(k, n) { const d = parseDateKey(k); d.setDate(d.getDate() + n); 
 function isoWeekday(k) { const g = parseDateKey(k).getDay(); return g === 0 ? 7 : g; }
 
 // nowMin : minutes actuelles si le jour affiché est aujourd'hui, sinon null.
-function buildDay(settings, dayData, weekday, nowMin) {
-  const out = { placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0 };
+// past : vrai si le jour affiché est antérieur à aujourd'hui (les blocs « à confirmer » non pointés sont alors tous à confirmer).
+function buildDay(settings, dayData, weekday, nowMin, past) {
+  const out = { placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null };
   const items = [];
   settings.activities.forEach((a) => {
-    if (a.days.includes(weekday)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
+    if (a.days.includes(weekday)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
-    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
+    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
   });
   const timed = [];
   items.forEach((it) => {
     it.real = dayData.real[it.key] || { start: null, end: null };
-    if (it.mode === 'free' && it.real.start === null) out.pending.push(it); else timed.push(it);
+    it.subs = (dayData.subtasks && dayData.subtasks[it.key]) || [];
+    if (it.real.missed) out.missed.push(it);                      // raté : le bloc quitte le plan et libère son temps
+    else if (it.mode === 'free' && it.real.start === null) out.pending.push(it);
+    else timed.push(it);
   });
   timed.forEach((it) => { it.sortKey = it.real.start !== null ? it.real.start : it.plannedStart; });
   timed.sort((a, b) => a.sortKey - b.sortKey);
@@ -481,6 +516,7 @@ function buildDay(settings, dayData, weekday, nowMin) {
     it.shift = it.plannedStart !== null && r.start === null && start > it.plannedStart ? start - it.plannedStart : 0;
     cursor = Math.max(cursor, end);
     if (state === 'running') out.running = it;
+    if (it.confirm && state === 'planned' && (past === true || (nowMin !== null && end <= nowMin))) out.toConfirm.push(it);
   });
 
   // Temps disponible entre deux blocs (du lever au premier bloc, puis jusqu'au coucher).
@@ -492,6 +528,7 @@ function buildDay(settings, dayData, weekday, nowMin) {
     if (it.end > prevEnd || prev === null) { prevEnd = Math.max(prevEnd, it.end); prev = it; }
   });
   if (byStart.length) {
+    out.relax = Math.max(0, settings.bedtime - prevEnd);
     if (settings.bedtime > prevEnd) {
       out.gaps.push({ from: prevEnd, to: settings.bedtime, minutes: settings.bedtime - prevEnd, last: true });
       if (settings.bedtime - prevEnd < settings.relaxFloor) out.warnings.push('Il ne reste que ' + formatDuration(settings.bedtime - prevEnd) + ' avant le coucher (détente minimale : ' + formatDuration(settings.relaxFloor) + ').');
@@ -546,7 +583,7 @@ function actToRaw(a) {
   const free = a.mode === 'free';
   const entry = !free && a.entry === 'end' && a.start + a.duration < 1440 ? 'end' : 'duration';
   return {
-    id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [],
+    id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true,
     start: free || a.start === null ? '' : formatTime(a.start),
     second: !free && entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration)
   };
@@ -563,7 +600,8 @@ function actRowHtml(r, opts) {
     '<label class="field timed wide"><span class="lbl">Saisie</span><select data-a="entry">' + entryOptions + '</select></label>' +
     '<label class="field timed"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-a="start" value="' + esc(r.start) + '"></label>' +
     '<label class="field"><span class="lbl" data-a-label>' + (secondIsTime ? 'Fin' : 'Durée (minutes)') + '</span><input ' + (secondIsTime ? TIME_ATTRS : INT_ATTRS) +
-    ' data-kind="' + (secondIsTime ? 'time' : 'int') + '" data-a="second" value="' + esc(r.second) + '"></label>';
+    ' data-kind="' + (secondIsTime ? 'time' : 'int') + '" data-a="second" value="' + esc(r.second) + '"></label>' +
+    '<label class="field timed wide chk"><input type="checkbox" data-a="confirm"' + (r.confirm ? ' checked' : '') + '> À confirmer (« Fait / Raté » proposé après l’heure)</label>';
   if (opts.days) {
     html += '<div class="field wide"><span class="lbl">Jours</span><div class="chips">' +
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>';
@@ -597,7 +635,7 @@ function convertSecond(row, newEntry) {
 function readActRaw(row) {
   return {
     id: row.dataset.id, name: $('[data-a=name]', row).value, mode: $('[data-a=mode]', row).value, entry: $('[data-a=entry]', row).value,
-    start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value,
+    start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value, confirm: $('[data-a=confirm]', row).checked,
     days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day))
   };
 }
@@ -627,7 +665,8 @@ function readActRow(row, errors) {
     }
   }
   if (errors.length > before) return null;
-  return { id: row.dataset.id || newId(), name: name, days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration };
+  return { id: row.dataset.id || newId(), name: name, days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
+    confirm: mode !== 'free' && $('[data-a=confirm]', row).checked };
 }
 
 function renderForm(s) {
@@ -685,7 +724,8 @@ function fmtDateLabel(k) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function dayNow() { return selectedDate === dateKey(new Date()) ? nowMinutes() : null; }
-function buildSelected() { return buildDay(current, daysData.days[selectedDate] || emptyDay(), isoWeekday(selectedDate), dayNow()); }
+function buildSelected() { return buildDay(current, daysData.days[selectedDate] || emptyDay(), isoWeekday(selectedDate), dayNow(), selectedDate < dateKey(new Date())); }
+function subsProgress(it) { return it.subs.length ? it.subs.filter((t) => t.done).length + '/' + it.subs.length : ''; }
 
 function renderDay() {
   const build = buildSelected();
@@ -696,6 +736,15 @@ function renderDay() {
     '<button type="button" class="btn primary" data-action="add-block">+ Bloc ponctuel</button></div>';
   if (loadStatus === 'empty') head += '<div class="banner info">Tu utilises les valeurs de départ : enregistre tes réglages dans l’onglet Réglages.</div>';
 
+  if (build.relax !== null) {
+    head += '<div class="relax' + (build.relax < current.relaxFloor ? ' low' : '') + '"><span>Détente avant le coucher</span><strong>' + formatDuration(build.relax) + '</strong></div>';
+  }
+  if (build.toConfirm.length) {
+    head += '<div class="card"><h2>À confirmer</h2><ul class="rows">' + build.toConfirm.map((it) =>
+      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatTime(it.start) + '–' + formatTime(it.end) + '</span></span><span>' +
+      '<button type="button" class="btn small primary" data-action="confirm-done" data-key="' + esc(it.key) + '">Fait</button> ' +
+      '<button type="button" class="btn small" data-action="confirm-missed" data-key="' + esc(it.key) + '">Raté</button></span></li>').join('') + '</ul></div>';
+  }
   if (build.running) {
     const r = build.running;
     head += '<div class="runbar"><div><strong>' + esc(r.name) + '</strong><small>en cours depuis ' + formatTime(r.start) + ' · ' + formatDuration(Math.max(0, dayNow() - r.start)) +
@@ -703,13 +752,18 @@ function renderDay() {
   }
   if (build.pending.length) {
     head += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + build.pending.map((it) =>
-      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatDuration(it.minutes) + '</span></span><span>' +
+      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatDuration(it.minutes) + (it.subs.length ? ' · ' + subsProgress(it) : '') + '</span></span><span>' +
       (dayNow() !== null ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
       '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul>' +
       '<p class="hours-help">Plus grand temps disponible : ' + formatDuration(build.largestGap) +
       (build.pending.some((it) => it.minutes > build.largestGap) ? ' — au moins un bloc ne tient dans aucun créneau (rien n’est supprimé).' : '.') + '</p></div>';
   }
   if (build.warnings.length) head += '<div class="banner warn"><strong>À vérifier</strong><ul>' + build.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
+  if (build.missed.length) {
+    head += '<div class="card"><h2>Ratés</h2><ul class="rows">' + build.missed.map((it) =>
+      '<li><span>' + esc(it.name) + (it.plannedStart !== null ? ' <span class="v">· prévu ' + formatTime(it.plannedStart) + '</span>' : '') + '</span>' +
+      '<button type="button" class="btn small" data-action="unmiss" data-key="' + esc(it.key) + '">Rétablir</button></li>').join('') + '</ul></div>';
+  }
   $('#day-head').innerHTML = head;
 
   // Timeline
@@ -736,6 +790,7 @@ function renderDay() {
     if (b.state === 'running') note = ' · en cours';
     else if (b.state === 'done') note = ' · terminé';
     if (b.shift) note += ' · décalé de ' + formatDuration(b.shift) + ' (prévu ' + formatTime(b.plannedStart) + ')';
+    if (b.subs.length) note += ' · ' + subsProgress(b);
     html += '<button type="button" class="blk b-' + b.mode + (b.state === 'done' ? ' b-done' : '') + (b.state === 'running' ? ' b-running' : '') + (h < 40 ? ' short' : '') +
       '" data-action="open-block" data-key="' + esc(b.key) + '" style="top:' + y(b.start) + 'px;height:' + h + 'px;left:calc(' + b.col * w + '% + 1px);width:calc(' + w + '% - 3px)">' +
       '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + formatTime(b.start) + '–' + formatTime(b.end) + esc(note) + '</span></button>';
@@ -858,10 +913,35 @@ function stopNow(key) {
 // ---- Panneau d'un bloc (détails, heures réelles, bloc ponctuel) ----
 function closePanel() { $('#block-panel').hidden = true; panelOpen = false; panelKey = null; }
 
+function renderSubs() {
+  const day = daysData.days[selectedDate];
+  const list = (day && day.subtasks[panelKey]) || [];
+  $('#bp-subs-count').textContent = list.length ? '(' + list.filter((t) => t.done).length + '/' + list.length + ')' : '';
+  $('#bp-subs-list').innerHTML = list.map((t) =>
+    '<li><label class="subchk"><input type="checkbox" data-sub-done="' + esc(t.id) + '"' + (t.done ? ' checked' : '') + '><span class="subtxt"><span class="sublabel' + (t.done ? ' done' : '') + '">' +
+    esc(t.label) + '</span>' + (t.action ? '<small>' + esc(t.action) + '</small>' : '') + '</span></label>' +
+    '<button type="button" class="icon-btn" data-sub-del="' + esc(t.id) + '" aria-label="Supprimer la sous-tâche">✕</button></li>').join('');
+}
+function addSub() {
+  const labelEl = $('#sub-label');
+  const label = labelEl.value.trim();
+  labelEl.removeAttribute('aria-invalid');
+  if (!label || !panelKey) { labelEl.setAttribute('aria-invalid', 'true'); labelEl.focus(); return; }
+  const day = ensureDay();
+  if (!day.subtasks[panelKey]) day.subtasks[panelKey] = [];
+  day.subtasks[panelKey].push({ id: newId(), label: label.slice(0, 80), action: $('#sub-action').value.trim().slice(0, 80), done: false });
+  persistDays();
+  labelEl.value = '';
+  $('#sub-action').value = '';
+  renderSubs();
+  renderDay();
+  labelEl.focus();
+}
+
 function openPanel(key) {
   const form = $('#block-panel');
   const build = buildSelected();
-  const it = key ? build.placed.concat(build.pending).find((x) => x.key === key) : null;
+  const it = key ? build.placed.concat(build.pending, build.missed).find((x) => x.key === key) : null;
   if (key && !it) return;
   panelKey = key;
   panelOpen = true;
@@ -870,8 +950,8 @@ function openPanel(key) {
   const today = dayNow() !== null;
   $('#bp-title').textContent = it ? it.name : 'Nouveau bloc ponctuel';
   $('#bp-edit').innerHTML = isP
-    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes } :
-      { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60 }), { days: false, del: false })
+    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm } :
+      { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60, confirm: false }), { days: false, del: false })
     : '';
   if (it && it.mode === 'free') { /* durée seule */ }
   $('#bp-planned').textContent = !it ? 'Un bloc ponctuel ne concerne que ce jour.'
@@ -886,6 +966,11 @@ function openPanel(key) {
   $('#bp-clear').hidden = !(it && (real.start !== null || real.end !== null));
   $('#bp-del').hidden = !(it && isP);
   $('#bp-save').textContent = it ? 'Enregistrer' : 'Ajouter';
+  $('#bp-subs').hidden = !it;
+  $('#sub-label').value = '';
+  $('#sub-action').value = '';
+  $('#sub-label').removeAttribute('aria-invalid');
+  if (it) renderSubs();
   $('#bp-err').hidden = true;
   form.hidden = false;
   form.scrollIntoView({ block: 'center' });
@@ -898,7 +983,7 @@ function savePanel() {
   clearFlags(form);
   const errors = [];
   const build = buildSelected();
-  const it = panelKey ? build.placed.concat(build.pending).find((x) => x.key === panelKey) : null;
+  const it = panelKey ? build.placed.concat(build.pending, build.missed).find((x) => x.key === panelKey) : null;
   const isP = !it || it.kind === 'p';
   let edited = null;
   if (isP) { edited = readActRow($('#bp-edit .act-row'), errors); }
@@ -920,7 +1005,7 @@ function savePanel() {
   const day = ensureDay();
   let key = panelKey;
   if (isP && edited) {
-    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration };
+    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm };
     if (!it) { day.ponctuels.push(p); key = 'p:' + p.id; }
     else { const i = day.ponctuels.findIndex((x) => 'p:' + x.id === panelKey); if (i >= 0) day.ponctuels[i] = p; }
   }
@@ -948,6 +1033,21 @@ function bindDayEvents() {
       else if (a === 'open-block') openPanel(act.dataset.key);
       else if (a === 'start') startNow(act.dataset.key);
       else if (a === 'stop') stopNow(act.dataset.key);
+      else if (a === 'confirm-done') {
+        const it = buildSelected().toConfirm.find((x) => x.key === act.dataset.key);
+        if (it) { ensureDay().real[it.key] = { start: it.start, end: it.end }; persistDays(); renderDay(); }
+      } else if (a === 'confirm-missed') { ensureDay().real[act.dataset.key] = { start: null, end: null, missed: true }; persistDays(); renderDay(); }
+      else if (a === 'unmiss') { delete ensureDay().real[act.dataset.key]; persistDays(); renderDay(); }
+      return;
+    }
+    const subDel = e.target.closest('[data-sub-del]');
+    if (subDel && panelKey) {
+      const day = ensureDay();
+      day.subtasks[panelKey] = (day.subtasks[panelKey] || []).filter((t) => t.id !== subDel.dataset.subDel);
+      if (!day.subtasks[panelKey].length) delete day.subtasks[panelKey];
+      persistDays();
+      renderSubs();
+      renderDay();
       return;
     }
     const bp = e.target.closest('[data-bp]');
@@ -956,17 +1056,27 @@ function bindDayEvents() {
     if (what === 'close') closePanel();
     else if (what === 'start' && panelKey) { const key = panelKey; closePanel(); startNow(key); }
     else if (what === 'stop' && panelKey) { const key = panelKey; closePanel(); stopNow(key); }
+    else if (what === 'add-sub') addSub();
     else if (what === 'clear' && panelKey) { delete ensureDay().real[panelKey]; persistDays(); closePanel(); renderDay(); }
     else if (what === 'delete' && panelKey) {
       const day = ensureDay();
       day.ponctuels = day.ponctuels.filter((p) => 'p:' + p.id !== panelKey);
       delete day.real[panelKey];
+      delete day.subtasks[panelKey];
       persistDays();
       closePanel();
       renderDay();
     }
   });
+  panel.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.matches && e.target.matches('#sub-label, #sub-action')) { e.preventDefault(); addSub(); }
+  });
   panel.addEventListener('change', (e) => {
+    if (e.target.matches && e.target.matches('[data-sub-done]') && panelKey) {
+      const t = ((daysData.days[selectedDate] || {}).subtasks[panelKey] || []).find((x) => x.id === e.target.dataset.subDone);
+      if (t) { t.done = e.target.checked; persistDays(); renderSubs(); renderDay(); }
+      return;
+    }
     const row = e.target.closest('#bp-edit .act-row');
     if (!row) return;
     if (e.target.matches('[data-a=entry]')) convertSecond(row, e.target.value);
@@ -1026,7 +1136,7 @@ function bindEvents() {
     const action = btn.dataset.action;
     if (action === 'add-act') {
       const raws = $$('#acts-list .act-row').map(readActRaw);
-      raws.push({ id: newId(), name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30' });
+      raws.push({ id: newId(), name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false });
       $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true })).join('');
       const names = $$('#acts-list [data-a=name]');
       names[names.length - 1].focus();
@@ -1081,9 +1191,9 @@ function init() {
   setDirty(false);
   bindEvents();
   switchTab('day');
-  // Un bloc en cours fait glisser la suite : on rafraîchit la vue du jour toutes les 15 secondes.
+  // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
-    if (!$('#panel-day').hidden && !panelOpen && dayNow() !== null && buildSelected().running) renderDay();
+    if (!$('#panel-day').hidden && !panelOpen && dayNow() !== null) renderDay();
   }, 15000);
   window.PDJ = { buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
