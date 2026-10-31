@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plan du jour</title>
+<meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1514" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Plan du jour">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root {
+  --bg: #f3f5f4; --card: #ffffff; --ink: #16211f; --muted: #5d6b68; --line: #dfe5e3;
+  --accent: #0f766e; --accent-ink: #ffffff; --accent-soft: #e0f2ef;
+  --warn-bg: #fff6e0; --warn-ink: #7a4b00; --err: #b42318; --info-bg: #e8f1fb; --info-ink: #1d4670;
+  --tabbar-h: 56px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1514; --card: #172120; --ink: #e8f0ee; --muted: #9fb0ac; --line: #26332f;
+    --accent: #2dd4bf; --accent-ink: #04201c; --accent-soft: #123a35;
+    --warn-bg: #2b2410; --warn-ink: #f5d58a; --err: #ff8a80; --info-bg: #14283a; --info-ink: #a9cdf0;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+header.app-header { padding: 20px 16px 8px; max-width: 720px; margin: 0 auto; }
+header.app-header h1 { margin: 0; font-size: 26px; letter-spacing: -0.01em; }
+header.app-header p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+main { max-width: 720px; margin: 0 auto; padding: 8px 16px calc(var(--tabbar-h) + 110px + env(safe-area-inset-bottom)); }
+[hidden] { display: none !important; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 12px 0; }
+.card h2 { margin: 0 0 4px; font-size: 17px; }
+.card .help { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+
+.banner { border-radius: 12px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+.banner.info { background: var(--info-bg); color: var(--info-ink); }
+.banner.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.banner ul { margin: 6px 0 0; padding-left: 18px; }
+
+/* Récapitulatif */
+.tl { list-style: none; margin: 8px 0 0; padding: 0; }
+.tl li { display: grid; grid-template-columns: 116px 18px 1fr; align-items: start; padding: 7px 0; }
+.tl .t { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; padding-right: 6px; white-space: nowrap; }
+.tl .dot { position: relative; align-self: stretch; }
+.tl .dot::before { content: ""; position: absolute; left: 8px; top: 0; bottom: -14px; width: 2px; background: var(--line); }
+.tl li:last-child .dot::before { display: none; }
+.tl .dot::after { content: ""; position: absolute; left: 3px; top: 7px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+.tl .what small { display: block; color: var(--muted); font-size: 13px; }
+.rows { list-style: none; margin: 8px 0 0; padding: 0; }
+.rows li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.rows li:first-child { border-top: 0; }
+.rows .v { color: var(--muted); text-align: right; }
+
+/* Formulaire */
+.field { display: block; margin: 10px 0; }
+.lbl { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+input[type=text], select {
+  width: 100%; min-height: 44px; padding: 8px 12px; font: inherit; font-size: 16px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; -webkit-appearance: none; appearance: none;
+}
+select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 19px, calc(100% - 13px) 19px; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+input[aria-invalid=true] { border-color: var(--err); }
+.err { display: block; color: var(--err); font-size: 13px; margin-top: 4px; }
+.range-row { display: flex; align-items: center; gap: 10px; }
+.range-row .sep { color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.event-row { border-top: 1px solid var(--line); padding: 10px 0 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; position: relative; }
+.event-row:first-child { border-top: 0; }
+.event-row .field.name { grid-column: 1 / -1; padding-right: 52px; }
+.event-row .err { grid-column: 1 / -1; margin-bottom: 6px; }
+.event-row .del { position: absolute; right: 0; top: 30px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { min-width: 52px; min-height: 44px; padding: 0 12px; border-radius: 22px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+.chip[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button { font: inherit; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.danger { color: var(--err); }
+.btn:disabled { opacity: .5; }
+.icon-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 18px; }
+.foot { color: var(--muted); font-size: 13px; text-align: center; margin: 18px 0; }
+.foot .btn { margin-bottom: 14px; }
+
+/* Barres fixes */
+.savebar {
+  position: fixed; left: 0; right: 0; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  background: var(--card); border-top: 1px solid var(--line); padding: 8px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.savebar .msg { font-size: 14px; color: var(--muted); }
+.savebar .msg.dirty { color: var(--warn-ink); font-weight: 600; }
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr;
+  background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar button { height: var(--tabbar-h); border: 0; background: none; color: var(--muted); font-size: 15px; }
+.tabbar button[aria-selected=true] { color: var(--accent); font-weight: 700; }
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + 76px + env(safe-area-inset-bottom));
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 22px; font-size: 14px; z-index: 5; max-width: 90vw;
+}
+.toast.err { background: var(--err); color: #fff; }
+</style>
+</head>
+<body>
+<header class="app-header">
+  <h1>Plan du jour</h1>
+  <p id="subtitle">Tes contraintes, saisies une fois.</p>
+</header>
+
+<main>
+  <section id="panel-recap" role="tabpanel" aria-labelledby="tab-recap"></section>
+
+  <section id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+    <form id="settings-form" novalidate autocomplete="off">
+      <div id="form-body"></div>
+      <div class="savebar">
+        <span class="msg" id="dirty-msg">Aucune modification</span>
+        <button type="submit" class="btn primary" id="save-btn">Enregistrer</button>
+      </div>
+    </form>
+  </section>
+</main>
+
+<nav class="tabbar" role="tablist" aria-label="Navigation">
+  <button type="button" role="tab" id="tab-recap" data-tab="recap" aria-selected="true">Récapitulatif</button>
+  <button type="button" role="tab" id="tab-settings" data-tab="settings" aria-selected="false">Réglages</button>
+</nav>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<noscript><p style="padding:16px">Cette app a besoin de JavaScript.</p></noscript>
+
+<script>
+(function () {
+'use strict';
+
+// ==== 1. CONFIG ====
+const APP_VERSION = '0.1.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const DATA_VERSION = 1;
+const STORAGE_KEY = 'plandujour.reglages';
+const DAY_NAMES = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const DAY_SHORT = ['', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+
+// ==== 2. TEMPS ====
+// Minutes depuis minuit en interne ; « HH:MM » en 24 h à l'écran (CONVENTIONS.md §5).
+function parseTime(text) {
+  if (typeof text !== 'string') return null;
+  const t = text.trim().toLowerCase().replace(/\s+/g, '').replace('h', ':');
+  const m = /^(\d{1,2}):?(\d{2})?$/.exec(t);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = m[2] === undefined ? 0 : Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+function pad2(n) { return String(n).padStart(2, '0'); }
+function formatTime(minutes) { return pad2(Math.floor(minutes / 60)) + ':' + pad2(minutes % 60); }
+function formatRange(r) { return r.min === r.max ? formatTime(r.min) : formatTime(r.min) + '–' + formatTime(r.max); }
+function formatDuration(minutes) {
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  if (h === 0) return m + ' min';
+  return m === 0 ? h + ' h' : h + ' h ' + pad2(m);
+}
+function parseIntStrict(text) {
+  const t = String(text).trim();
+  return /^\d{1,4}$/.test(t) ? Number(t) : null;
+}
+
+// ==== 3. VALEURS PAR DÉFAUT ====
+function defaultSettings() {
+  return {
+    version: DATA_VERSION,
+    times: {
+      wake: 345,                              // 05:45
+      leaveHome: 390,                         // 06:30
+      trainOut: 413,                          // 06:53
+      trainOutArrival: 434,                   // 07:14
+      workArrival: { min: 450, max: 460 },    // 07:30–07:40
+      workDeparture: { min: 960, max: 975 },  // 16:00–16:15
+      trainBack: 988,                         // 16:28
+      homeArrival: 1035,                      // ≈ 17:15
+      bedtime: 1320                           // 22:00
+    },
+    weeklyEvents: [
+      { id: 'ev-cours-sax', name: 'Cours de saxophone', day: 3, start: 1140, duration: null },  // mercredi 19:00
+      { id: 'ev-orchestre', name: 'Orchestre', day: 5, start: 1170, duration: null }            // vendredi 19:30
+    ],
+    saxophone: { minutes: 15, days: [1, 2, 4, 6, 7] },   // tous les jours sauf mercredi et vendredi (à régler)
+    housework: { everyDays: 3, minutes: 30 },            // valeurs de départ à régler
+    relax: { floorMinutes: 30 }                          // plancher de détente, à valider
+  };
+}
+
+// ==== 4. STOCKAGE ====
+function isMinute(v) { return Number.isInteger(v) && v >= 0 && v <= 1439; }
+function pickTime(v, def) { return isMinute(v) ? v : def; }
+function pickInt(v, def, min, max) { return Number.isInteger(v) && v >= min && v <= max ? v : def; }
+function pickRange(v, def) {
+  if (v && isMinute(v.min) && isMinute(v.max) && v.min <= v.max) return { min: v.min, max: v.max };
+  return { min: def.min, max: def.max };
+}
+
+// Reconstruit un objet complet et sain à partir de données lues (migration incluse).
+function sanitize(raw) {
+  if (!raw || typeof raw !== 'object' || raw.version !== DATA_VERSION) return null;   // futur : migrations ici
+  const d = defaultSettings();
+  const t = raw.times || {};
+  const s = defaultSettings();
+  s.times = {
+    wake: pickTime(t.wake, d.times.wake),
+    leaveHome: pickTime(t.leaveHome, d.times.leaveHome),
+    trainOut: pickTime(t.trainOut, d.times.trainOut),
+    trainOutArrival: pickTime(t.trainOutArrival, d.times.trainOutArrival),
+    workArrival: pickRange(t.workArrival, d.times.workArrival),
+    workDeparture: pickRange(t.workDeparture, d.times.workDeparture),
+    trainBack: pickTime(t.trainBack, d.times.trainBack),
+    homeArrival: pickTime(t.homeArrival, d.times.homeArrival),
+    bedtime: pickTime(t.bedtime, d.times.bedtime)
+  };
+  if (Array.isArray(raw.weeklyEvents)) {
+    s.weeklyEvents = raw.weeklyEvents
+      .filter((e) => e && typeof e.name === 'string' && e.name.trim() && Number.isInteger(e.day) && e.day >= 1 && e.day <= 7 && isMinute(e.start))
+      .map((e) => ({
+        id: typeof e.id === 'string' ? e.id : newId(),
+        name: e.name.trim().slice(0, 40),
+        day: e.day,
+        start: e.start,
+        duration: Number.isInteger(e.duration) && e.duration >= 1 && e.duration <= 1440 ? e.duration : null
+      }));
+  }
+  const sx = raw.saxophone || {};
+  s.saxophone = {
+    minutes: pickInt(sx.minutes, d.saxophone.minutes, 0, 600),
+    days: Array.isArray(sx.days) ? Array.from(new Set(sx.days.filter((x) => Number.isInteger(x) && x >= 1 && x <= 7))).sort() : d.saxophone.days
+  };
+  const hw = raw.housework || {};
+  s.housework = { everyDays: pickInt(hw.everyDays, d.housework.everyDays, 1, 60), minutes: pickInt(hw.minutes, d.housework.minutes, 0, 600) };
+  s.relax = { floorMinutes: pickInt((raw.relax || {}).floorMinutes, d.relax.floorMinutes, 0, 600) };
+  return s;
+}
+
+// Retourne { settings, status } ; status : 'ok' | 'empty' | 'corrupt' | 'unavailable'.
+function loadSettings() {
+  let text;
+  try {
+    text = window.localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    return { settings: defaultSettings(), status: 'unavailable' };
+  }
+  if (text === null) return { settings: defaultSettings(), status: 'empty' };
+  try {
+    const clean = sanitize(JSON.parse(text));
+    if (clean) return { settings: clean, status: 'ok' };
+  } catch (e) { /* données illisibles */ }
+  return { settings: defaultSettings(), status: 'corrupt' };
+}
+
+function saveSettings(settings) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    return window.localStorage.getItem(STORAGE_KEY) !== null;
+  } catch (e) {
+    return false;
+  }
+}
+
+function newId() { return 'ev-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// ==== 5. VALIDATION ====
+function getPath(obj, path) { return path.split('.').reduce((o, k) => o[k], obj); }
+function setPath(obj, path, value) {
+  const keys = path.split('.');
+  const last = keys.pop();
+  keys.reduce((o, k) => o[k], obj)[last] = value;
+}
+
+// Incohérences d'ordre (non bloquantes) : retourne une liste de phrases.
+function checkConsistency(s) {
+  const t = s.times;
+  const chain = [
+    ['Lever', t.wake], ['Départ de chez toi', t.leaveHome], ['Train aller', t.trainOut],
+    ['Arrivée du train aller', t.trainOutArrival], ['Arrivée au travail', t.workArrival.min],
+    ['Fin de la fourchette d’arrivée au travail', t.workArrival.max], ['Départ du travail', t.workDeparture.min],
+    ['Fin de la fourchette de départ du travail', t.workDeparture.max], ['Train retour', t.trainBack],
+    ['Retour à la maison', t.homeArrival], ['Coucher', t.bedtime]
+  ];
+  const out = [];
+  for (let i = 1; i < chain.length; i++) {
+    const [prevLabel, prev] = chain[i - 1];
+    const [label, cur] = chain[i];
+    if (cur <= prev && !(label.startsWith('Fin de la fourchette') && cur === prev)) {
+      out.push('« ' + label + ' » (' + formatTime(cur) + ') devrait venir après « ' + prevLabel + ' » (' + formatTime(prev) + ').');
+    }
+  }
+  return out;
+}
+
+// ==== 6. VUE ====
+const $ = (sel, root) => (root || document).querySelector(sel);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const TIME_ATTRS = 'type="text" inputmode="numeric" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="HH:MM"';
+const INT_ATTRS = 'type="text" inputmode="numeric" autocomplete="off" spellcheck="false"';
+
+function timeField(path, label, value) {
+  return '<label class="field"><span class="lbl">' + label + '</span><input ' + TIME_ATTRS +
+    ' data-kind="time" data-path="' + path + '" value="' + formatTime(value) + '"><span class="err" hidden></span></label>';
+}
+function rangeField(path, label, r) {
+  return '<div class="field"><span class="lbl">' + label + '</span><div class="range-row">' +
+    '<input ' + TIME_ATTRS + ' data-kind="time" data-path="' + path + '.min" value="' + formatTime(r.min) + '" aria-label="' + label + ', début">' +
+    '<span class="sep">à</span>' +
+    '<input ' + TIME_ATTRS + ' data-kind="time" data-path="' + path + '.max" value="' + formatTime(r.max) + '" aria-label="' + label + ', fin">' +
+    '</div><span class="err" hidden></span></div>';
+}
+function intField(path, label, value, min, max) {
+  return '<label class="field"><span class="lbl">' + label + '</span><input ' + INT_ATTRS +
+    ' data-kind="int" data-min="' + min + '" data-max="' + max + '" data-path="' + path + '" value="' + value + '"><span class="err" hidden></span></label>';
+}
+
+function eventRow(ev) {
+  const dayOptions = DAY_NAMES.map((n, i) => i === 0 ? '' :
+    '<option value="' + i + '"' + (Number(ev.day) === i ? ' selected' : '') + '>' + n + '</option>').join('');
+  return '<div class="event-row" data-id="' + esc(ev.id) + '">' +
+    '<label class="field name"><span class="lbl">Nom</span><input type="text" maxlength="40" data-ev="name" value="' + esc(ev.name) + '"></label>' +
+    '<label class="field"><span class="lbl">Jour</span><select data-ev="day">' + dayOptions + '</select></label>' +
+    '<label class="field"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-ev="start" value="' + esc(ev.start) + '"></label>' +
+    '<label class="field"><span class="lbl">Durée en min (facultatif)</span><input ' + INT_ATTRS + ' data-kind="int" data-ev="duration" value="' + esc(ev.duration) + '"></label>' +
+    '<button type="button" class="icon-btn del" data-action="del-event" aria-label="Supprimer ce rendez-vous régulier">✕</button>' +
+    '<span class="err" hidden></span></div>';
+}
+function eventToRaw(e) {
+  return { id: e.id, name: e.name, day: e.day, start: formatTime(e.start), duration: e.duration === null ? '' : String(e.duration) };
+}
+
+function renderForm(s) {
+  const t = s.times;
+  const chips = [1, 2, 3, 4, 5, 6, 7].map((d) =>
+    '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + (s.saxophone.days.includes(d)) + '">' + DAY_SHORT[d] + '</button>').join('');
+  $('#form-body').innerHTML =
+    '<div class="card"><h2>Matin et trajet</h2>' +
+      '<p class="help">Heures en 24 h. Sur iPhone, tape les chiffres : 0653 devient 06:53.</p>' +
+      timeField('times.wake', 'Lever', t.wake) +
+      timeField('times.leaveHome', 'Départ de chez toi', t.leaveHome) +
+      '<div class="grid2">' + timeField('times.trainOut', 'Train aller : départ', t.trainOut) +
+      timeField('times.trainOutArrival', 'Train aller : arrivée', t.trainOutArrival) + '</div></div>' +
+    '<div class="card"><h2>Au travail</h2>' +
+      '<p class="help">Fourchettes indicatives. L’app ne choisit pas pour toi : l’heure réelle se saisira chaque jour.</p>' +
+      rangeField('times.workArrival', 'Arrivée au travail', t.workArrival) +
+      rangeField('times.workDeparture', 'Départ du travail', t.workDeparture) + '</div>' +
+    '<div class="card"><h2>Soir</h2>' +
+      '<div class="grid2">' + timeField('times.trainBack', 'Train retour', t.trainBack) +
+      timeField('times.homeArrival', 'Retour à la maison (environ)', t.homeArrival) + '</div>' +
+      timeField('times.bedtime', 'Coucher', t.bedtime) + '</div>' +
+    '<div class="card"><h2>Rendez-vous réguliers</h2>' +
+      '<p class="help">Chaque semaine, à heure fixe (cours, répétition…).</p>' +
+      '<div id="events-list">' + s.weeklyEvents.map((e) => eventRow(eventToRaw(e))).join('') + '</div>' +
+      '<button type="button" class="btn" data-action="add-event">+ Ajouter</button></div>' +
+    '<div class="card"><h2>Saxophone</h2>' +
+      intField('saxophone.minutes', 'Durée par jour (minutes)', s.saxophone.minutes, 0, 600) +
+      '<span class="lbl">Jours concernés</span><div class="chips" id="sax-days">' + chips + '</div></div>' +
+    '<div class="card"><h2>Ménage</h2><div class="grid2">' +
+      intField('housework.everyDays', 'Tous les … jours', s.housework.everyDays, 1, 60) +
+      intField('housework.minutes', 'Durée (minutes)', s.housework.minutes, 0, 600) + '</div></div>' +
+    '<div class="card"><h2>Détente</h2>' +
+      '<p class="help">Temps entre la fin des tâches du soir et le coucher. Seul le plancher se règle.</p>' +
+      intField('relax.floorMinutes', 'Plancher (minutes)', s.relax.floorMinutes, 0, 600) + '</div>' +
+    '<div class="foot"><button type="button" class="btn danger" data-action="reset">Rétablir les valeurs de départ</button>' +
+      '<div>Plan du jour · version ' + APP_VERSION + '</div><div>Données stockées uniquement sur cet appareil.</div></div>';
+}
+
+function renderRecap(s, status) {
+  const t = s.times;
+  let html = '';
+  if (status === 'empty') html += '<div class="banner info">Valeurs de départ affichées. Rien n’est enregistré tant que tu n’as pas appuyé sur « Enregistrer » dans Réglages.</div>';
+  if (status === 'corrupt') html += '<div class="banner warn">Les données enregistrées sont illisibles : les valeurs de départ sont affichées. Elles ne seront remplacées que lorsque tu enregistreras.</div>';
+  if (status === 'unavailable') html += '<div class="banner warn">Le stockage du navigateur est indisponible (navigation privée ?). Tu peux saisir, mais rien ne sera conservé.</div>';
+  const warnings = checkConsistency(s);
+  if (warnings.length) html += '<div class="banner warn"><strong>À vérifier</strong><ul>' + warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
+
+  const rows = [
+    [formatTime(t.wake), 'Lever', ''],
+    [formatTime(t.leaveHome), 'Départ de chez toi', ''],
+    [formatTime(t.trainOut), 'Train aller', 'arrivée ' + formatTime(t.trainOutArrival)],
+    [formatRange(t.workArrival), 'Arrivée au travail', ''],
+    [formatRange(t.workDeparture), 'Départ du travail', ''],
+    [formatTime(t.trainBack), 'Train retour', ''],
+    ['≈ ' + formatTime(t.homeArrival), 'Retour à la maison', 'plus tard si courses'],
+    [formatTime(t.bedtime), 'Coucher', '']
+  ];
+  html += '<div class="card"><h2>Journée de semaine</h2><ul class="tl">' + rows.map((r) =>
+    '<li><span class="t">' + r[0] + '</span><span class="dot"></span><span class="what">' + esc(r[1]) +
+    (r[2] ? '<small>' + esc(r[2]) + '</small>' : '') + '</span></li>').join('') + '</ul></div>';
+
+  const events = s.weeklyEvents.slice().sort((a, b) => a.day - b.day || a.start - b.start);
+  html += '<div class="card"><h2>Chaque semaine</h2><ul class="rows">' + (events.length ? events.map((e) =>
+    '<li><span>' + esc(e.name) + '</span><span class="v">' + DAY_NAMES[e.day] + ' ' + formatTime(e.start) +
+    (e.duration ? ' · ' + formatDuration(e.duration) : '') + '</span></li>').join('') : '<li><span class="v">Aucun</span></li>') + '</ul></div>';
+
+  const sxDays = s.saxophone.days.length === 7 ? 'tous les jours' : (s.saxophone.days.length ? s.saxophone.days.map((d) => DAY_SHORT[d]).join(', ') : 'aucun jour');
+  const hwEvery = s.housework.everyDays === 1 ? 'tous les jours' : 'tous les ' + s.housework.everyDays + ' jours';
+  html += '<div class="card"><h2>Rythme</h2><ul class="rows">' +
+    '<li><span>Saxophone</span><span class="v">' + formatDuration(s.saxophone.minutes) + ' · ' + sxDays + '</span></li>' +
+    '<li><span>Ménage</span><span class="v">' + hwEvery + ' · ' + formatDuration(s.housework.minutes) + '</span></li>' +
+    '<li><span>Détente</span><span class="v">plancher ' + formatDuration(s.relax.floorMinutes) + '</span></li></ul></div>';
+  $('#panel-recap').innerHTML = html;
+}
+
+let toastTimer = null;
+function showToast(message, kind) {
+  const el = $('#toast');
+  el.textContent = message;
+  el.className = 'toast' + (kind === 'err' ? ' err' : '');
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
+}
+
+function switchTab(name) {
+  $$('.tabbar button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  $('#panel-recap').hidden = name !== 'recap';
+  $('#panel-settings').hidden = name !== 'settings';
+  $('#subtitle').textContent = name === 'recap' ? 'Tes contraintes, saisies une fois.' : 'Modifie, puis enregistre.';
+  window.scrollTo(0, 0);
+}
+
+// ---- Lecture du formulaire et validation de saisie ----
+function errHost(el) { return el.closest('.event-row') || el.closest('.field'); }
+function clearFlags() {
+  $$('#settings-form [aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
+  $$('#settings-form .err').forEach((el) => { el.textContent = ''; el.hidden = true; });
+}
+function flag(el, message, errors) {
+  el.setAttribute('aria-invalid', 'true');
+  const err = errHost(el).querySelector('.err');
+  err.textContent = err.textContent ? err.textContent + ' · ' + message : message;
+  err.hidden = false;
+  errors.push({ el: el, message: message });
+}
+
+function readEventsRaw() {
+  return $$('#events-list .event-row').map((row) => ({
+    id: row.dataset.id,
+    name: $('[data-ev=name]', row).value,
+    day: $('[data-ev=day]', row).value,
+    start: $('[data-ev=start]', row).value,
+    duration: $('[data-ev=duration]', row).value
+  }));
+}
+
+// Retourne { settings, errors }. Les champs invalides sont marqués dans le formulaire.
+function readForm() {
+  clearFlags();
+  const errors = [];
+  const s = defaultSettings();
+  const parsed = {};
+
+  $$('#settings-form [data-kind=time][data-path]').forEach((inp) => {
+    const v = parseTime(inp.value);
+    if (v === null) { flag(inp, 'Heure invalide (ex. 06:53)', errors); return; }
+    parsed[inp.dataset.path] = v;
+    setPath(s, inp.dataset.path, v);
+  });
+  $$('#settings-form [data-kind=int][data-path]').forEach((inp) => {
+    const min = Number(inp.dataset.min), max = Number(inp.dataset.max);
+    const v = parseIntStrict(inp.value);
+    if (v === null || v < min || v > max) { flag(inp, 'Nombre entier entre ' + min + ' et ' + max, errors); return; }
+    setPath(s, inp.dataset.path, v);
+  });
+  ['times.workArrival', 'times.workDeparture'].forEach((base) => {
+    const a = parsed[base + '.min'], b = parsed[base + '.max'];
+    if (a !== undefined && b !== undefined && a > b) flag($('[data-path="' + base + '.min"]'), 'Le début doit précéder la fin', errors);
+  });
+
+  s.saxophone.days = $$('#sax-days .chip').filter((c) => c.getAttribute('aria-pressed') === 'true').map((c) => Number(c.dataset.day));
+
+  s.weeklyEvents = [];
+  $$('#events-list .event-row').forEach((row) => {
+    const nameEl = $('[data-ev=name]', row), startEl = $('[data-ev=start]', row), durEl = $('[data-ev=duration]', row);
+    const name = nameEl.value.trim();
+    const start = parseTime(startEl.value);
+    const dur = durEl.value.trim() === '' ? null : parseIntStrict(durEl.value);
+    let ok = true;
+    if (!name) { flag(nameEl, 'Nom obligatoire', errors); ok = false; }
+    if (start === null) { flag(startEl, 'Heure invalide (ex. 19:00)', errors); ok = false; }
+    if (dur !== null && (dur < 1 || dur > 1440)) { flag(durEl, 'Durée entre 1 et 1440 min', errors); ok = false; }
+    if (durEl.value.trim() !== '' && dur === null) { flag(durEl, 'Durée invalide', errors); ok = false; }
+    if (ok) s.weeklyEvents.push({ id: row.dataset.id || newId(), name: name, day: Number($('[data-ev=day]', row).value), start: start, duration: dur });
+  });
+  return { settings: s, errors: errors };
+}
+
+// ==== 7. ÉVÉNEMENTS ====
+let current = null;     // réglages enregistrés (ou valeurs de départ)
+let loadStatus = 'empty';
+let dirty = false;
+
+function setDirty(value) {
+  dirty = value;
+  const msg = $('#dirty-msg');
+  msg.textContent = dirty ? 'Modifications non enregistrées' : 'Aucune modification';
+  msg.classList.toggle('dirty', dirty);
+}
+
+function bindEvents() {
+  const form = $('#settings-form');
+
+  $$('.tabbar button').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+  form.addEventListener('input', () => setDirty(true));
+  form.addEventListener('change', () => setDirty(true));
+  form.addEventListener('focusin', (e) => {
+    const el = e.target;
+    if (el.matches && el.matches('[data-kind]')) setTimeout(() => { try { el.select(); } catch (x) { /* ignoré */ } }, 0);
+  });
+  form.addEventListener('focusout', (e) => {          // remet l'heure en HH:MM
+    const el = e.target;
+    if (el.matches && el.matches('[data-kind=time]')) {
+      const v = parseTime(el.value);
+      if (v !== null) el.value = formatTime(v);
+    }
+  });
+
+  form.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (chip) {
+      chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
+      setDirty(true);
+      return;
+    }
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'add-event') {
+      const raw = readEventsRaw();
+      raw.push({ id: newId(), name: '', day: 1, start: '', duration: '' });
+      $('#events-list').innerHTML = raw.map(eventRow).join('');
+      const names = $$('#events-list [data-ev=name]');
+      names[names.length - 1].focus();
+      setDirty(true);
+    } else if (action === 'del-event') {
+      const row = btn.closest('.event-row');
+      const raw = readEventsRaw().filter((r) => r.id !== row.dataset.id);
+      $('#events-list').innerHTML = raw.map(eventRow).join('');
+      setDirty(true);
+    } else if (action === 'reset') {
+      if (window.confirm('Remplacer les champs par les valeurs de départ ? Rien ne sera enregistré avant que tu appuies sur « Enregistrer ».')) {
+        renderForm(defaultSettings());
+        setDirty(true);
+      }
+    }
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const result = readForm();
+    if (result.errors.length) {
+      showToast(result.errors.length + ' champ(s) à corriger', 'err');
+      const first = result.errors[0].el;
+      first.scrollIntoView({ block: 'center' });
+      first.focus();
+      return;
+    }
+    if (!saveSettings(result.settings)) {
+      showToast('Enregistrement impossible sur cet appareil', 'err');
+      return;
+    }
+    current = result.settings;
+    loadStatus = 'ok';
+    renderForm(current);
+    renderRecap(current, loadStatus);
+    setDirty(false);
+    const warnings = checkConsistency(current);
+    showToast(warnings.length ? 'Enregistré · ' + warnings.length + ' point(s) à vérifier dans Récapitulatif' : 'Enregistré');
+  });
+}
+
+// ==== 8. INIT ====
+function init() {
+  const loaded = loadSettings();
+  current = loaded.settings;
+  loadStatus = loaded.status;
+  renderForm(current);
+  renderRecap(current, loadStatus);
+  setDirty(false);
+  bindEvents();
+  const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+  if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });
+  }
+}
+init();
+
+})();
+</script>
+</body>
+</html>
