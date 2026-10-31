@@ -93,14 +93,17 @@ Un nouveau lot **ajoute** des sections ou des fonctions dans la section qui conv
 
 Une session = un lot, avec un résultat que l'utilisateur teste sur son iPhone ou dans VSCode.
 
-## 13. Ajouts du lot 2 (rien de ce qui précède n'est modifié)
+## 13. Modèle d'activités (lot 2 bis, remplace les ajouts du premier lot 2)
 
-- **Section `5B. PLANNING`** : fonctions pures `buildPlan(réglages, jours, date)`, `layoutColumns`, calculs de dates. Elles ne touchent ni le DOM ni le stockage.
-- **Jours** : clé `plandujour.jours`, objet versionné `{ version: 1, days: { "AAAA-MM-JJ": { arrival, departure, appointments, done } } }`. Les jours de plus de 90 jours sont purgés à l'enregistrement. Si les données sont illisibles, une copie brute est gardée sous `plandujour.jours.sauvegarde`.
-- **Enregistrement immédiat** pour les données du jour (rendez-vous, heures réelles, cases cochées) : pas de bouton « Enregistrer ». Le principe « Enregistrer » du §9 reste réservé aux réglages.
-- **Réglages en version 2** : ajout de `mobileBlocks`. La version 1 est migrée à la lecture (concentration par défaut ajoutée) et réécrite en version 2 au prochain enregistrement.
-- **Zones** : `morning` (lever → départ de chez soi), `work` (arrivée → départ du travail), `evening` (retour à la maison → coucher). Un bloc mobile se place dans la première plage libre de sa zone assez longue, par priorité croissante (1 = d'abord), à égalité dans l'ordre de saisie. Le saxophone a la priorité 2 et le ménage la priorité 3, tous deux le soir.
-- **Heure réelle absente** : le plan prend le cas prudent (arrivée la plus tardive de la fourchette, départ le plus précoce) et le dit à l'écran. La fourchette n'est jamais modifiée.
-- **Ménage** : dû si jamais fait, ou si le dernier ménage coché avant ce jour date d'au moins N jours.
-- **Rien n'est supprimé** quand un bloc ne tient pas : il est signalé (les propositions de coupe viennent au lot 3).
-- **Point d'accès pour les tests** : `window.PDJ` expose `buildPlan` et quelques utilitaires.
+- **Une seule notion : l'activité.** Elle a un nom, des jours de la semaine, un comportement et un horaire.
+  - Comportements : `fixed` (heure fixe, ne bouge jamais), `flex` (heure prévue, glisse si ce qui précède déborde), `free` (sans heure : durée seule, lancée au chrono).
+  - Horaire : début + fin ou début + durée (`entry: 'end' | 'duration'`). En interne : `start` (minutes depuis minuit, `null` pour `free`) et `duration` (minutes). La fin est toujours calculée.
+- **Réglages** (`plandujour.reglages`, `version: 3`) : `wake`, `bedtime`, `relaxFloor` et la liste `activities`. Tout ce qui est régulier s'y règle ; le modèle d'une nouvelle activité est créé par le bouton « + ».
+- **Jours** (`plandujour.jours`, `version: 2`) : par date, `real` (heures réelles `{ start, end }` par clé de bloc, `act:<id>` ou `p:<id>`) et `ponctuels` (blocs d'un seul jour, mêmes champs qu'une activité sans les jours). Tout ce qui est ponctuel se saisit dans le jour concerné.
+- **Chrono** : disponible sur tous les blocs. Démarrer et arrêter enregistrent l'heure réelle (minutes) ; un seul bloc tourne à la fois (en démarrer un arrête les autres). Les heures réelles, conservées 400 jours, servent aux statistiques futures.
+- **Glissement** (`buildDay`) : les blocs sont triés par début ; un bloc `flex` non démarré commence à `max(heure prévue, fin la plus tardive des blocs précédents)`. Un bloc démarré mais non terminé finit à `max(début + durée, maintenant)` : il repousse la suite en direct. Un bloc `fixed` ne bouge jamais, un chevauchement est signalé.
+- **Temps disponible** : écart entre deux blocs consécutifs, du lever au premier bloc, et du dernier bloc au coucher (comparé à la détente minimale `relaxFloor`). Affiché dans le Récapitulatif et sur la page du jour.
+- **Heures du jour** : plus de fourchette ni de champs d'arrivée et de départ. L'arrivée est la fin réelle du « Trajet aller », le départ le début réel du « Trajet retour ».
+- **Enregistrement immédiat** pour les données du jour ; le bouton « Enregistrer » reste réservé aux réglages (§9).
+- **Migrations** : les réglages 1 et 2 sont convertis à la lecture (trajets, rendez-vous réguliers, saxophone, ménage et blocs mobiles deviennent des activités) puis réécrits en version 3 au prochain enregistrement. Les jours 1 sont convertis en jours 2. Si les jours sont illisibles, une copie brute est gardée sous `plandujour.jours.sauvegarde`.
+- **Point d'accès pour les tests** : `window.PDJ` expose `buildDay` et quelques utilitaires. `buildDay` est une fonction pure (réglages, données du jour, jour de semaine, heure actuelle) : aucun accès au DOM ni au stockage.

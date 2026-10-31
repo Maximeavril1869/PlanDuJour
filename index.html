@@ -18,6 +18,7 @@
   --bg: #f3f5f4; --card: #ffffff; --ink: #16211f; --muted: #5d6b68; --line: #dfe5e3;
   --accent: #0f766e; --accent-ink: #ffffff; --accent-soft: #e0f2ef;
   --warn-bg: #fff6e0; --warn-ink: #7a4b00; --err: #b42318; --info-bg: #e8f1fb; --info-ink: #1d4670;
+  --trip: #e6ebe9; --fix: #fde4bf; --fix-line: #e0a14a;
   --tabbar-h: 56px;
 }
 @media (prefers-color-scheme: dark) {
@@ -25,6 +26,7 @@
     --bg: #0e1514; --card: #172120; --ink: #e8f0ee; --muted: #9fb0ac; --line: #26332f;
     --accent: #2dd4bf; --accent-ink: #04201c; --accent-soft: #123a35;
     --warn-bg: #2b2410; --warn-ink: #f5d58a; --err: #ff8a80; --info-bg: #14283a; --info-ink: #a9cdf0;
+    --trip: #202c29; --fix: #4a3715; --fix-line: #d9992f;
   }
 }
 * { box-sizing: border-box; }
@@ -51,15 +53,21 @@ main { max-width: 720px; margin: 0 auto; padding: 8px 16px calc(var(--tabbar-h) 
 
 /* Récapitulatif */
 .tl { list-style: none; margin: 8px 0 0; padding: 0; }
-.tl li { display: grid; grid-template-columns: 116px 18px 1fr; align-items: start; padding: 7px 0; }
+.tl li { display: grid; grid-template-columns: 116px 18px 1fr; align-items: start; padding: 6px 0; }
 .tl .t { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; padding-right: 6px; white-space: nowrap; }
 .tl .dot { position: relative; align-self: stretch; }
-.tl .dot::before { content: ""; position: absolute; left: 8px; top: 0; bottom: -14px; width: 2px; background: var(--line); }
+.tl .dot::before { content: ""; position: absolute; left: 8px; top: 0; bottom: -12px; width: 2px; background: var(--line); }
 .tl li:last-child .dot::before { display: none; }
 .tl .dot::after { content: ""; position: absolute; left: 3px; top: 7px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+.tl .what { padding-left: 6px; }
 .tl .what small { display: block; color: var(--muted); font-size: 13px; }
+.tl li.gapli .t { font-weight: 500; color: var(--accent); }
+.tl li.gapli .dot::after { background: var(--card); border: 2px solid var(--accent); width: 12px; height: 12px; }
+.tl li.gapli .what { color: var(--accent); font-size: 14px; }
+.tl li.mark .t, .tl li.mark .what { color: var(--muted); }
+.tl li.mark .dot::after { background: var(--muted); }
 .rows { list-style: none; margin: 8px 0 0; padding: 0; }
-.rows li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.rows li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
 .rows li:first-child { border-top: 0; }
 .rows .v { color: var(--muted); text-align: right; }
 
@@ -75,14 +83,15 @@ select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 
 input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
 input[aria-invalid=true] { border-color: var(--err); }
 .err { display: block; color: var(--err); font-size: 13px; margin-top: 4px; }
-.range-row { display: flex; align-items: center; gap: 10px; }
-.range-row .sep { color: var(--muted); }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.event-row { border-top: 1px solid var(--line); padding: 10px 0 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; position: relative; }
-.event-row:first-child { border-top: 0; }
-.event-row .field.name { grid-column: 1 / -1; padding-right: 52px; }
-.event-row .err { grid-column: 1 / -1; margin-bottom: 6px; }
-.event-row .del { position: absolute; right: 0; top: 30px; }
+.act-row { border-top: 1px solid var(--line); padding: 10px 0 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; position: relative; }
+.act-row:first-child { border-top: 0; }
+.act-row .wide { grid-column: 1 / -1; }
+.act-row .first { padding-right: 52px; }
+.act-row .err { margin-bottom: 6px; }
+.act-row .del { position: absolute; right: 0; top: 30px; }
+.act-row[data-mode=free] .timed { display: none; }
+#bp-edit .act-row { border-top: 0; padding-top: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { min-width: 52px; min-height: 44px; padding: 0 12px; border-radius: 22px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
 .chip[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
@@ -90,7 +99,9 @@ button { font: inherit; }
 .btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .btn.danger { color: var(--err); }
+.btn.small { min-height: 36px; padding: 0 12px; }
 .btn:disabled { opacity: .5; }
+.btnrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 .icon-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 18px; }
 .foot { color: var(--muted); font-size: 13px; text-align: center; margin: 18px 0; }
 .foot .btn { margin-bottom: 14px; }
@@ -99,73 +110,77 @@ button { font: inherit; }
 .savebar {
   position: fixed; left: 0; right: 0; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   background: var(--card); border-top: 1px solid var(--line); padding: 8px 16px;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; z-index: 4;
 }
 .savebar .msg { font-size: 14px; color: var(--muted); }
 .savebar .msg.dirty { color: var(--warn-ink); font-weight: 600; }
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr 1fr;
-  background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
+  background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 5;
 }
 .tabbar button { height: var(--tabbar-h); border: 0; background: none; color: var(--muted); font-size: 15px; }
 .tabbar button[aria-selected=true] { color: var(--accent); font-weight: 700; }
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + 76px + env(safe-area-inset-bottom));
-  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 22px; font-size: 14px; z-index: 5; max-width: 90vw;
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 22px; font-size: 14px; z-index: 6; max-width: 90vw;
 }
 .toast.err { background: var(--err); color: #fff; }
 
-/* Jour (lot 2) */
-:root { --trip: #e6ebe9; --fix: #fde4bf; --fix-line: #e0a14a; --band: #e9f5f3; }
-@media (prefers-color-scheme: dark) { :root { --trip: #202c29; --fix: #4a3715; --fix-line: #d9992f; --band: #11231f; } }
+/* Jour */
 .daynav { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 10px; gap: 8px; }
 .daylabel { font-weight: 700; font-size: 18px; text-align: center; flex: 1; }
 .daytools { display: flex; gap: 10px; margin-bottom: 4px; }
 .daytools .btn { flex: 1; }
-.btnrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.runbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--accent); color: var(--accent-ink);
+  border-radius: 14px; padding: 10px 14px; margin: 10px 0; }
+.runbar small { display: block; opacity: .85; }
+.runbar .btn { background: var(--accent-ink); color: var(--accent); border-color: var(--accent-ink); font-weight: 600; }
 .tlwrap { position: relative; margin: 14px 0 0 46px; }
 .tlarea { position: relative; }
-.hline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
+.hline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); z-index: 0; }
 .hline span { position: absolute; left: -46px; top: -9px; width: 40px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.band { position: absolute; left: 0; right: 0; background: var(--band); border-top: 2px dashed var(--accent); border-bottom: 2px dashed var(--accent); opacity: .9; }
-.band.real { border-style: solid; }
-.marker { position: absolute; left: 0; right: 0; border-top: 2px solid var(--muted); font-size: 12px; color: var(--muted); }
+.marker { position: absolute; left: 0; right: 0; border-top: 2px solid var(--muted); font-size: 12px; color: var(--muted); z-index: 1; }
 .marker span { position: absolute; right: 0; top: 2px; }
+.gap { position: absolute; left: 0; right: 0; border-left: 3px dotted var(--accent); z-index: 1; color: var(--accent); font-size: 12px; padding-left: 8px; display: flex; align-items: center; }
 .blk { position: absolute; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; font: inherit; color: var(--ink);
-  border: 0; border-radius: 8px; padding: 3px 8px; overflow: hidden; line-height: 1.2; margin: 1px 0; }
+  border: 0; border-radius: 8px; padding: 3px 8px; overflow: hidden; line-height: 1.2; margin: 1px 0; z-index: 2; }
 .blk .bn { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .blk .bt { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .blk.short { flex-direction: row; align-items: center; gap: 8px; padding-top: 0; padding-bottom: 0; }
-.b-trip { background: var(--trip); }
-.b-event, .b-appt { background: var(--fix); border-left: 4px solid var(--fix-line); }
-.b-mobile { background: var(--accent-soft); border-left: 4px solid var(--accent); }
-.b-mobile.done { opacity: .55; }
-.b-mobile.done .bn { text-decoration: line-through; }
+.b-fixed { background: var(--fix); border-left: 4px solid var(--fix-line); }
+.b-flex { background: var(--accent-soft); border-left: 4px solid var(--accent); }
+.b-free { background: var(--accent-soft); border-left: 4px dashed var(--accent); }
+.b-done { opacity: .6; }
+.b-done .bn { text-decoration: line-through; }
+.b-running { outline: 2px solid var(--accent); }
 .hours-help { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
-.unplaced li { margin: 2px 0; }
 </style>
 </head>
 <body>
 <header class="app-header">
   <h1>Plan du jour</h1>
-  <p id="subtitle">Tes contraintes, saisies une fois.</p>
+  <p id="subtitle">Ton plan, recalé selon la réalité.</p>
 </header>
 
 <main>
   <section id="panel-day" role="tabpanel" aria-labelledby="tab-day">
     <div id="day-head"></div>
-    <form id="appt-form" class="card" hidden novalidate autocomplete="off">
-      <h2 id="appt-heading">Nouveau rendez-vous</h2>
-      <label class="field"><span class="lbl">Titre</span><input type="text" id="appt-title" maxlength="40"></label>
-      <div class="grid2">
-        <label class="field"><span class="lbl">Début</span><input type="text" id="appt-start" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
-        <label class="field"><span class="lbl">Durée (minutes)</span><input type="text" id="appt-duration" inputmode="numeric" autocomplete="off" data-kind="int"></label>
+    <form id="block-panel" class="card" hidden novalidate autocomplete="off">
+      <h2 id="bp-title">Bloc</h2>
+      <div id="bp-edit"></div>
+      <p class="help" id="bp-planned"></p>
+      <div id="bp-real" class="grid2">
+        <label class="field"><span class="lbl">Début réel</span><input type="text" id="bp-real-start" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
+        <label class="field"><span class="lbl">Fin réelle</span><input type="text" id="bp-real-end" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
       </div>
-      <span class="err" id="appt-err" hidden></span>
+      <span class="err" id="bp-err" hidden></span>
       <div class="btnrow">
-        <button type="submit" class="btn primary" id="appt-ok">Ajouter</button>
-        <button type="button" class="btn" data-appt="cancel">Annuler</button>
-        <button type="button" class="btn danger" data-appt="delete" id="appt-del" hidden>Supprimer</button>
+        <button type="submit" class="btn primary" id="bp-save">Enregistrer</button>
+        <button type="button" class="btn" data-bp="start" id="bp-start">▶ Démarrer maintenant</button>
+        <button type="button" class="btn" data-bp="stop" id="bp-stop">■ Arrêter maintenant</button>
+        <button type="button" class="btn" data-bp="clear" id="bp-clear">Effacer les heures réelles</button>
+        <button type="button" class="btn" data-bp="close">Fermer</button>
+        <button type="button" class="btn danger" data-bp="delete" id="bp-del">Supprimer</button>
       </div>
     </form>
     <div id="day-timeline"></div>
@@ -197,14 +212,16 @@ button { font: inherit; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.2.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
-const DATA_VERSION = 2;               // réglages : 1 = lot 1, 2 = lot 2 (blocs mobiles)
-const DAYS_KEY = 'plandujour.jours';
-const DAYS_VERSION = 1;
-const KEEP_DAYS = 90;                 // les jours plus anciens sont purgés à l'enregistrement
+const APP_VERSION = '0.3.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
+const DAYS_KEY = 'plandujour.jours';
+const DAYS_VERSION = 2;               // jours : 1 = lot 2, 2 = heures réelles par bloc
+const KEEP_DAYS = 400;                // les jours plus anciens sont purgés à l'enregistrement
 const DAY_NAMES = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const DAY_SHORT = ['', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+const MODES = { fixed: 'Heure fixe', flex: 'Heure prévue, glisse si retard', free: 'Sans heure (je la lance quand je veux)' };
+const MODE_TAG = { fixed: 'heure fixe', flex: 'souple', free: 'sans heure' };
 
 // ==== 2. TEMPS ====
 // Minutes depuis minuit en interne ; « HH:MM » en 24 h à l'écran (CONVENTIONS.md §5).
@@ -220,7 +237,6 @@ function parseTime(text) {
 }
 function pad2(n) { return String(n).padStart(2, '0'); }
 function formatTime(minutes) { return pad2(Math.floor(minutes / 60)) + ':' + pad2(minutes % 60); }
-function formatRange(r) { return r.min === r.max ? formatTime(r.min) : formatTime(r.min) + '–' + formatTime(r.max); }
 function formatDuration(minutes) {
   const h = Math.floor(minutes / 60), m = minutes % 60;
   if (h === 0) return m + ' min';
@@ -230,90 +246,101 @@ function parseIntStrict(text) {
   const t = String(text).trim();
   return /^\d{1,4}$/.test(t) ? Number(t) : null;
 }
+function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 
 // ==== 3. VALEURS PAR DÉFAUT ====
+function makeAct(id, name, days, mode, entry, start, duration) {
+  return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: duration };
+}
 function defaultSettings() {
   return {
     version: DATA_VERSION,
-    times: {
-      wake: 345,                              // 05:45
-      leaveHome: 390,                         // 06:30
-      trainOut: 413,                          // 06:53
-      trainOutArrival: 434,                   // 07:14
-      workArrival: { min: 450, max: 460 },    // 07:30–07:40
-      workDeparture: { min: 960, max: 975 },  // 16:00–16:15
-      trainBack: 988,                         // 16:28
-      homeArrival: 1035,                      // ≈ 17:15
-      bedtime: 1320                           // 22:00
-    },
-    weeklyEvents: [
-      { id: 'ev-cours-sax', name: 'Cours de saxophone', day: 3, start: 1140, duration: null },  // mercredi 19:00
-      { id: 'ev-orchestre', name: 'Orchestre', day: 5, start: 1170, duration: null }            // vendredi 19:30
-    ],
-    saxophone: { minutes: 15, days: [1, 2, 4, 6, 7] },   // tous les jours sauf mercredi et vendredi (à régler)
-    housework: { everyDays: 3, minutes: 30 },            // valeurs de départ à régler
-    relax: { floorMinutes: 30 },                         // plancher de détente, à valider
-    mobileBlocks: [                                      // blocs mobiles personnalisés (lot 2)
-      { id: 'blk-concentration', name: 'Concentration', minutes: 90, zone: 'work', priority: 1 }
+    wake: 345,            // 05:45
+    bedtime: 1320,        // 22:00
+    relaxFloor: 30,       // détente minimale avant le coucher, à valider
+    activities: [
+      makeAct('act-trajet-aller', 'Trajet aller', [1, 2, 3, 4, 5], 'fixed', 'end', 390, 60),        // 06:30–07:30
+      makeAct('act-trajet-retour', 'Trajet retour', [1, 2, 3, 4, 5], 'fixed', 'end', 960, 75),      // 16:00–17:15
+      makeAct('act-cours-sax', 'Cours de saxophone', [3], 'fixed', 'end', 1140, 60),                 // mercredi 19:00
+      makeAct('act-orchestre', 'Orchestre', [5], 'fixed', 'end', 1170, 60),                          // vendredi 19:30
+      makeAct('act-sax', 'Saxophone', [1, 2, 4, 6, 7], 'flex', 'duration', 1035, 15),                // 17:15, glisse si retard
+      makeAct('act-menage', 'Ménage', [1, 4], 'flex', 'duration', 1050, 30),                         // 17:30, à régler
+      makeAct('act-concentration', 'Concentration', [1, 2, 3, 4, 5], 'free', 'duration', null, 90)   // sans heure
     ]
   };
 }
+function emptyDay() { return { real: {}, ponctuels: [] }; }
+function emptyDays() { return { version: DAYS_VERSION, days: {} }; }
 
 // ==== 4. STOCKAGE ====
 function isMinute(v) { return Number.isInteger(v) && v >= 0 && v <= 1439; }
-function pickTime(v, def) { return isMinute(v) ? v : def; }
 function pickInt(v, def, min, max) { return Number.isInteger(v) && v >= min && v <= max ? v : def; }
-function pickRange(v, def) {
-  if (v && isMinute(v.min) && isMinute(v.max) && v.min <= v.max) return { min: v.min, max: v.max };
-  return { min: def.min, max: def.max };
+function newId() { return 'id-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function cleanDays(list) {
+  return Array.isArray(list) ? Array.from(new Set(list.filter((x) => Number.isInteger(x) && x >= 1 && x <= 7))).sort() : [];
 }
 
-// Reconstruit un objet complet et sain à partir de données lues (migration incluse).
-function sanitize(raw) {
-  // Migration : la version 1 (lot 1) n'a pas de blocs mobiles → valeurs de départ.
-  if (!raw || typeof raw !== 'object' || (raw.version !== 1 && raw.version !== 2)) return null;
-  const d = defaultSettings();
-  const t = raw.times || {};
+function sanitizeActs(list, fallback) {
+  if (!Array.isArray(list)) return fallback;
+  const out = [];
+  list.forEach((a) => {
+    if (!a || typeof a.name !== 'string' || !a.name.trim() || !MODES[a.mode]) return;
+    if (!Number.isInteger(a.duration) || a.duration < 1 || a.duration > 1440) return;
+    const free = a.mode === 'free';
+    if (!free && !isMinute(a.start)) return;
+    out.push({
+      id: typeof a.id === 'string' ? a.id : newId(), name: a.name.trim().slice(0, 40), days: cleanDays(a.days), mode: a.mode,
+      entry: a.entry === 'end' ? 'end' : 'duration', start: free ? null : a.start, duration: free ? a.duration : Math.min(a.duration, 1440 - a.start)
+    });
+  });
+  return out;
+}
+
+// Migration des réglages des versions 1 et 2 vers la version 3.
+function fromOldSettings(raw) {
   const s = defaultSettings();
-  s.times = {
-    wake: pickTime(t.wake, d.times.wake),
-    leaveHome: pickTime(t.leaveHome, d.times.leaveHome),
-    trainOut: pickTime(t.trainOut, d.times.trainOut),
-    trainOutArrival: pickTime(t.trainOutArrival, d.times.trainOutArrival),
-    workArrival: pickRange(t.workArrival, d.times.workArrival),
-    workDeparture: pickRange(t.workDeparture, d.times.workDeparture),
-    trainBack: pickTime(t.trainBack, d.times.trainBack),
-    homeArrival: pickTime(t.homeArrival, d.times.homeArrival),
-    bedtime: pickTime(t.bedtime, d.times.bedtime)
-  };
-  if (Array.isArray(raw.weeklyEvents)) {
-    s.weeklyEvents = raw.weeklyEvents
-      .filter((e) => e && typeof e.name === 'string' && e.name.trim() && Number.isInteger(e.day) && e.day >= 1 && e.day <= 7 && isMinute(e.start))
-      .map((e) => ({
-        id: typeof e.id === 'string' ? e.id : newId(),
-        name: e.name.trim().slice(0, 40),
-        day: e.day,
-        start: e.start,
-        duration: Number.isInteger(e.duration) && e.duration >= 1 && e.duration <= 1440 ? e.duration : null
-      }));
-  }
+  const t = raw.times || {};
+  const T = (v, d) => (isMinute(v) ? v : d);
+  const leave = T(t.leaveHome, 390), home = T(t.homeArrival, 1035);
+  const arrMin = t.workArrival && isMinute(t.workArrival.min) ? t.workArrival.min : 450;
+  const depMin = t.workDeparture && isMinute(t.workDeparture.min) ? t.workDeparture.min : 960;
+  s.wake = T(t.wake, 345);
+  s.bedtime = T(t.bedtime, 1320);
+  s.relaxFloor = pickInt((raw.relax || {}).floorMinutes, 30, 0, 600);
+  const acts = [
+    makeAct('act-trajet-aller', 'Trajet aller', [1, 2, 3, 4, 5], 'fixed', 'end', leave, Math.max(1, arrMin - leave)),
+    makeAct('act-trajet-retour', 'Trajet retour', [1, 2, 3, 4, 5], 'fixed', 'end', depMin, Math.max(1, home - depMin))
+  ];
+  (Array.isArray(raw.weeklyEvents) ? raw.weeklyEvents : []).forEach((e) => {
+    if (e && typeof e.name === 'string' && Number.isInteger(e.day) && isMinute(e.start)) {
+      acts.push(makeAct(typeof e.id === 'string' ? e.id : newId(), e.name, [e.day], 'fixed', 'end', e.start, Number.isInteger(e.duration) && e.duration > 0 ? e.duration : 60));
+    }
+  });
   const sx = raw.saxophone || {};
-  s.saxophone = {
-    minutes: pickInt(sx.minutes, d.saxophone.minutes, 0, 600),
-    days: Array.isArray(sx.days) ? Array.from(new Set(sx.days.filter((x) => Number.isInteger(x) && x >= 1 && x <= 7))).sort() : d.saxophone.days
-  };
+  const saxMin = pickInt(sx.minutes, 15, 0, 600);
+  if (saxMin > 0) acts.push(makeAct('act-sax', 'Saxophone', cleanDays(sx.days), 'flex', 'duration', home, saxMin));
   const hw = raw.housework || {};
-  s.housework = { everyDays: pickInt(hw.everyDays, d.housework.everyDays, 1, 60), minutes: pickInt(hw.minutes, d.housework.minutes, 0, 600) };
-  s.relax = { floorMinutes: pickInt((raw.relax || {}).floorMinutes, d.relax.floorMinutes, 0, 600) };
-  s.mobileBlocks = raw.version === 2 ? sanitizeBlocks(raw.mobileBlocks, d.mobileBlocks) : d.mobileBlocks;
+  const hwMin = pickInt(hw.minutes, 30, 0, 600);
+  if (hwMin > 0) acts.push(makeAct('act-menage', 'Ménage', [1, 4], 'flex', 'duration', Math.min(1439, home + saxMin), hwMin));
+  const blocks = raw.version === 2 && Array.isArray(raw.mobileBlocks) ? raw.mobileBlocks : [{ id: 'act-concentration', name: 'Concentration', minutes: 90 }];
+  blocks.forEach((b) => {
+    if (b && typeof b.name === 'string' && Number.isInteger(b.minutes)) acts.push(makeAct(typeof b.id === 'string' ? b.id : newId(), b.name, [1, 2, 3, 4, 5], 'free', 'duration', null, b.minutes));
+  });
+  s.activities = sanitizeActs(acts, s.activities);
   return s;
 }
 
-function sanitizeBlocks(list, fallback) {
-  if (!Array.isArray(list)) return fallback;
-  return list
-    .filter((b) => b && typeof b.name === 'string' && b.name.trim() && Number.isInteger(b.minutes) && b.minutes >= 5 && b.minutes <= 600 && ZONES[b.zone])
-    .map((b) => ({ id: typeof b.id === 'string' ? b.id : newId(), name: b.name.trim().slice(0, 40), minutes: b.minutes, zone: b.zone, priority: pickInt(b.priority, 5, 1, 9) }));
+function sanitize(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (raw.version === 1 || raw.version === 2) return fromOldSettings(raw);
+  if (raw.version !== DATA_VERSION) return null;
+  const d = defaultSettings();
+  const s = defaultSettings();
+  s.wake = isMinute(raw.wake) ? raw.wake : d.wake;
+  s.bedtime = isMinute(raw.bedtime) ? raw.bedtime : d.bedtime;
+  s.relaxFloor = pickInt(raw.relaxFloor, d.relaxFloor, 0, 600);
+  s.activities = sanitizeActs(raw.activities, d.activities);
+  return s;
 }
 
 // Retourne { settings, status } ; status : 'ok' | 'empty' | 'corrupt' | 'unavailable'.
@@ -341,32 +368,47 @@ function saveSettings(settings) {
   }
 }
 
-function newId() { return 'ev-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-
-// ---- Données des jours (lot 2) : rendez-vous, heures réelles, cases cochées ----
-function emptyDay() { return { arrival: null, departure: null, appointments: [], done: {} }; }
-function emptyDays() { return { version: DAYS_VERSION, days: {} }; }
-
+// ---- Données des jours : heures réelles par bloc et blocs ponctuels ----
+function cleanReal(r) {
+  if (!r || typeof r !== 'object') return null;
+  const s = isMinute(r.start) ? r.start : null;
+  let e = isMinute(r.end) ? r.end : null;
+  if (s !== null && e !== null && e <= s) e = null;
+  return s === null && e === null ? null : { start: s, end: e };
+}
+function cleanPonctuel(p) {
+  if (!p || typeof p.name !== 'string' || !p.name.trim()) return null;
+  const mode = MODES[p.mode] ? p.mode : 'fixed';
+  if (!Number.isInteger(p.duration) || p.duration < 1 || p.duration > 1440) return null;
+  if (mode !== 'free' && !isMinute(p.start)) return null;
+  return {
+    id: typeof p.id === 'string' ? p.id : newId(), name: p.name.trim().slice(0, 40), mode: mode, entry: p.entry === 'end' ? 'end' : 'duration',
+    start: mode === 'free' ? null : p.start, duration: mode === 'free' ? p.duration : Math.min(p.duration, 1440 - p.start)
+  };
+}
 function sanitizeDays(raw) {
-  if (!raw || typeof raw !== 'object' || raw.version !== DAYS_VERSION || !raw.days || typeof raw.days !== 'object') return null;
+  if (!raw || typeof raw !== 'object' || !raw.days || typeof raw.days !== 'object') return null;
+  if (raw.version !== 1 && raw.version !== 2) return null;
   const out = emptyDays();
   Object.keys(raw.days).forEach((k) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
     const d = raw.days[k] || {};
     const day = emptyDay();
-    day.arrival = isMinute(d.arrival) ? d.arrival : null;
-    day.departure = isMinute(d.departure) ? d.departure : null;
-    if (Array.isArray(d.appointments)) {
-      day.appointments = d.appointments
-        .filter((a) => a && typeof a.title === 'string' && a.title.trim() && isMinute(a.start) && Number.isInteger(a.duration) && a.duration >= 1 && a.duration <= 1440)
-        .map((a) => ({ id: typeof a.id === 'string' ? a.id : newId(), title: a.title.trim().slice(0, 40), start: a.start, duration: a.duration }));
+    if (raw.version === 1) {               // migration : arrivée → fin du trajet aller, départ → début du trajet retour
+      if (isMinute(d.arrival)) day.real['act:act-trajet-aller'] = { start: null, end: d.arrival };
+      if (isMinute(d.departure)) day.real['act:act-trajet-retour'] = { start: d.departure, end: null };
+      (Array.isArray(d.appointments) ? d.appointments : []).forEach((a) => {
+        const p = a && cleanPonctuel({ id: a.id, name: a.title, mode: 'fixed', entry: 'duration', start: a.start, duration: a.duration });
+        if (p) day.ponctuels.push(p);
+      });
+    } else {
+      if (d.real && typeof d.real === 'object') Object.keys(d.real).forEach((key) => { const r = cleanReal(d.real[key]); if (r) day.real[key] = r; });
+      (Array.isArray(d.ponctuels) ? d.ponctuels : []).forEach((p) => { const c = cleanPonctuel(p); if (c) day.ponctuels.push(c); });
     }
-    if (d.done && typeof d.done === 'object') Object.keys(d.done).forEach((key) => { if (d.done[key] === true) day.done[key] = true; });
     out.days[k] = day;
   });
   return out;
 }
-
 function loadDays() {
   let text = null;
   try {
@@ -378,7 +420,6 @@ function loadDays() {
   try { if (text !== null) window.localStorage.setItem(DAYS_KEY + '.sauvegarde', text); } catch (e) { /* ignoré */ }
   return emptyDays();
 }
-
 function saveDays(data) {
   try {
     const limit = addDays(dateKey(new Date()), -KEEP_DAYS);
@@ -391,138 +432,76 @@ function saveDays(data) {
 }
 
 // ==== 5. VALIDATION ====
-function getPath(obj, path) { return path.split('.').reduce((o, k) => o[k], obj); }
 function setPath(obj, path, value) {
   const keys = path.split('.');
   const last = keys.pop();
   keys.reduce((o, k) => o[k], obj)[last] = value;
 }
 
-// Incohérences d'ordre (non bloquantes) : retourne une liste de phrases.
-function checkConsistency(s) {
-  const t = s.times;
-  const chain = [
-    ['Lever', t.wake], ['Départ de chez toi', t.leaveHome], ['Train aller', t.trainOut],
-    ['Arrivée du train aller', t.trainOutArrival], ['Arrivée au travail', t.workArrival.min],
-    ['Fin de la fourchette d’arrivée au travail', t.workArrival.max], ['Départ du travail', t.workDeparture.min],
-    ['Fin de la fourchette de départ du travail', t.workDeparture.max], ['Train retour', t.trainBack],
-    ['Retour à la maison', t.homeArrival], ['Coucher', t.bedtime]
-  ];
-  const out = [];
-  for (let i = 1; i < chain.length; i++) {
-    const [prevLabel, prev] = chain[i - 1];
-    const [label, cur] = chain[i];
-    if (cur <= prev && !(label.startsWith('Fin de la fourchette') && cur === prev)) {
-      out.push('« ' + label + ' » (' + formatTime(cur) + ') devrait venir après « ' + prevLabel + ' » (' + formatTime(prev) + ').');
-    }
-  }
-  return out;
-}
-
-// ==== 5B. PLANNING (lot 2) ====
-// Fonctions pures : (réglages, données des jours, date) → plan. Aucun accès au DOM ni au stockage.
-const ZONES = { morning: 'Matin', work: 'Au travail', evening: 'Soir' };
-const SAX_PRIORITY = 2;               // le saxophone et le ménage sont placés le soir, après les blocs personnalisés de priorité 1
-const HOUSEWORK_PRIORITY = 3;
-const DEFAULT_APPT_MINUTES = 60;
-const ASSUMED_EVENT_MINUTES = 60;     // durée supposée d'un rendez-vous régulier sans durée renseignée
-
+// ==== 5B. PLANNING ====
+// Fonctions pures : (réglages, données du jour, jour de semaine, heure actuelle) → journée. Aucun accès au DOM ni au stockage.
 function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 function parseDateKey(k) { const p = k.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
 function addDays(k, n) { const d = parseDateKey(k); d.setDate(d.getDate() + n); return dateKey(d); }
 function isoWeekday(k) { const g = parseDateKey(k).getDay(); return g === 0 ? 7 : g; }
-function daysBetween(a, b) { return Math.round((parseDateKey(b) - parseDateKey(a)) / 86400000); }
 
-function subtractInterval(free, s, e) {
-  const out = [];
-  free.forEach((f) => {
-    if (e <= f.start || s >= f.end) { out.push(f); return; }
-    if (s > f.start) out.push({ start: f.start, end: s });
-    if (e < f.end) out.push({ start: e, end: f.end });
+// nowMin : minutes actuelles si le jour affiché est aujourd'hui, sinon null.
+function buildDay(settings, dayData, weekday, nowMin) {
+  const out = { placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0 };
+  const items = [];
+  settings.activities.forEach((a) => {
+    if (a.days.includes(weekday)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
-  return out;
-}
-
-// Le ménage est dû s'il n'a jamais été fait, ou si le dernier ménage fait avant ce jour date d'au moins N jours.
-function houseworkDue(settings, days, date) {
-  if (days[date] && days[date].done && days[date].done.house) return true;
-  let last = null;
-  Object.keys(days).forEach((k) => { if (k < date && days[k].done && days[k].done.house && (last === null || k > last)) last = k; });
-  return last === null || daysBetween(last, date) >= settings.housework.everyDays;
-}
-
-function buildPlan(settings, days, date) {
-  const t = settings.times;
-  const day = days[date] || emptyDay();
-  const weekday = isoWeekday(date);
-  const plan = {
-    date: date, weekday: weekday, planned: weekday <= 5, day: day,
-    fixed: [], mobile: [], unplaced: [], warnings: [], zones: null,
-    arrival: null, departure: null, arrivalReal: day.arrival !== null, departureReal: day.departure !== null
-  };
-  if (!plan.planned) return plan;
-
-  // Heures réelles du jour ; à défaut, le cas prudent de la fourchette (arrivée la plus tardive, départ le plus précoce).
-  const arrival = day.arrival !== null ? day.arrival : t.workArrival.max;
-  const departure = day.departure !== null ? day.departure : t.workDeparture.min;
-  plan.arrival = arrival;
-  plan.departure = departure;
-  plan.zones = { morning: { start: t.wake, end: t.leaveHome }, work: { start: arrival, end: departure }, evening: { start: t.homeArrival, end: t.bedtime } };
-
-  const fixed = [
-    { id: 'trip-go', kind: 'trip', name: 'Trajet aller', start: t.leaveHome, end: arrival, note: 'train ' + formatTime(t.trainOut) },
-    { id: 'trip-back', kind: 'trip', name: 'Trajet retour', start: departure, end: t.homeArrival, note: 'train ' + formatTime(t.trainBack) }
-  ];
-  settings.weeklyEvents.filter((e) => e.day === weekday).forEach((e) => {
-    fixed.push({ id: 'ev:' + e.id, kind: 'event', name: e.name, start: e.start, end: Math.min(1440, e.start + (e.duration || ASSUMED_EVENT_MINUTES)), assumed: !e.duration });
+  dayData.ponctuels.forEach((p) => {
+    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
   });
-  day.appointments.forEach((a) => {
-    fixed.push({ id: 'appt:' + a.id, kind: 'appt', apptId: a.id, name: a.title, start: a.start, end: Math.min(1440, a.start + a.duration) });
+  const timed = [];
+  items.forEach((it) => {
+    it.real = dayData.real[it.key] || { start: null, end: null };
+    if (it.mode === 'free' && it.real.start === null) out.pending.push(it); else timed.push(it);
   });
-  plan.fixed = fixed;
+  timed.forEach((it) => { it.sortKey = it.real.start !== null ? it.real.start : it.plannedStart; });
+  timed.sort((a, b) => a.sortKey - b.sortKey);
 
-  if (departure <= arrival) plan.warnings.push('Le départ du travail (' + formatTime(departure) + ') est avant l’arrivée (' + formatTime(arrival) + ').');
-  if (arrival <= t.leaveHome) plan.warnings.push('L’arrivée au travail (' + formatTime(arrival) + ') est avant le départ de chez toi (' + formatTime(t.leaveHome) + ').');
-  for (let i = 0; i < fixed.length; i++) {
-    for (let j = i + 1; j < fixed.length; j++) {
-      if (fixed[i].start < fixed[j].end && fixed[j].start < fixed[i].end) {
-        plan.warnings.push('« ' + fixed[i].name + ' » (' + formatTime(fixed[i].start) + '–' + formatTime(fixed[i].end) + ') chevauche « ' + fixed[j].name + ' » (' + formatTime(fixed[j].start) + '–' + formatTime(fixed[j].end) + ').');
-      }
+  // Placement : un bloc souple glisse après la fin la plus tardive des blocs qui le précèdent.
+  let cursor = -1;
+  timed.forEach((it) => {
+    const r = it.real;
+    let start;
+    if (r.start !== null) start = r.start;
+    else if (it.mode === 'flex') start = Math.max(it.plannedStart, cursor);
+    else start = it.plannedStart;
+    let end, state;
+    if (r.end !== null) { end = r.end; state = 'done'; }
+    else if (r.start !== null) {
+      if (nowMin !== null) { end = Math.max(start + it.minutes, nowMin); state = 'running'; } else { end = start + it.minutes; state = 'started'; }
+    } else { end = start + it.minutes; state = 'planned'; }
+    if (end <= start) end = start + 1;
+    it.start = start; it.end = end; it.state = state;
+    it.shift = it.plannedStart !== null && r.start === null && start > it.plannedStart ? start - it.plannedStart : 0;
+    cursor = Math.max(cursor, end);
+    if (state === 'running') out.running = it;
+  });
+
+  // Temps disponible entre deux blocs (du lever au premier bloc, puis jusqu'au coucher).
+  const byStart = timed.slice().sort((a, b) => a.start - b.start || a.end - b.end);
+  let prevEnd = settings.wake, prev = null;
+  byStart.forEach((it) => {
+    if (it.start > prevEnd) out.gaps.push({ from: prevEnd, to: it.start, minutes: it.start - prevEnd, last: false });
+    else if (prev && it.start < prevEnd) out.warnings.push('« ' + prev.name + ' » (' + formatTime(prev.start) + '–' + formatTime(prev.end) + ') chevauche « ' + it.name + ' » (' + formatTime(it.start) + '–' + formatTime(it.end) + ').');
+    if (it.end > prevEnd || prev === null) { prevEnd = Math.max(prevEnd, it.end); prev = it; }
+  });
+  if (byStart.length) {
+    if (settings.bedtime > prevEnd) {
+      out.gaps.push({ from: prevEnd, to: settings.bedtime, minutes: settings.bedtime - prevEnd, last: true });
+      if (settings.bedtime - prevEnd < settings.relaxFloor) out.warnings.push('Il ne reste que ' + formatDuration(settings.bedtime - prevEnd) + ' avant le coucher (détente minimale : ' + formatDuration(settings.relaxFloor) + ').');
+    } else {
+      out.warnings.push('Les blocs vont jusqu’à ' + formatTime(prevEnd) + ', après l’heure du coucher (' + formatTime(settings.bedtime) + ').');
     }
   }
-  fixed.filter((f) => f.kind === 'appt' && (f.start < t.wake || f.end > t.bedtime)).forEach((f) => {
-    plan.warnings.push('« ' + f.name + ' » sort de la journée (lever ' + formatTime(t.wake) + ', coucher ' + formatTime(t.bedtime) + ').');
-  });
-
-  // Plages libres de chaque zone, une fois retirés les blocs fixes.
-  const free = {};
-  Object.keys(plan.zones).forEach((z) => {
-    let list = plan.zones[z].start < plan.zones[z].end ? [{ start: plan.zones[z].start, end: plan.zones[z].end }] : [];
-    fixed.forEach((f) => { list = subtractInterval(list, f.start, f.end); });
-    free[z] = list;
-  });
-
-  // Blocs mobiles, placés par priorité dans la première plage libre assez longue de leur zone.
-  const mobile = settings.mobileBlocks.map((b, i) => ({ key: 'block:' + b.id, name: b.name, minutes: b.minutes, priority: b.priority, zone: b.zone, order: i }));
-  if (settings.saxophone.minutes > 0 && settings.saxophone.days.includes(weekday)) {
-    mobile.push({ key: 'sax', name: 'Saxophone', minutes: settings.saxophone.minutes, priority: SAX_PRIORITY, zone: 'evening', order: 100 });
-  }
-  if (settings.housework.minutes > 0 && houseworkDue(settings, days, date)) {
-    mobile.push({ key: 'house', name: 'Ménage', minutes: settings.housework.minutes, priority: HOUSEWORK_PRIORITY, zone: 'evening', order: 101 });
-  }
-  mobile.sort((a, b) => a.priority - b.priority || a.order - b.order);
-  mobile.forEach((m) => {
-    const slot = (free[m.zone] || []).find((f) => f.end - f.start >= m.minutes);
-    if (!slot) { plan.unplaced.push(m); return; }
-    m.kind = 'mobile';
-    m.start = slot.start;
-    m.end = slot.start + m.minutes;
-    m.done = day.done[m.key] === true;
-    free[m.zone] = subtractInterval(free[m.zone], m.start, m.end);
-    plan.mobile.push(m);
-  });
-  plan.mobile.sort((a, b) => a.start - b.start);
-  return plan;
+  out.gaps.forEach((g) => { out.largestGap = Math.max(out.largestGap, g.minutes); });
+  out.placed = byStart;
+  return out;
 }
 
 // Répartit en colonnes les blocs qui se chevauchent (affichage uniquement).
@@ -544,7 +523,7 @@ function layoutColumns(items) {
 }
 
 // ==== 6. VUE ====
-const $ =(sel, root) => (root || document).querySelector(sel);
+const $ = (sel, root) => (root || document).querySelector(sel);
 const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -557,199 +536,209 @@ function timeField(path, label, value) {
   return '<label class="field"><span class="lbl">' + label + '</span><input ' + TIME_ATTRS +
     ' data-kind="time" data-path="' + path + '" value="' + formatTime(value) + '"><span class="err" hidden></span></label>';
 }
-function rangeField(path, label, r) {
-  return '<div class="field"><span class="lbl">' + label + '</span><div class="range-row">' +
-    '<input ' + TIME_ATTRS + ' data-kind="time" data-path="' + path + '.min" value="' + formatTime(r.min) + '" aria-label="' + label + ', début">' +
-    '<span class="sep">à</span>' +
-    '<input ' + TIME_ATTRS + ' data-kind="time" data-path="' + path + '.max" value="' + formatTime(r.max) + '" aria-label="' + label + ', fin">' +
-    '</div><span class="err" hidden></span></div>';
-}
 function intField(path, label, value, min, max) {
   return '<label class="field"><span class="lbl">' + label + '</span><input ' + INT_ATTRS +
     ' data-kind="int" data-min="' + min + '" data-max="' + max + '" data-path="' + path + '" value="' + value + '"><span class="err" hidden></span></label>';
 }
 
-function eventRow(ev) {
-  const dayOptions = DAY_NAMES.map((n, i) => i === 0 ? '' :
-    '<option value="' + i + '"' + (Number(ev.day) === i ? ' selected' : '') + '>' + n + '</option>').join('');
-  return '<div class="event-row" data-id="' + esc(ev.id) + '">' +
-    '<label class="field name"><span class="lbl">Nom</span><input type="text" maxlength="40" data-ev="name" value="' + esc(ev.name) + '"></label>' +
-    '<label class="field"><span class="lbl">Jour</span><select data-ev="day">' + dayOptions + '</select></label>' +
-    '<label class="field"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-ev="start" value="' + esc(ev.start) + '"></label>' +
-    '<label class="field"><span class="lbl">Durée en min (facultatif)</span><input ' + INT_ATTRS + ' data-kind="int" data-ev="duration" value="' + esc(ev.duration) + '"></label>' +
-    '<button type="button" class="icon-btn del" data-action="del-event" aria-label="Supprimer ce rendez-vous régulier">✕</button>' +
-    '<span class="err" hidden></span></div>';
-}
-function eventToRaw(e) {
-  return { id: e.id, name: e.name, day: e.day, start: formatTime(e.start), duration: e.duration === null ? '' : String(e.duration) };
+// ---- Éditeur d'activité (commun aux réglages et aux blocs ponctuels) ----
+function actToRaw(a) {
+  const free = a.mode === 'free';
+  const entry = !free && a.entry === 'end' && a.start + a.duration < 1440 ? 'end' : 'duration';
+  return {
+    id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [],
+    start: free || a.start === null ? '' : formatTime(a.start),
+    second: !free && entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration)
+  };
 }
 
-function blockRow(b) {
-  const zoneOptions = Object.keys(ZONES).map((z) => '<option value="' + z + '"' + (b.zone === z ? ' selected' : '') + '>' + ZONES[z] + '</option>').join('');
-  const prioOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((p) => '<option value="' + p + '"' + (Number(b.priority) === p ? ' selected' : '') + '>' + p + '</option>').join('');
-  return '<div class="event-row" data-id="' + esc(b.id) + '">' +
-    '<label class="field name"><span class="lbl">Nom</span><input type="text" maxlength="40" data-bl="name" value="' + esc(b.name) + '"></label>' +
-    '<label class="field"><span class="lbl">Durée (minutes)</span><input ' + INT_ATTRS + ' data-bl="minutes" value="' + esc(b.minutes) + '"></label>' +
-    '<label class="field"><span class="lbl">Où</span><select data-bl="zone">' + zoneOptions + '</select></label>' +
-    '<label class="field"><span class="lbl">Priorité</span><select data-bl="priority">' + prioOptions + '</select></label>' +
-    '<span></span>' +
-    '<button type="button" class="icon-btn del" data-action="del-block" aria-label="Supprimer ce bloc">✕</button>' +
-    '<span class="err" hidden></span></div>';
+function actRowHtml(r, opts) {
+  const modeOptions = Object.keys(MODES).map((m) => '<option value="' + m + '"' + (r.mode === m ? ' selected' : '') + '>' + MODES[m] + '</option>').join('');
+  const entryOptions = '<option value="end"' + (r.entry === 'end' ? ' selected' : '') + '>Début + fin</option>' +
+    '<option value="duration"' + (r.entry === 'duration' ? ' selected' : '') + '>Début + durée</option>';
+  const secondIsTime = r.mode !== 'free' && r.entry === 'end';
+  let html = '<div class="act-row" data-id="' + esc(r.id) + '" data-mode="' + r.mode + '">' +
+    '<label class="field wide' + (opts.del ? ' first' : '') + '"><span class="lbl">Nom</span><input type="text" maxlength="40" data-a="name" value="' + esc(r.name) + '"></label>' +
+    '<label class="field wide"><span class="lbl">Heure</span><select data-a="mode">' + modeOptions + '</select></label>' +
+    '<label class="field timed wide"><span class="lbl">Saisie</span><select data-a="entry">' + entryOptions + '</select></label>' +
+    '<label class="field timed"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-a="start" value="' + esc(r.start) + '"></label>' +
+    '<label class="field"><span class="lbl" data-a-label>' + (secondIsTime ? 'Fin' : 'Durée (minutes)') + '</span><input ' + (secondIsTime ? TIME_ATTRS : INT_ATTRS) +
+    ' data-kind="' + (secondIsTime ? 'time' : 'int') + '" data-a="second" value="' + esc(r.second) + '"></label>';
+  if (opts.days) {
+    html += '<div class="field wide"><span class="lbl">Jours</span><div class="chips">' +
+      [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>';
+  }
+  if (opts.del) html += '<button type="button" class="icon-btn del" data-action="del-act" aria-label="Supprimer cette activité">✕</button>';
+  return html + '<span class="err wide" hidden></span></div>';
 }
-function readBlocksRaw() {
-  return $$('#blocks-list .event-row').map((row) => ({
-    id: row.dataset.id, name: $('[data-bl=name]', row).value, minutes: $('[data-bl=minutes]', row).value,
-    zone: $('[data-bl=zone]', row).value, priority: $('[data-bl=priority]', row).value
-  }));
+
+function updateRowUi(row) {
+  const mode = $('[data-a=mode]', row).value, entry = $('[data-a=entry]', row).value;
+  const isTime = mode !== 'free' && entry === 'end';
+  const sec = $('[data-a=second]', row);
+  row.dataset.mode = mode;
+  $('[data-a-label]', row).textContent = isTime ? 'Fin' : 'Durée (minutes)';
+  sec.dataset.kind = isTime ? 'time' : 'int';
+  sec.placeholder = isTime ? 'HH:MM' : '';
+}
+// Passe de « fin » à « durée » (et inversement) en gardant la même durée.
+function convertSecond(row, newEntry) {
+  const start = parseTime($('[data-a=start]', row).value);
+  const sec = $('[data-a=second]', row);
+  if (start === null) return;
+  if (newEntry === 'duration') {
+    const end = parseTime(sec.value);
+    if (end !== null && end > start) sec.value = String(end - start);
+  } else {
+    const d = parseIntStrict(sec.value);
+    if (d !== null && start + d < 1440) sec.value = formatTime(start + d);
+  }
+}
+function readActRaw(row) {
+  return {
+    id: row.dataset.id, name: $('[data-a=name]', row).value, mode: $('[data-a=mode]', row).value, entry: $('[data-a=entry]', row).value,
+    start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value,
+    days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day))
+  };
+}
+// Lit et valide une ligne d'activité ; retourne l'activité ou null (champs invalides marqués).
+function readActRow(row, errors) {
+  const nameEl = $('[data-a=name]', row), startEl = $('[data-a=start]', row), secEl = $('[data-a=second]', row);
+  const mode = $('[data-a=mode]', row).value, entry = $('[data-a=entry]', row).value;
+  const before = errors.length;
+  const name = nameEl.value.trim();
+  if (!name) flag(nameEl, 'Nom obligatoire', errors);
+  let start = null, duration = null;
+  if (mode === 'free') {
+    duration = parseIntStrict(secEl.value);
+    if (duration === null || duration < 1 || duration > 1440) flag(secEl, 'Durée entre 1 et 1440 min', errors);
+  } else {
+    start = parseTime(startEl.value);
+    if (start === null) flag(startEl, 'Heure de début invalide (ex. 09:00)', errors);
+    if (entry === 'end') {
+      const end = parseTime(secEl.value);
+      if (end === null) flag(secEl, 'Heure de fin invalide (ex. 10:30)', errors);
+      else if (start !== null && end <= start) flag(secEl, 'La fin doit être après le début', errors);
+      else if (start !== null) duration = end - start;
+    } else {
+      duration = parseIntStrict(secEl.value);
+      if (duration === null || duration < 1 || duration > 1440) flag(secEl, 'Durée entre 1 et 1440 min', errors);
+      else if (start !== null && start + duration > 1440) flag(secEl, 'Dépasse minuit', errors);
+    }
+  }
+  if (errors.length > before) return null;
+  return { id: row.dataset.id || newId(), name: name, days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration };
 }
 
 function renderForm(s) {
-  const t = s.times;
-  const chips = [1, 2, 3, 4, 5, 6, 7].map((d) =>
-    '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + (s.saxophone.days.includes(d)) + '">' + DAY_SHORT[d] + '</button>').join('');
   $('#form-body').innerHTML =
-    '<div class="card"><h2>Matin et trajet</h2>' +
+    '<div class="card"><h2>Ma journée</h2>' +
       '<p class="help">Heures en 24 h. Sur iPhone, tape les chiffres : 0653 devient 06:53.</p>' +
-      timeField('times.wake', 'Lever', t.wake) +
-      timeField('times.leaveHome', 'Départ de chez toi', t.leaveHome) +
-      '<div class="grid2">' + timeField('times.trainOut', 'Train aller : départ', t.trainOut) +
-      timeField('times.trainOutArrival', 'Train aller : arrivée', t.trainOutArrival) + '</div></div>' +
-    '<div class="card"><h2>Au travail</h2>' +
-      '<p class="help">Fourchettes indicatives. L’app ne choisit pas pour toi : l’heure réelle se saisira chaque jour.</p>' +
-      rangeField('times.workArrival', 'Arrivée au travail', t.workArrival) +
-      rangeField('times.workDeparture', 'Départ du travail', t.workDeparture) + '</div>' +
-    '<div class="card"><h2>Soir</h2>' +
-      '<div class="grid2">' + timeField('times.trainBack', 'Train retour', t.trainBack) +
-      timeField('times.homeArrival', 'Retour à la maison (environ)', t.homeArrival) + '</div>' +
-      timeField('times.bedtime', 'Coucher', t.bedtime) + '</div>' +
-    '<div class="card"><h2>Rendez-vous réguliers</h2>' +
-      '<p class="help">Chaque semaine, à heure fixe (cours, répétition…).</p>' +
-      '<div id="events-list">' + s.weeklyEvents.map((e) => eventRow(eventToRaw(e))).join('') + '</div>' +
-      '<button type="button" class="btn" data-action="add-event">+ Ajouter</button></div>' +
-    '<div class="card"><h2>Blocs mobiles</h2>' +
-      '<p class="help">Placés automatiquement dans les plages libres, par priorité (1 = d’abord). Le saxophone (priorité 2) et le ménage (priorité 3) se placent le soir.</p>' +
-      '<div id="blocks-list">' + s.mobileBlocks.map(blockRow).join('') + '</div>' +
-      '<button type="button" class="btn" data-action="add-block">+ Ajouter un bloc</button></div>' +
-    '<div class="card"><h2>Saxophone</h2>' +
-      intField('saxophone.minutes', 'Durée par jour (minutes)', s.saxophone.minutes, 0, 600) +
-      '<span class="lbl">Jours concernés</span><div class="chips" id="sax-days">' + chips + '</div></div>' +
-    '<div class="card"><h2>Ménage</h2><div class="grid2">' +
-      intField('housework.everyDays', 'Tous les … jours', s.housework.everyDays, 1, 60) +
-      intField('housework.minutes', 'Durée (minutes)', s.housework.minutes, 0, 600) + '</div></div>' +
-    '<div class="card"><h2>Détente</h2>' +
-      '<p class="help">Temps entre la fin des tâches du soir et le coucher. Seul le plancher se règle.</p>' +
-      intField('relax.floorMinutes', 'Plancher (minutes)', s.relax.floorMinutes, 0, 600) + '</div>' +
+      '<div class="grid2">' + timeField('wake', 'Lever', s.wake) + timeField('bedtime', 'Coucher', s.bedtime) + '</div>' +
+      intField('relaxFloor', 'Détente minimale avant le coucher (minutes)', s.relaxFloor, 0, 600) + '</div>' +
+    '<div class="card"><h2>Activités</h2>' +
+      '<p class="help">Tout ce qui revient chaque semaine. <strong>Heure fixe</strong> : ne bouge jamais (train, cours). ' +
+      '<strong>Heure prévue</strong> : glisse si ce qui précède déborde. <strong>Sans heure</strong> : tu la lances quand tu veux, avec le chrono.</p>' +
+      '<div id="acts-list">' + s.activities.map((a) => actRowHtml(actToRaw(a), { days: true, del: true })).join('') + '</div>' +
+      '<button type="button" class="btn" data-action="add-act">+ Ajouter une activité</button></div>' +
     '<div class="foot"><button type="button" class="btn danger" data-action="reset">Rétablir les valeurs de départ</button>' +
       '<div>Plan du jour · version ' + APP_VERSION + '</div><div>Données stockées uniquement sur cet appareil.</div></div>';
 }
 
+let recapDay = 1;   // jour de semaine affiché dans le récapitulatif
+
 function renderRecap(s, status) {
-  const t = s.times;
   let html = '';
   if (status === 'empty') html += '<div class="banner info">Valeurs de départ affichées. Rien n’est enregistré tant que tu n’as pas appuyé sur « Enregistrer » dans Réglages.</div>';
   if (status === 'corrupt') html += '<div class="banner warn">Les données enregistrées sont illisibles : les valeurs de départ sont affichées. Elles ne seront remplacées que lorsque tu enregistreras.</div>';
   if (status === 'unavailable') html += '<div class="banner warn">Le stockage du navigateur est indisponible (navigation privée ?). Tu peux saisir, mais rien ne sera conservé.</div>';
-  const warnings = checkConsistency(s);
-  if (warnings.length) html += '<div class="banner warn"><strong>À vérifier</strong><ul>' + warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
+  html += '<div class="chips" style="margin:12px 0">' + [1, 2, 3, 4, 5, 6, 7].map((d) =>
+    '<button type="button" class="chip" data-recap-day="' + d + '" aria-pressed="' + (d === recapDay) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div>';
 
-  const rows = [
-    [formatTime(t.wake), 'Lever', ''],
-    [formatTime(t.leaveHome), 'Départ de chez toi', ''],
-    [formatTime(t.trainOut), 'Train aller', 'arrivée ' + formatTime(t.trainOutArrival)],
-    [formatRange(t.workArrival), 'Arrivée au travail', ''],
-    [formatRange(t.workDeparture), 'Départ du travail', ''],
-    [formatTime(t.trainBack), 'Train retour', ''],
-    ['≈ ' + formatTime(t.homeArrival), 'Retour à la maison', 'plus tard si courses'],
-    [formatTime(t.bedtime), 'Coucher', '']
-  ];
-  html += '<div class="card"><h2>Journée de semaine</h2><ul class="tl">' + rows.map((r) =>
-    '<li><span class="t">' + r[0] + '</span><span class="dot"></span><span class="what">' + esc(r[1]) +
-    (r[2] ? '<small>' + esc(r[2]) + '</small>' : '') + '</span></li>').join('') + '</ul></div>';
-
-  const events = s.weeklyEvents.slice().sort((a, b) => a.day - b.day || a.start - b.start);
-  html += '<div class="card"><h2>Chaque semaine</h2><ul class="rows">' + (events.length ? events.map((e) =>
-    '<li><span>' + esc(e.name) + '</span><span class="v">' + DAY_NAMES[e.day] + ' ' + formatTime(e.start) +
-    (e.duration ? ' · ' + formatDuration(e.duration) : '') + '</span></li>').join('') : '<li><span class="v">Aucun</span></li>') + '</ul></div>';
-
-  const sxDays = s.saxophone.days.length === 7 ? 'tous les jours' : (s.saxophone.days.length ? s.saxophone.days.map((d) => DAY_SHORT[d]).join(', ') : 'aucun jour');
-  const hwEvery = s.housework.everyDays === 1 ? 'tous les jours' : 'tous les ' + s.housework.everyDays + ' jours';
-  html += '<div class="card"><h2>Rythme</h2><ul class="rows">' +
-    s.mobileBlocks.map((b) => '<li><span>' + esc(b.name) + '</span><span class="v">' + formatDuration(b.minutes) + ' · ' + ZONES[b.zone].toLowerCase() + ' · priorité ' + b.priority + '</span></li>').join('') +
-    '<li><span>Saxophone</span><span class="v">' + formatDuration(s.saxophone.minutes) + ' · ' + sxDays + '</span></li>' +
-    '<li><span>Ménage</span><span class="v">' + hwEvery + ' · ' + formatDuration(s.housework.minutes) + '</span></li>' +
-    '<li><span>Détente</span><span class="v">plancher ' + formatDuration(s.relax.floorMinutes) + '</span></li></ul></div>';
+  const b = buildDay(s, emptyDay(), recapDay, null);
+  if (b.warnings.length) html += '<div class="banner warn"><strong>À vérifier</strong><ul>' + b.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
+  const entries = [{ at: s.wake - 0.5, html: '<li class="mark"><span class="t">' + formatTime(s.wake) + '</span><span class="dot"></span><span class="what">Lever</span></li>' }];
+  b.placed.forEach((it) => {
+    entries.push({ at: it.start, html: '<li><span class="t">' + formatTime(it.start) + '–' + formatTime(it.end) + '</span><span class="dot"></span><span class="what">' + esc(it.name) +
+      '<small>' + MODE_TAG[it.mode] + '</small></span></li>' });
+  });
+  b.gaps.forEach((g) => {
+    entries.push({ at: g.from + 0.1, html: '<li class="gapli"><span class="t">' + formatDuration(g.minutes) + '</span><span class="dot"></span><span class="what">disponible' + (g.last ? ' avant le coucher' : '') + '</span></li>' });
+  });
+  entries.push({ at: 99999, html: '<li class="mark"><span class="t">' + formatTime(s.bedtime) + '</span><span class="dot"></span><span class="what">Coucher</span></li>' });
+  entries.sort((x, y) => x.at - y.at);
+  html += '<div class="card"><h2>' + DAY_NAMES[recapDay] + '</h2><ul class="tl">' + entries.map((e) => e.html).join('') + '</ul>' +
+    (b.placed.length ? '' : '<p class="help">Aucune activité ce jour-là.</p>') + '</div>';
+  if (b.pending.length) {
+    html += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + b.pending.map((it) =>
+      '<li><span>' + esc(it.name) + '</span><span class="v">' + formatDuration(it.minutes) + '</span></li>').join('') + '</ul>' +
+      '<p class="help" style="margin-top:8px">Plus grand temps disponible : ' + formatDuration(b.largestGap) + '.</p></div>';
+  }
   $('#panel-recap').innerHTML = html;
 }
 
-// ---- Vue du jour (lot 2) ----
+// ---- Vue du jour ----
 const PX = 1.5;   // pixels par minute sur la timeline
 
 function fmtDateLabel(k) {
   const s = parseDateKey(k).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
-
-function hourField(field, label, value, range) {
-  return '<label class="field"><span class="lbl">' + label + '</span><input ' + TIME_ATTRS + ' data-kind="time" data-day-field="' + field +
-    '" placeholder="' + range + '" value="' + (value === null ? '' : formatTime(value)) + '"><span class="err" hidden></span></label>';
-}
+function dayNow() { return selectedDate === dateKey(new Date()) ? nowMinutes() : null; }
+function buildSelected() { return buildDay(current, daysData.days[selectedDate] || emptyDay(), isoWeekday(selectedDate), dayNow()); }
 
 function renderDay() {
-  const t = current.times;
-  const plan = buildPlan(current, daysData.days, selectedDate);
+  const build = buildSelected();
   let head = '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
     '<div class="daylabel">' + esc(fmtDateLabel(selectedDate)) + '</div>' +
     '<button type="button" class="icon-btn" data-day-nav="1" aria-label="Jour suivant">›</button></div>' +
     '<div class="daytools"><button type="button" class="btn" data-day-nav="today">Aujourd’hui</button>' +
-    '<button type="button" class="btn primary" data-action="add-appt">+ Rendez-vous</button></div>';
-
-  if (weekendShift) head += '<div class="banner info">Aujourd’hui, c’est le week-end : le plan du prochain jour de semaine est affiché.</div>';
+    '<button type="button" class="btn primary" data-action="add-block">+ Bloc ponctuel</button></div>';
   if (loadStatus === 'empty') head += '<div class="banner info">Tu utilises les valeurs de départ : enregistre tes réglages dans l’onglet Réglages.</div>';
 
-  if (!plan.planned) {
-    head += '<div class="banner info">Week-end : le plan n’est pas géré en version 1. Passe au jour précédent ou suivant.</div>';
-    $('#day-head').innerHTML = head;
-    $('#day-timeline').innerHTML = '';
-    return;
+  if (build.running) {
+    const r = build.running;
+    head += '<div class="runbar"><div><strong>' + esc(r.name) + '</strong><small>en cours depuis ' + formatTime(r.start) + ' · ' + formatDuration(Math.max(0, dayNow() - r.start)) +
+      ' (prévu ' + formatDuration(r.minutes) + ')</small></div><button type="button" class="btn" data-action="stop" data-key="' + esc(r.key) + '">■ Arrêter</button></div>';
   }
-
-  head += '<div class="card"><h2>Heures du jour</h2><div class="grid2">' +
-    hourField('arrival', 'Arrivée au travail', plan.day.arrival, formatRange(t.workArrival)) +
-    hourField('departure', 'Départ du travail', plan.day.departure, formatRange(t.workDeparture)) + '</div>' +
-    (plan.arrivalReal && plan.departureReal ? '' :
-      '<p class="hours-help">Saisis l’heure réelle. Sans elle, le plan prend le cas prudent : arrivée à ' + formatTime(plan.arrival) + ', départ à ' + formatTime(plan.departure) + '.</p>') + '</div>';
-
-  if (plan.unplaced.length) {
-    head += '<div class="banner warn"><strong>Ne tient pas dans la journée</strong> (rien n’est supprimé) :<ul class="unplaced">' +
-      plan.unplaced.map((m) => '<li>' + esc(m.name) + ' · ' + formatDuration(m.minutes) + ' · ' + ZONES[m.zone].toLowerCase() + '</li>').join('') + '</ul></div>';
+  if (build.pending.length) {
+    head += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + build.pending.map((it) =>
+      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatDuration(it.minutes) + '</span></span><span>' +
+      (dayNow() !== null ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
+      '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul>' +
+      '<p class="hours-help">Plus grand temps disponible : ' + formatDuration(build.largestGap) +
+      (build.pending.some((it) => it.minutes > build.largestGap) ? ' — au moins un bloc ne tient dans aucun créneau (rien n’est supprimé).' : '.') + '</p></div>';
   }
-  if (plan.warnings.length) head += '<div class="banner warn"><strong>À vérifier</strong><ul>' + plan.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
+  if (build.warnings.length) head += '<div class="banner warn"><strong>À vérifier</strong><ul>' + build.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
   $('#day-head').innerHTML = head;
 
   // Timeline
-  const items = plan.fixed.concat(plan.mobile).map((b) => Object.assign({}, b));
+  const t = current;
+  const items = build.placed.map((b) => Object.assign({}, b));
   let lo = Math.min.apply(null, [t.wake].concat(items.map((b) => b.start)));
   let hi = Math.max.apply(null, [t.bedtime].concat(items.map((b) => b.end)));
   lo = Math.floor(lo / 60) * 60;
-  hi = Math.ceil(hi / 60) * 60;
+  hi = Math.min(1440, Math.ceil(hi / 60) * 60);
   layoutColumns(items);
   const y = (m) => (m - lo) * PX;
   let html = '<div class="tlwrap"><div class="tlarea" style="height:' + (hi - lo) * PX + 'px">';
   for (let m = lo; m <= hi; m += 60) html += '<div class="hline" style="top:' + y(m) + 'px"><span>' + pad2(m / 60) + ':00</span></div>';
-  if (plan.departure > plan.arrival) {
-    html += '<div class="band' + (plan.arrivalReal && plan.departureReal ? ' real' : '') + '" style="top:' + y(plan.arrival) + 'px;height:' + (plan.departure - plan.arrival) * PX + 'px"></div>';
-  }
   html += '<div class="marker" style="top:' + y(t.wake) + 'px"><span>Lever ' + formatTime(t.wake) + '</span></div>';
   html += '<div class="marker" style="top:' + y(t.bedtime) + 'px"><span>Coucher ' + formatTime(t.bedtime) + '</span></div>';
+  build.gaps.forEach((g) => {
+    const h = g.minutes * PX;
+    html += '<div class="gap" style="top:' + y(g.from) + 'px;height:' + h + 'px">' + (h >= 18 ? formatDuration(g.minutes) + (g.last ? ' avant le coucher' : ' disponible') : '') + '</div>';
+  });
   items.forEach((b) => {
     const h = Math.max((b.end - b.start) * PX - 2, 22);
     const w = 100 / b.colCount;
-    const attrs = b.kind === 'mobile' ? ' data-action="toggle-done" data-key="' + esc(b.key) + '"'
-      : b.kind === 'appt' ? ' data-action="edit-appt" data-id="' + esc(b.apptId) + '"' : ' tabindex="-1"';
-    const time = formatTime(b.start) + '–' + formatTime(b.end) + (b.assumed ? ' (durée supposée)' : '');
-    html += '<button type="button" class="blk b-' + b.kind + (b.done ? ' done' : '') + (h < 40 ? ' short' : '') + '"' + attrs +
-      ' style="top:' + y(b.start) + 'px;height:' + h + 'px;left:calc(' + b.col * w + '% + 1px);width:calc(' + w + '% - 3px)">' +
-      '<span class="bn">' + (b.done ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + time + (b.note ? ' · ' + esc(b.note) : '') + '</span></button>';
+    let note = '';
+    if (b.state === 'running') note = ' · en cours';
+    else if (b.state === 'done') note = ' · terminé';
+    if (b.shift) note += ' · décalé de ' + formatDuration(b.shift) + ' (prévu ' + formatTime(b.plannedStart) + ')';
+    html += '<button type="button" class="blk b-' + b.mode + (b.state === 'done' ? ' b-done' : '') + (b.state === 'running' ? ' b-running' : '') + (h < 40 ? ' short' : '') +
+      '" data-action="open-block" data-key="' + esc(b.key) + '" style="top:' + y(b.start) + 'px;height:' + h + 'px;left:calc(' + b.col * w + '% + 1px);width:calc(' + w + '% - 3px)">' +
+      '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + formatTime(b.start) + '–' + formatTime(b.end) + esc(note) + '</span></button>';
   });
   html += '</div></div>';
   $('#day-timeline').innerHTML = html;
@@ -770,16 +759,16 @@ function switchTab(name) {
   $('#panel-day').hidden = name !== 'day';
   $('#panel-recap').hidden = name !== 'recap';
   $('#panel-settings').hidden = name !== 'settings';
-  $('#subtitle').textContent = { day: 'Ton plan, recalé autour des rendez-vous.', recap: 'Tes contraintes, saisies une fois.', settings: 'Modifie, puis enregistre.' }[name];
+  $('#subtitle').textContent = { day: 'Ton plan, recalé selon la réalité.', recap: 'Ta semaine type et le temps disponible.', settings: 'Modifie, puis enregistre.' }[name];
   if (name === 'day') renderDay();
   window.scrollTo(0, 0);
 }
 
-// ---- Lecture du formulaire et validation de saisie ----
-function errHost(el) { return el.closest('.event-row') || el.closest('.field'); }
-function clearFlags() {
-  $$('#settings-form [aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
-  $$('#settings-form .err').forEach((el) => { el.textContent = ''; el.hidden = true; });
+// ---- Marquage des erreurs de saisie ----
+function errHost(el) { return el.closest('.act-row') || el.closest('.field'); }
+function clearFlags(root) {
+  $$('[aria-invalid]', root).forEach((el) => el.removeAttribute('aria-invalid'));
+  $$('.err', root).forEach((el) => { el.textContent = ''; el.hidden = true; });
 }
 function flag(el, message, errors) {
   el.setAttribute('aria-invalid', 'true');
@@ -789,64 +778,32 @@ function flag(el, message, errors) {
   errors.push({ el: el, message: message });
 }
 
-function readEventsRaw() {
-  return $$('#events-list .event-row').map((row) => ({
-    id: row.dataset.id,
-    name: $('[data-ev=name]', row).value,
-    day: $('[data-ev=day]', row).value,
-    start: $('[data-ev=start]', row).value,
-    duration: $('[data-ev=duration]', row).value
-  }));
-}
-
 // Retourne { settings, errors }. Les champs invalides sont marqués dans le formulaire.
 function readForm() {
-  clearFlags();
+  const form = $('#settings-form');
+  clearFlags(form);
   const errors = [];
   const s = defaultSettings();
   const parsed = {};
-
-  $$('#settings-form [data-kind=time][data-path]').forEach((inp) => {
+  $$('[data-kind=time][data-path]', form).forEach((inp) => {
     const v = parseTime(inp.value);
     if (v === null) { flag(inp, 'Heure invalide (ex. 06:53)', errors); return; }
     parsed[inp.dataset.path] = v;
     setPath(s, inp.dataset.path, v);
   });
-  $$('#settings-form [data-kind=int][data-path]').forEach((inp) => {
+  $$('[data-kind=int][data-path]', form).forEach((inp) => {
     const min = Number(inp.dataset.min), max = Number(inp.dataset.max);
     const v = parseIntStrict(inp.value);
     if (v === null || v < min || v > max) { flag(inp, 'Nombre entier entre ' + min + ' et ' + max, errors); return; }
     setPath(s, inp.dataset.path, v);
   });
-  ['times.workArrival', 'times.workDeparture'].forEach((base) => {
-    const a = parsed[base + '.min'], b = parsed[base + '.max'];
-    if (a !== undefined && b !== undefined && a > b) flag($('[data-path="' + base + '.min"]'), 'Le début doit précéder la fin', errors);
-  });
-
-  s.saxophone.days = $$('#sax-days .chip').filter((c) => c.getAttribute('aria-pressed') === 'true').map((c) => Number(c.dataset.day));
-
-  s.weeklyEvents = [];
-  $$('#events-list .event-row').forEach((row) => {
-    const nameEl = $('[data-ev=name]', row), startEl = $('[data-ev=start]', row), durEl = $('[data-ev=duration]', row);
-    const name = nameEl.value.trim();
-    const start = parseTime(startEl.value);
-    const dur = durEl.value.trim() === '' ? null : parseIntStrict(durEl.value);
-    let ok = true;
-    if (!name) { flag(nameEl, 'Nom obligatoire', errors); ok = false; }
-    if (start === null) { flag(startEl, 'Heure invalide (ex. 19:00)', errors); ok = false; }
-    if (dur !== null && (dur < 1 || dur > 1440)) { flag(durEl, 'Durée entre 1 et 1440 min', errors); ok = false; }
-    if (durEl.value.trim() !== '' && dur === null) { flag(durEl, 'Durée invalide', errors); ok = false; }
-    if (ok) s.weeklyEvents.push({ id: row.dataset.id || newId(), name: name, day: Number($('[data-ev=day]', row).value), start: start, duration: dur });
-  });
-  s.mobileBlocks = [];
-  $$('#blocks-list .event-row').forEach((row) => {
-    const nameEl = $('[data-bl=name]', row), minEl = $('[data-bl=minutes]', row);
-    const name = nameEl.value.trim();
-    const minutes = parseIntStrict(minEl.value);
-    let ok = true;
-    if (!name) { flag(nameEl, 'Nom obligatoire', errors); ok = false; }
-    if (minutes === null || minutes < 5 || minutes > 600) { flag(minEl, 'Durée entre 5 et 600 min', errors); ok = false; }
-    if (ok) s.mobileBlocks.push({ id: row.dataset.id || newId(), name: name, minutes: minutes, zone: $('[data-bl=zone]', row).value, priority: Number($('[data-bl=priority]', row).value) });
+  if (parsed.wake !== undefined && parsed.bedtime !== undefined && parsed.bedtime <= parsed.wake) {
+    flag($('[data-path=bedtime]', form), 'Le coucher doit être après le lever', errors);
+  }
+  s.activities = [];
+  $$('#acts-list .act-row', form).forEach((row) => {
+    const a = readActRow(row, errors);
+    if (a) s.activities.push(a);
   });
   return { settings: s, errors: errors };
 }
@@ -855,10 +812,10 @@ function readForm() {
 let current = null;     // réglages enregistrés (ou valeurs de départ)
 let loadStatus = 'empty';
 let dirty = false;
-let daysData = emptyDays();   // rendez-vous, heures réelles et cases cochées, par date
+let daysData = emptyDays();   // heures réelles et blocs ponctuels, par date
 let selectedDate = null;      // « AAAA-MM-JJ » du jour affiché
-let weekendShift = false;     // vrai si on a avancé au lundi parce qu'on est en week-end
-let editingApptId = null;     // null = nouveau rendez-vous
+let panelKey = null;          // clé du bloc ouvert dans le panneau ; null = nouveau bloc ponctuel
+let panelOpen = false;
 
 function setDirty(value) {
   dirty = value;
@@ -866,8 +823,6 @@ function setDirty(value) {
   msg.textContent = dirty ? 'Modifications non enregistrées' : 'Aucune modification';
   msg.classList.toggle('dirty', dirty);
 }
-
-function nextWeekday(k) { let d = k; while (isoWeekday(d) > 5) d = addDays(d, 1); return d; }
 
 function ensureDay() {
   if (!daysData.days[selectedDate]) daysData.days[selectedDate] = emptyDay();
@@ -877,64 +832,101 @@ function persistDays() {
   if (!saveDays(daysData)) showToast('Enregistrement impossible sur cet appareil', 'err');
 }
 
-function openApptEditor(id) {
-  const form = $('#appt-form');
-  const day = daysData.days[selectedDate] || emptyDay();
-  const appt = id ? day.appointments.find((a) => a.id === id) : null;
-  editingApptId = appt ? appt.id : null;
-  $('#appt-heading').textContent = appt ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous';
-  $('#appt-ok').textContent = appt ? 'Enregistrer' : 'Ajouter';
-  $('#appt-del').hidden = !appt;
-  $('#appt-title').value = appt ? appt.title : '';
-  $('#appt-start').value = appt ? formatTime(appt.start) : '';
-  $('#appt-duration').value = String(appt ? appt.duration : DEFAULT_APPT_MINUTES);
-  $('#appt-err').hidden = true;
-  $$('#appt-form [aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
-  form.hidden = false;
-  form.scrollIntoView({ block: 'center' });
-  $('#appt-title').focus();
-}
-function closeApptEditor() { $('#appt-form').hidden = true; editingApptId = null; }
-
-function submitAppt() {
-  const titleEl = $('#appt-title'), startEl = $('#appt-start'), durEl = $('#appt-duration');
-  const errs = [];
-  $$('#appt-form [aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
-  const title = titleEl.value.trim();
-  const start = parseTime(startEl.value);
-  const dur = parseIntStrict(durEl.value);
-  if (!title) { titleEl.setAttribute('aria-invalid', 'true'); errs.push('titre obligatoire'); }
-  if (start === null) { startEl.setAttribute('aria-invalid', 'true'); errs.push('heure de début invalide (ex. 09:00)'); }
-  if (dur === null || dur < 1 || dur > 1440) { durEl.setAttribute('aria-invalid', 'true'); errs.push('durée entre 1 et 1440 min'); }
-  const errEl = $('#appt-err');
-  if (errs.length) { errEl.textContent = 'À corriger : ' + errs.join(' ; ') + '.'; errEl.hidden = false; return; }
-  errEl.hidden = true;
+// ---- Chrono ----
+function startNow(key) {
+  const now = dayNow();
+  if (now === null) return;
   const day = ensureDay();
-  if (editingApptId) {
-    const a = day.appointments.find((x) => x.id === editingApptId);
-    if (a) { a.title = title; a.start = start; a.duration = dur; }
-  } else {
-    day.appointments.push({ id: newId(), title: title, start: start, duration: dur });
-  }
+  Object.keys(day.real).forEach((k) => {           // un seul bloc en cours à la fois : on arrête les autres
+    const r = day.real[k];
+    if (k !== key && r.start !== null && r.end === null) r.end = Math.min(1439, Math.max(now, r.start + 1));
+  });
+  day.real[key] = { start: now, end: null };
   persistDays();
-  closeApptEditor();
+  renderDay();
+}
+function stopNow(key) {
+  const now = dayNow();
+  const day = ensureDay();
+  const r = day.real[key];
+  if (now === null || !r || r.start === null) return;
+  r.end = Math.min(1439, Math.max(now, r.start + 1));
+  persistDays();
   renderDay();
 }
 
-function commitHour(el) {
-  const field = el.dataset.dayField;
-  const text = el.value.trim();
-  const err = el.closest('.field').querySelector('.err');
-  err.hidden = true;
-  el.removeAttribute('aria-invalid');
-  if (text === '') {
-    ensureDay()[field] = null;
-  } else {
-    const v = parseTime(text);
-    if (v === null) { el.setAttribute('aria-invalid', 'true'); err.textContent = 'Heure invalide (ex. 07:35)'; err.hidden = false; return; }
-    ensureDay()[field] = v;
+// ---- Panneau d'un bloc (détails, heures réelles, bloc ponctuel) ----
+function closePanel() { $('#block-panel').hidden = true; panelOpen = false; panelKey = null; }
+
+function openPanel(key) {
+  const form = $('#block-panel');
+  const build = buildSelected();
+  const it = key ? build.placed.concat(build.pending).find((x) => x.key === key) : null;
+  if (key && !it) return;
+  panelKey = key;
+  panelOpen = true;
+  clearFlags(form);
+  const isP = !it || it.kind === 'p';
+  const today = dayNow() !== null;
+  $('#bp-title').textContent = it ? it.name : 'Nouveau bloc ponctuel';
+  $('#bp-edit').innerHTML = isP
+    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes } :
+      { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60 }), { days: false, del: false })
+    : '';
+  if (it && it.mode === 'free') { /* durée seule */ }
+  $('#bp-planned').textContent = !it ? 'Un bloc ponctuel ne concerne que ce jour.'
+    : (it.mode === 'free' ? 'Sans heure · ' + formatDuration(it.minutes) : 'Prévu : ' + formatTime(it.plannedStart) + '–' + formatTime(it.plannedStart + it.minutes) + ' · ' + MODE_TAG[it.mode]) +
+      (it.kind === 'act' ? ' · à modifier dans Réglages' : '');
+  $('#bp-real').hidden = !it;
+  const real = it ? it.real : { start: null, end: null };
+  $('#bp-real-start').value = real.start === null ? '' : formatTime(real.start);
+  $('#bp-real-end').value = real.end === null ? '' : formatTime(real.end);
+  $('#bp-start').hidden = !(it && today && real.start === null);
+  $('#bp-stop').hidden = !(it && today && real.start !== null && real.end === null);
+  $('#bp-clear').hidden = !(it && (real.start !== null || real.end !== null));
+  $('#bp-del').hidden = !(it && isP);
+  $('#bp-save').textContent = it ? 'Enregistrer' : 'Ajouter';
+  $('#bp-err').hidden = true;
+  form.hidden = false;
+  form.scrollIntoView({ block: 'center' });
+  const first = $('[data-a=name]', form);
+  if (first && !it) first.focus();
+}
+
+function savePanel() {
+  const form = $('#block-panel');
+  clearFlags(form);
+  const errors = [];
+  const build = buildSelected();
+  const it = panelKey ? build.placed.concat(build.pending).find((x) => x.key === panelKey) : null;
+  const isP = !it || it.kind === 'p';
+  let edited = null;
+  if (isP) { edited = readActRow($('#bp-edit .act-row'), errors); }
+  let rs = null, re = null;
+  if (it) {
+    const sEl = $('#bp-real-start'), eEl = $('#bp-real-end');
+    if (sEl.value.trim() !== '') { rs = parseTime(sEl.value); if (rs === null) flag(sEl, 'Heure invalide', errors); }
+    if (eEl.value.trim() !== '') { re = parseTime(eEl.value); if (re === null) flag(eEl, 'Heure invalide', errors); }
+    const mode = edited ? edited.mode : it.mode;
+    if (rs !== null && re !== null && re <= rs) flag(eEl, 'La fin doit être après le début', errors);
+    if (mode === 'free' && re !== null && rs === null) flag(sEl, 'Renseigne aussi le début', errors);
   }
+  if (errors.length) {
+    const msg = $('#bp-err');
+    msg.textContent = 'À corriger : ' + errors.map((e) => e.message.toLowerCase()).join(' ; ') + '.';
+    msg.hidden = false;
+    return;
+  }
+  const day = ensureDay();
+  let key = panelKey;
+  if (isP && edited) {
+    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration };
+    if (!it) { day.ponctuels.push(p); key = 'p:' + p.id; }
+    else { const i = day.ponctuels.findIndex((x) => 'p:' + x.id === panelKey); if (i >= 0) day.ponctuels[i] = p; }
+  }
+  if (it && key) { if (rs === null && re === null) delete day.real[key]; else day.real[key] = { start: rs, end: re }; }
   persistDays();
+  closePanel();
   renderDay();
 }
 
@@ -943,38 +935,43 @@ function bindDayEvents() {
   panel.addEventListener('click', (e) => {
     const nav = e.target.closest('[data-day-nav]');
     if (nav) {
-      weekendShift = false;
       const v = nav.dataset.dayNav;
-      selectedDate = v === 'today' ? nextWeekday(dateKey(new Date())) : addDays(selectedDate, Number(v));
-      closeApptEditor();
+      selectedDate = v === 'today' ? dateKey(new Date()) : addDays(selectedDate, Number(v));
+      closePanel();
       renderDay();
       return;
     }
     const act = e.target.closest('[data-action]');
     if (act) {
-      if (act.dataset.action === 'add-appt') openApptEditor(null);
-      else if (act.dataset.action === 'edit-appt') openApptEditor(act.dataset.id);
-      else if (act.dataset.action === 'toggle-done') {
-        const day = ensureDay();
-        day.done[act.dataset.key] = !day.done[act.dataset.key];
-        persistDays();
-        renderDay();
-      }
+      const a = act.dataset.action;
+      if (a === 'add-block') openPanel(null);
+      else if (a === 'open-block') openPanel(act.dataset.key);
+      else if (a === 'start') startNow(act.dataset.key);
+      else if (a === 'stop') stopNow(act.dataset.key);
       return;
     }
-    const appt = e.target.closest('[data-appt]');
-    if (appt) {
-      if (appt.dataset.appt === 'cancel') closeApptEditor();
-      else if (appt.dataset.appt === 'delete' && editingApptId) {
-        const day = ensureDay();
-        day.appointments = day.appointments.filter((a) => a.id !== editingApptId);
-        persistDays();
-        closeApptEditor();
-        renderDay();
-      }
+    const bp = e.target.closest('[data-bp]');
+    if (!bp) return;
+    const what = bp.dataset.bp;
+    if (what === 'close') closePanel();
+    else if (what === 'start' && panelKey) { const key = panelKey; closePanel(); startNow(key); }
+    else if (what === 'stop' && panelKey) { const key = panelKey; closePanel(); stopNow(key); }
+    else if (what === 'clear' && panelKey) { delete ensureDay().real[panelKey]; persistDays(); closePanel(); renderDay(); }
+    else if (what === 'delete' && panelKey) {
+      const day = ensureDay();
+      day.ponctuels = day.ponctuels.filter((p) => 'p:' + p.id !== panelKey);
+      delete day.real[panelKey];
+      persistDays();
+      closePanel();
+      renderDay();
     }
   });
-  panel.addEventListener('change', (e) => { if (e.target.matches('[data-day-field]')) commitHour(e.target); });
+  panel.addEventListener('change', (e) => {
+    const row = e.target.closest('#bp-edit .act-row');
+    if (!row) return;
+    if (e.target.matches('[data-a=entry]')) convertSecond(row, e.target.value);
+    if (e.target.matches('[data-a=mode],[data-a=entry]')) updateRowUi(row);
+  });
   panel.addEventListener('focusin', (e) => {
     const el = e.target;
     if (el.matches && el.matches('[data-kind]')) setTimeout(() => { try { el.select(); } catch (x) { /* ignoré */ } }, 0);
@@ -983,7 +980,7 @@ function bindDayEvents() {
     const el = e.target;
     if (el.matches && el.matches('[data-kind=time]')) { const v = parseTime(el.value); if (v !== null) el.value = formatTime(v); }
   });
-  $('#appt-form').addEventListener('submit', (e) => { e.preventDefault(); submitAppt(); });
+  $('#block-panel').addEventListener('submit', (e) => { e.preventDefault(); savePanel(); });
 }
 
 function bindEvents() {
@@ -991,9 +988,20 @@ function bindEvents() {
   const form = $('#settings-form');
 
   $$('.tabbar button').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  $('#panel-recap').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-recap-day]');
+    if (b) { recapDay = Number(b.dataset.recapDay); renderRecap(current, loadStatus); }
+  });
 
   form.addEventListener('input', () => setDirty(true));
-  form.addEventListener('change', () => setDirty(true));
+  form.addEventListener('change', (e) => {
+    const row = e.target.closest('.act-row');
+    if (row) {
+      if (e.target.matches('[data-a=entry]')) convertSecond(row, e.target.value);
+      if (e.target.matches('[data-a=mode],[data-a=entry]')) updateRowUi(row);
+    }
+    setDirty(true);
+  });
   form.addEventListener('focusin', (e) => {
     const el = e.target;
     if (el.matches && el.matches('[data-kind]')) setTimeout(() => { try { el.select(); } catch (x) { /* ignoré */ } }, 0);
@@ -1016,28 +1024,17 @@ function bindEvents() {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
-    if (action === 'add-event') {
-      const raw = readEventsRaw();
-      raw.push({ id: newId(), name: '', day: 1, start: '', duration: '' });
-      $('#events-list').innerHTML = raw.map(eventRow).join('');
-      const names = $$('#events-list [data-ev=name]');
+    if (action === 'add-act') {
+      const raws = $$('#acts-list .act-row').map(readActRaw);
+      raws.push({ id: newId(), name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30' });
+      $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true })).join('');
+      const names = $$('#acts-list [data-a=name]');
       names[names.length - 1].focus();
       setDirty(true);
-    } else if (action === 'del-event') {
-      const row = btn.closest('.event-row');
-      const raw = readEventsRaw().filter((r) => r.id !== row.dataset.id);
-      $('#events-list').innerHTML = raw.map(eventRow).join('');
-      setDirty(true);
-    } else if (action === 'add-block') {
-      const raw = readBlocksRaw();
-      raw.push({ id: newId(), name: '', minutes: '30', zone: 'evening', priority: '5' });
-      $('#blocks-list').innerHTML = raw.map(blockRow).join('');
-      const names = $$('#blocks-list [data-bl=name]');
-      names[names.length - 1].focus();
-      setDirty(true);
-    } else if (action === 'del-block') {
-      const row = btn.closest('.event-row');
-      $('#blocks-list').innerHTML = readBlocksRaw().filter((r) => r.id !== row.dataset.id).map(blockRow).join('');
+    } else if (action === 'del-act') {
+      const row = btn.closest('.act-row');
+      const raws = $$('#acts-list .act-row').map(readActRaw).filter((r) => r.id !== row.dataset.id);
+      $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true })).join('');
       setDirty(true);
     } else if (action === 'reset') {
       if (window.confirm('Remplacer les champs par les valeurs de départ ? Rien ne sera enregistré avant que tu appuies sur « Enregistrer ».')) {
@@ -1067,8 +1064,7 @@ function bindEvents() {
     renderRecap(current, loadStatus);
     renderDay();
     setDirty(false);
-    const warnings = checkConsistency(current);
-    showToast(warnings.length ? 'Enregistré · ' + warnings.length + ' point(s) à vérifier dans Récapitulatif' : 'Enregistré');
+    showToast('Enregistré');
   });
 }
 
@@ -1078,15 +1074,18 @@ function init() {
   current = loaded.settings;
   loadStatus = loaded.status;
   daysData = loadDays();
-  const today = dateKey(new Date());
-  selectedDate = nextWeekday(today);
-  weekendShift = selectedDate !== today;
+  selectedDate = dateKey(new Date());
+  recapDay = isoWeekday(selectedDate);
   renderForm(current);
   renderRecap(current, loadStatus);
   setDirty(false);
   bindEvents();
   switchTab('day');
-  window.PDJ = { buildPlan: buildPlan, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
+  // Un bloc en cours fait glisser la suite : on rafraîchit la vue du jour toutes les 15 secondes.
+  setInterval(() => {
+    if (!$('#panel-day').hidden && !panelOpen && dayNow() !== null && buildSelected().running) renderDay();
+  }, 15000);
+  window.PDJ = { buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });
