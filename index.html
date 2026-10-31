@@ -74,7 +74,7 @@ main { max-width: 720px; margin: 0 auto; padding: 8px 16px calc(var(--tabbar-h) 
 /* Formulaire */
 .field { display: block; margin: 10px 0; }
 .lbl { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
-input[type=text], select {
+input[type=text], input[type=date], select {
   width: 100%; min-height: 44px; padding: 8px 12px; font: inherit; font-size: 16px; color: var(--ink);
   background: var(--bg); border: 1px solid var(--line); border-radius: 10px; -webkit-appearance: none; appearance: none;
 }
@@ -166,6 +166,13 @@ button { font: inherit; }
 .subchk { display: flex; align-items: center; gap: 12px; flex: 1; min-height: 44px; }
 .subtxt small { display: block; color: var(--muted); font-size: 13px; }
 .sublabel.done { text-decoration: line-through; color: var(--muted); }
+.rv-head { display: flex; width: 100%; justify-content: space-between; align-items: center; min-height: 44px; padding: 0; border: 0; background: none; color: var(--ink); text-align: left; font-size: 16px; }
+.rows li.rvi { display: block; }
+.rvi small { display: block; color: var(--muted); font-size: 13px; }
+.rvbtn { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.card.pick { border-color: var(--accent); border-width: 2px; }
+.pickrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.pickrow input[type=date] { width: auto; flex: 1 1 150px; }
 </style>
 </head>
 <body>
@@ -233,7 +240,8 @@ button { font: inherit; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.4.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.5.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
 const DAYS_KEY = 'plandujour.jours';
@@ -270,8 +278,9 @@ function parseIntStrict(text) {
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 
 // ==== 3. VALEURS PAR DÉFAUT ====
-function makeAct(id, name, days, mode, entry, start, duration, confirm) {
-  return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: duration, confirm: confirm === true };
+function makeAct(id, name, days, mode, entry, start, duration, confirm, carry) {
+  return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: duration, confirm: confirm === true,
+    carry: carry === undefined ? DEFAULT_CARRY.includes(id) : carry === true };
 }
 function defaultSettings() {
   return {
@@ -290,7 +299,7 @@ function defaultSettings() {
     ]
   };
 }
-function emptyDay() { return { real: {}, ponctuels: [], subtasks: {} }; }
+function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {} }; }
 function emptyDays() { return { version: DAYS_VERSION, days: {} }; }
 
 // ==== 4. STOCKAGE ====
@@ -312,7 +321,8 @@ function sanitizeActs(list, fallback) {
     out.push({
       id: typeof a.id === 'string' ? a.id : newId(), name: a.name.trim().slice(0, 40), days: cleanDays(a.days), mode: a.mode,
       entry: a.entry === 'end' ? 'end' : 'duration', start: free ? null : a.start, duration: free ? a.duration : Math.min(a.duration, 1440 - a.start),
-      confirm: !free && a.confirm === true
+      confirm: !free && a.confirm === true,
+      carry: a.carry === undefined ? DEFAULT_CARRY.includes(a.id) : a.carry === true
     });
   });
   return out;
@@ -413,7 +423,22 @@ function cleanPonctuel(p) {
   return {
     id: typeof p.id === 'string' ? p.id : newId(), name: p.name.trim().slice(0, 40), mode: mode, entry: p.entry === 'end' ? 'end' : 'duration',
     start: mode === 'free' ? null : p.start, duration: mode === 'free' ? p.duration : Math.min(p.duration, 1440 - p.start),
-    confirm: mode !== 'free' && p.confirm === true
+    confirm: mode !== 'free' && p.confirm === true,
+    carry: p.carry === true,
+    from: isDateKey(p.from) ? p.from : null          // jour d'origine d'un bloc reporté
+  };
+}
+function isDateKey(k) { return typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k); }
+// Trace d'une revue : { status: 'carried' | 'dropped', part: 'block' | 'subs', to, pid, tkey, sids, setMissed }
+function cleanReview(r) {
+  if (!r || (r.status !== 'carried' && r.status !== 'dropped')) return null;
+  const str = (v) => (typeof v === 'string' ? v : null);
+  return {
+    status: r.status, part: r.part === 'subs' ? 'subs' : 'block',
+    to: r.status === 'carried' && isDateKey(r.to) ? r.to : null,
+    pid: str(r.pid), tkey: str(r.tkey),
+    sids: Array.isArray(r.sids) ? r.sids.filter((x) => typeof x === 'string') : [],
+    setMissed: r.setMissed === true
   };
 }
 function sanitizeDays(raw) {
@@ -435,6 +460,7 @@ function sanitizeDays(raw) {
       if (d.real && typeof d.real === 'object') Object.keys(d.real).forEach((key) => { const r = cleanReal(d.real[key]); if (r) day.real[key] = r; });
       (Array.isArray(d.ponctuels) ? d.ponctuels : []).forEach((p) => { const c = cleanPonctuel(p); if (c) day.ponctuels.push(c); });
       if (d.subtasks && typeof d.subtasks === 'object') Object.keys(d.subtasks).forEach((key) => { const l = cleanSubtasks(d.subtasks[key]); if (l.length) day.subtasks[key] = l; });
+      if (d.review && typeof d.review === 'object') Object.keys(d.review).forEach((key) => { const r = cleanReview(d.review[key]); if (r) day.review[key] = r; });
     }
     out.days[k] = day;
   });
@@ -479,18 +505,19 @@ function isoWeekday(k) { const g = parseDateKey(k).getDay(); return g === 0 ? 7 
 // nowMin : minutes actuelles si le jour affiché est aujourd'hui, sinon null.
 // past : vrai si le jour affiché est antérieur à aujourd'hui (les blocs « à confirmer » non pointés sont alors tous à confirmer).
 function buildDay(settings, dayData, weekday, nowMin, past) {
-  const out = { placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null };
+  const out = { placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
-    if (a.days.includes(weekday)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
+    if (a.days.includes(weekday)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
-    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
+    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
   });
   const timed = [];
   items.forEach((it) => {
     it.real = dayData.real[it.key] || { start: null, end: null };
     it.subs = (dayData.subtasks && dayData.subtasks[it.key]) || [];
+    it.review = (dayData.review && dayData.review[it.key]) || null;
     if (it.real.missed) out.missed.push(it);                      // raté : le bloc quitte le plan et libère son temps
     else if (it.mode === 'free' && it.real.start === null) out.pending.push(it);
     else timed.push(it);
@@ -538,6 +565,16 @@ function buildDay(settings, dayData, weekday, nowMin, past) {
   }
   out.gaps.forEach((g) => { out.largestGap = Math.max(out.largestGap, g.minutes); });
   out.placed = byStart;
+
+  // Revue du jour : blocs « à reporter » non faits, ou faits avec des sous-tâches non cochées. Les blocs déjà traités sont listés à part.
+  // (state : absent pour un bloc sans heure non lancé et pour un raté ; 'planned' | 'running' | 'started' | 'done' sinon.)
+  timed.concat(out.pending, out.missed).forEach((it) => {
+    if (it.review) { out.reviewed.push(it); return; }
+    if (!it.carry || it.state === 'running') return;
+    const unchecked = it.subs.filter((t) => !t.done).length;
+    const notDone = it.state === undefined || it.state === 'planned';
+    if (notDone || unchecked > 0) out.review.push({ item: it, part: notDone ? 'block' : 'subs', unchecked: unchecked, total: it.subs.length });
+  });
   return out;
 }
 
@@ -583,7 +620,7 @@ function actToRaw(a) {
   const free = a.mode === 'free';
   const entry = !free && a.entry === 'end' && a.start + a.duration < 1440 ? 'end' : 'duration';
   return {
-    id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true,
+    id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true, carry: a.carry === true,
     start: free || a.start === null ? '' : formatTime(a.start),
     second: !free && entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration)
   };
@@ -601,7 +638,8 @@ function actRowHtml(r, opts) {
     '<label class="field timed"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-a="start" value="' + esc(r.start) + '"></label>' +
     '<label class="field"><span class="lbl" data-a-label>' + (secondIsTime ? 'Fin' : 'Durée (minutes)') + '</span><input ' + (secondIsTime ? TIME_ATTRS : INT_ATTRS) +
     ' data-kind="' + (secondIsTime ? 'time' : 'int') + '" data-a="second" value="' + esc(r.second) + '"></label>' +
-    '<label class="field timed wide chk"><input type="checkbox" data-a="confirm"' + (r.confirm ? ' checked' : '') + '> À confirmer (« Fait / Raté » proposé après l’heure)</label>';
+    '<label class="field timed wide chk"><input type="checkbox" data-a="confirm"' + (r.confirm ? ' checked' : '') + '> À confirmer (« Fait / Raté » proposé après l’heure)</label>' +
+    '<label class="field wide chk"><input type="checkbox" data-a="carry"' + (r.carry ? ' checked' : '') + '> À reporter (proposé dans la revue du jour si non fait)</label>';
   if (opts.days) {
     html += '<div class="field wide"><span class="lbl">Jours</span><div class="chips">' +
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>';
@@ -635,7 +673,7 @@ function convertSecond(row, newEntry) {
 function readActRaw(row) {
   return {
     id: row.dataset.id, name: $('[data-a=name]', row).value, mode: $('[data-a=mode]', row).value, entry: $('[data-a=entry]', row).value,
-    start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value, confirm: $('[data-a=confirm]', row).checked,
+    start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value, confirm: $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked,
     days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day))
   };
 }
@@ -666,7 +704,7 @@ function readActRow(row, errors) {
   }
   if (errors.length > before) return null;
   return { id: row.dataset.id || newId(), name: name, days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
-    confirm: mode !== 'free' && $('[data-a=confirm]', row).checked };
+    confirm: mode !== 'free' && $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked };
 }
 
 function renderForm(s) {
@@ -726,6 +764,60 @@ function fmtDateLabel(k) {
 function dayNow() { return selectedDate === dateKey(new Date()) ? nowMinutes() : null; }
 function buildSelected() { return buildDay(current, daysData.days[selectedDate] || emptyDay(), isoWeekday(selectedDate), dayNow(), selectedDate < dateKey(new Date())); }
 function subsProgress(it) { return it.subs.length ? it.subs.filter((t) => t.done).length + '/' + it.subs.length : ''; }
+function fromLabel(k) { return DAY_SHORT[isoWeekday(k)] + ' ' + k.slice(8, 10) + '/' + k.slice(5, 7); }
+function plural(n, one, many) { return n + ' ' + (n > 1 ? many : one); }
+
+// ---- Revue du jour : reporter ou abandonner ce qui n'a pas été fait ----
+let reviewOpen = null;     // null = ouverte d'office pour un jour passé ; sinon choix de l'utilisateur
+let reviewPick = null;     // clé du bloc dont on choisit le jour de report
+let reviewError = '';
+function reviewStatusText(r) {
+  const it = r.item;
+  const subs = r.unchecked ? plural(r.unchecked, 'sous-tâche non cochée', 'sous-tâches non cochées') : '';
+  if (r.part === 'subs') return subs + ' sur ' + r.total;
+  return (it.real.missed ? 'raté' : 'pas fait') + (subs ? ' · ' + subs : '');
+}
+function reviewDoneText(it) {
+  const rv = it.review;
+  if (rv.status === 'dropped') return 'abandonné';
+  return 'reporté au ' + fromLabel(rv.to);
+}
+function reviewHtml(build, today) {
+  if (selectedDate > today || (!build.review.length && !build.reviewed.length)) return '';
+  const past = selectedDate < today;
+  const open = reviewOpen === null ? past : reviewOpen;
+  const next = past ? 'Jour suivant' : 'Demain';
+  let html = '<div class="card"><button type="button" class="rv-head" data-action="rv-toggle" aria-expanded="' + open + '"><span><strong>Revue du jour</strong> · ' +
+    (build.review.length ? build.review.length + ' à voir' : 'tout est traité') + '</span><span aria-hidden="true">' + (open ? '▴' : '▾') + '</span></button>';
+  if (open) {
+    if (build.review.length) {
+      html += '<ul class="rows">' + build.review.map((r) =>
+        '<li class="rvi"><strong>' + esc(r.item.name) + '</strong><small>' + esc(reviewStatusText(r)) + '</small><div class="rvbtn">' +
+        '<button type="button" class="btn small primary" data-action="rv-carry" data-key="' + esc(r.item.key) + '">→ ' + next + '</button>' +
+        '<button type="button" class="btn small" data-action="rv-pick" data-key="' + esc(r.item.key) + '">Autre jour…</button>' +
+        '<button type="button" class="btn small" data-action="rv-drop" data-key="' + esc(r.item.key) + '">Abandonner</button></div></li>').join('') + '</ul>';
+    }
+    if (build.reviewed.length) {
+      html += '<h3 class="subh">Déjà traités</h3><ul class="rows">' + build.reviewed.map((it) =>
+        '<li><span>' + esc(it.name) + ' <span class="v">· ' + esc(reviewDoneText(it)) + '</span></span>' +
+        '<button type="button" class="btn small" data-action="rv-undo" data-key="' + esc(it.key) + '">Annuler</button></li>').join('') + '</ul>';
+    }
+  }
+  return html + '</div>';
+}
+function pickHtml(build) {
+  if (reviewPick === null) return '';
+  const it = build.placed.concat(build.pending, build.missed).find((x) => x.key === reviewPick);
+  if (!it) return '';
+  const unchecked = it.subs.filter((t) => !t.done).length;
+  return '<div class="card pick"><h2>Reporter « ' + esc(it.name) + ' »</h2>' +
+    (unchecked ? '<p class="help">' + plural(unchecked, 'sous-tâche non cochée suit', 'sous-tâches non cochées suivent') + '.</p>' : '') +
+    '<div class="pickrow"><button type="button" class="btn small primary" data-action="rv-carry" data-key="' + esc(it.key) + '">→ ' + (selectedDate < dateKey(new Date()) ? 'Jour suivant' : 'Demain') + '</button>' +
+    '<input type="date" id="rv-date" min="' + addDays(selectedDate, 1) + '" value="' + addDays(selectedDate, 2) + '" aria-label="Jour du report">' +
+    '<button type="button" class="btn small" data-action="rv-go" data-key="' + esc(it.key) + '">Reporter à ce jour</button>' +
+    '<button type="button" class="btn small" data-action="rv-cancel">Annuler</button></div>' +
+    (reviewError ? '<span class="err">' + esc(reviewError) + '</span>' : '') + '</div>';
+}
 
 function renderDay() {
   const build = buildSelected();
@@ -750,9 +842,10 @@ function renderDay() {
     head += '<div class="runbar"><div><strong>' + esc(r.name) + '</strong><small>en cours depuis ' + formatTime(r.start) + ' · ' + formatDuration(Math.max(0, dayNow() - r.start)) +
       ' (prévu ' + formatDuration(r.minutes) + ')</small></div><button type="button" class="btn" data-action="stop" data-key="' + esc(r.key) + '">■ Arrêter</button></div>';
   }
+  head += pickHtml(build) + reviewHtml(build, dateKey(new Date()));
   if (build.pending.length) {
     head += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + build.pending.map((it) =>
-      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatDuration(it.minutes) + (it.subs.length ? ' · ' + subsProgress(it) : '') + '</span></span><span>' +
+      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatDuration(it.minutes) + (it.subs.length ? ' · ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span></span><span>' +
       (dayNow() !== null ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
       '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul>' +
       '<p class="hours-help">Plus grand temps disponible : ' + formatDuration(build.largestGap) +
@@ -761,8 +854,10 @@ function renderDay() {
   if (build.warnings.length) head += '<div class="banner warn"><strong>À vérifier</strong><ul>' + build.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
   if (build.missed.length) {
     head += '<div class="card"><h2>Ratés</h2><ul class="rows">' + build.missed.map((it) =>
-      '<li><span>' + esc(it.name) + (it.plannedStart !== null ? ' <span class="v">· prévu ' + formatTime(it.plannedStart) + '</span>' : '') + '</span>' +
-      '<button type="button" class="btn small" data-action="unmiss" data-key="' + esc(it.key) + '">Rétablir</button></li>').join('') + '</ul></div>';
+      '<li><span>' + esc(it.name) + (it.plannedStart !== null ? ' <span class="v">· prévu ' + formatTime(it.plannedStart) + '</span>' : '') +
+      (it.review ? ' <span class="v">· ' + esc(reviewDoneText(it)) + '</span>' : '') + '</span><span>' +
+      (!it.review && selectedDate <= dateKey(new Date()) ? '<button type="button" class="btn small" data-action="rv-pick" data-key="' + esc(it.key) + '">Reporter…</button> ' : '') +
+      '<button type="button" class="btn small" data-action="unmiss" data-key="' + esc(it.key) + '">Rétablir</button></span></li>').join('') + '</ul></div>';
   }
   $('#day-head').innerHTML = head;
 
@@ -791,6 +886,7 @@ function renderDay() {
     else if (b.state === 'done') note = ' · terminé';
     if (b.shift) note += ' · décalé de ' + formatDuration(b.shift) + ' (prévu ' + formatTime(b.plannedStart) + ')';
     if (b.subs.length) note += ' · ' + subsProgress(b);
+    if (b.from) note += ' · reporté de ' + fromLabel(b.from);
     html += '<button type="button" class="blk b-' + b.mode + (b.state === 'done' ? ' b-done' : '') + (b.state === 'running' ? ' b-running' : '') + (h < 40 ? ' short' : '') +
       '" data-action="open-block" data-key="' + esc(b.key) + '" style="top:' + y(b.start) + 'px;height:' + h + 'px;left:calc(' + b.col * w + '% + 1px);width:calc(' + w + '% - 3px)">' +
       '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + formatTime(b.start) + '–' + formatTime(b.end) + esc(note) + '</span></button>';
@@ -910,6 +1006,76 @@ function stopNow(key) {
   renderDay();
 }
 
+// ---- Revue du jour : reporter / abandonner / annuler ----
+function findItem(key) { const b = buildSelected(); return b.placed.concat(b.pending, b.missed).find((x) => x.key === key) || null; }
+
+// Reporte vers le jour `target` (strictement après le jour affiché).
+// Un bloc non fait devient un bloc ponctuel « sans heure » du jour cible, avec ses sous-tâches non cochées ; l'original quitte le plan (comme un raté).
+// Un bloc fait garde sa place : seules ses sous-tâches non cochées partent (sur la même activité si elle est prévue ce jour-là, sinon dans un bloc sans heure).
+function carryItem(key, target) {
+  const it = findItem(key);
+  if (!it || it.review || !isDateKey(target) || target <= selectedDate) return false;
+  const src = ensureDay();
+  const unchecked = (src.subtasks[key] || []).filter((t) => !t.done);
+  const notDone = it.state === undefined || it.state === 'planned';
+  if (!notDone && !unchecked.length) return false;
+  if (!daysData.days[target]) daysData.days[target] = emptyDay();
+  const dst = daysData.days[target];
+  const rv = { status: 'carried', part: notDone ? 'block' : 'subs', to: target, pid: null, tkey: null, sids: [], setMissed: false };
+  const act = it.kind === 'act' ? current.activities.find((a) => a.id === it.id) : null;
+  if (!notDone && act && act.days.includes(isoWeekday(target))) {
+    rv.tkey = key;                                   // même activité, déjà prévue ce jour-là
+  } else {
+    const p = { id: newId(), name: it.name, mode: 'free', entry: 'duration', start: null, duration: it.minutes, confirm: false, carry: true, from: selectedDate };
+    dst.ponctuels.push(p);
+    rv.pid = p.id; rv.tkey = 'p:' + p.id;
+  }
+  if (unchecked.length) {
+    if (!dst.subtasks[rv.tkey]) dst.subtasks[rv.tkey] = [];
+    unchecked.forEach((t) => {
+      const c = { id: newId(), label: t.label, action: t.action, done: false };
+      dst.subtasks[rv.tkey].push(c);
+      rv.sids.push(c.id);
+    });
+  }
+  if (notDone && !(src.real[key] && src.real[key].missed)) { src.real[key] = { start: null, end: null, missed: true }; rv.setMissed = true; }
+  src.review[key] = rv;
+  persistDays();
+  return true;
+}
+function dropItem(key) {
+  const it = findItem(key);
+  if (!it || it.review) return;
+  const src = ensureDay();
+  const notDone = it.state === undefined || it.state === 'planned';
+  const rv = { status: 'dropped', part: notDone ? 'block' : 'subs', to: null, pid: null, tkey: null, sids: [], setMissed: false };
+  if (notDone && !(src.real[key] && src.real[key].missed)) { src.real[key] = { start: null, end: null, missed: true }; rv.setMissed = true; }
+  src.review[key] = rv;
+  persistDays();
+}
+// Défait un report ou un abandon : retire la copie du jour cible et remet le bloc dans le plan s'il l'avait quitté à cause du report.
+function undoReview(key) {
+  const src = ensureDay();
+  const rv = src.review[key];
+  if (!rv) return;
+  if (rv.status === 'carried' && rv.to && daysData.days[rv.to]) {
+    const dst = daysData.days[rv.to];
+    if (rv.pid) {
+      dst.ponctuels = dst.ponctuels.filter((p) => p.id !== rv.pid);
+      delete dst.real['p:' + rv.pid];
+      delete dst.subtasks['p:' + rv.pid];
+      delete dst.review['p:' + rv.pid];
+    } else if (rv.tkey && dst.subtasks[rv.tkey]) {
+      dst.subtasks[rv.tkey] = dst.subtasks[rv.tkey].filter((t) => !rv.sids.includes(t.id));
+      if (!dst.subtasks[rv.tkey].length) delete dst.subtasks[rv.tkey];
+    }
+  }
+  if (rv.setMissed && src.real[key] && src.real[key].missed) delete src.real[key];
+  delete src.review[key];
+  persistDays();
+}
+function closePick() { reviewPick = null; reviewError = ''; }
+
 // ---- Panneau d'un bloc (détails, heures réelles, bloc ponctuel) ----
 function closePanel() { $('#block-panel').hidden = true; panelOpen = false; panelKey = null; }
 
@@ -950,13 +1116,13 @@ function openPanel(key) {
   const today = dayNow() !== null;
   $('#bp-title').textContent = it ? it.name : 'Nouveau bloc ponctuel';
   $('#bp-edit').innerHTML = isP
-    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm } :
-      { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60, confirm: false }), { days: false, del: false })
+    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm, carry: it.carry } :
+      { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60, confirm: false, carry: false }), { days: false, del: false })
     : '';
   if (it && it.mode === 'free') { /* durée seule */ }
   $('#bp-planned').textContent = !it ? 'Un bloc ponctuel ne concerne que ce jour.'
     : (it.mode === 'free' ? 'Sans heure · ' + formatDuration(it.minutes) : 'Prévu : ' + formatTime(it.plannedStart) + '–' + formatTime(it.plannedStart + it.minutes) + ' · ' + MODE_TAG[it.mode]) +
-      (it.kind === 'act' ? ' · à modifier dans Réglages' : '');
+      (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + (it.kind === 'act' ? ' · à modifier dans Réglages' : '');
   $('#bp-real').hidden = !it;
   const real = it ? it.real : { start: null, end: null };
   $('#bp-real-start').value = real.start === null ? '' : formatTime(real.start);
@@ -1005,7 +1171,7 @@ function savePanel() {
   const day = ensureDay();
   let key = panelKey;
   if (isP && edited) {
-    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm };
+    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, from: it ? it.from : null };
     if (!it) { day.ponctuels.push(p); key = 'p:' + p.id; }
     else { const i = day.ponctuels.findIndex((x) => 'p:' + x.id === panelKey); if (i >= 0) day.ponctuels[i] = p; }
   }
@@ -1021,7 +1187,9 @@ function bindDayEvents() {
     const nav = e.target.closest('[data-day-nav]');
     if (nav) {
       const v = nav.dataset.dayNav;
-      selectedDate = v === 'today' ? dateKey(new Date()) : addDays(selectedDate, Number(v));
+      const target = v === 'today' ? dateKey(new Date()) : addDays(selectedDate, Number(v));
+      if (target !== selectedDate) { closePick(); reviewOpen = null; }       // la revue se replie quand on change de jour
+      selectedDate = target;
       closePanel();
       renderDay();
       return;
@@ -1037,7 +1205,23 @@ function bindDayEvents() {
         const it = buildSelected().toConfirm.find((x) => x.key === act.dataset.key);
         if (it) { ensureDay().real[it.key] = { start: it.start, end: it.end }; persistDays(); renderDay(); }
       } else if (a === 'confirm-missed') { ensureDay().real[act.dataset.key] = { start: null, end: null, missed: true }; persistDays(); renderDay(); }
-      else if (a === 'unmiss') { delete ensureDay().real[act.dataset.key]; persistDays(); renderDay(); }
+      else if (a === 'unmiss') { const k = act.dataset.key; undoReview(k); delete ensureDay().real[k]; persistDays(); renderDay(); }
+      else if (a === 'rv-toggle') { const today = dateKey(new Date()); reviewOpen = !(reviewOpen === null ? selectedDate < today : reviewOpen); renderDay(); }
+      else if (a === 'rv-pick') { reviewPick = act.dataset.key; reviewError = ''; renderDay(); const d = $('#rv-date'); if (d) d.scrollIntoView({ block: 'center' }); }
+      else if (a === 'rv-cancel') { closePick(); renderDay(); }
+      else if (a === 'rv-carry' || a === 'rv-go') {
+        let target = addDays(selectedDate, 1);
+        if (a === 'rv-go') {
+          const v = ($('#rv-date') || {}).value || '';
+          if (!isDateKey(v) || v <= selectedDate) { reviewError = 'Choisis un jour après le ' + fromLabel(selectedDate) + '.'; renderDay(); return; }
+          target = v;
+        }
+        if (carryItem(act.dataset.key, target)) showToast('Reporté au ' + fromLabel(target));
+        closePick();
+        renderDay();
+      }
+      else if (a === 'rv-drop') { dropItem(act.dataset.key); if (reviewPick === act.dataset.key) closePick(); renderDay(); }
+      else if (a === 'rv-undo') { undoReview(act.dataset.key); renderDay(); }
       return;
     }
     const subDel = e.target.closest('[data-sub-del]');
@@ -1063,6 +1247,7 @@ function bindDayEvents() {
       day.ponctuels = day.ponctuels.filter((p) => 'p:' + p.id !== panelKey);
       delete day.real[panelKey];
       delete day.subtasks[panelKey];
+      delete day.review[panelKey];
       persistDays();
       closePanel();
       renderDay();
@@ -1136,7 +1321,7 @@ function bindEvents() {
     const action = btn.dataset.action;
     if (action === 'add-act') {
       const raws = $$('#acts-list .act-row').map(readActRaw);
-      raws.push({ id: newId(), name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false });
+      raws.push({ id: newId(), name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false });
       $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true })).join('');
       const names = $$('#acts-list [data-a=name]');
       names[names.length - 1].focus();
@@ -1193,7 +1378,7 @@ function init() {
   switchTab('day');
   // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
-    if (!$('#panel-day').hidden && !panelOpen && dayNow() !== null) renderDay();
+    if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && dayNow() !== null) renderDay();
   }, 15000);
   window.PDJ = { buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);

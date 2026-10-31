@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.4.0** (lots 1 à 3). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.5.0** (lots 1 à 3 et option « à reporter »). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -9,7 +9,19 @@ Version actuelle : **0.4.0** (lots 1 à 3). Règles de travail : voir `CONVENTIO
 | 1 | Saisie et stockage des contraintes | **Livré, à tester sur iPhone** | Voir ci-dessous |
 | 2 | Plan du jour et recalage autour des rendez-vous | **Livré, à tester sur iPhone** | J'ajoute un rendez-vous à 9h et le bloc « 1h30 de concentration » se décale seul ; la journée s'affiche en timeline ; je saisis l'heure réelle d'arrivée et de départ du jour |
 | 3 | Sous-tâches, détente et blocs à confirmer | **Livré, à tester sur iPhone** | Je coche des sous-tâches et je les retrouve après fermeture de l'app ; la détente s'affiche en permanence ; les blocs « à confirmer » se confirment en un tap ; quand ça déborde, l'app le dit sans rien supprimer |
+| 3 bis | Reporter ce qui n'a pas été fait | **Livré, à tester sur iPhone** | Dans le train, j'ouvre « Revue du jour » et je reporte au lendemain (ou à un autre jour) ce que je n'ai pas fait, avec ses sous-tâches non cochées ; je peux annuler |
 | 4 | Export, import, statistiques et finitions iPhone / iPad | À faire | Je sauvegarde et restaure mes données par fichier ; l'app est confortable sur iPhone et iPad |
+
+### Lot 3 bis (« à reporter ») est fini quand, sur ton iPhone
+
+1. Dans **Réglages**, chaque activité a une case « À reporter » (cochée par défaut pour le saxophone, le ménage et la concentration). La même case existe dans un bloc ponctuel.
+2. Sur la page **Jour** (aujourd'hui ou un jour passé), la carte **Revue du jour** liste ce qui est « à reporter » et n'est pas fait, ou fait avec des sous-tâches non cochées. Elle est repliée pour aujourd'hui (tu l'ouvres dans le train) et ouverte d'office pour un jour passé.
+3. Pour chaque ligne : **→ Demain** (ou **→ Jour suivant** sur un jour passé), **Autre jour…** (choix d'une date) ou **Abandonner**.
+4. Un bloc non fait part vers le jour choisi comme bloc « sans heure » de même durée, avec ses sous-tâches non cochées, et la mention « reporté de lun 02/11 ». Il quitte le plan du jour d'origine. Un bloc fait garde sa place : seules ses sous-tâches non cochées partent (sur la même activité si elle est prévue ce jour-là).
+5. Un bloc **Raté** a aussi un bouton **Reporter…**. La liste « Déjà traités » permet d'**Annuler** un report ou un abandon (la copie disparaît du jour cible).
+6. Tout est conservé après fermeture de l'app.
+
+Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre) : tous les points, et les tests des lots 1 à 3 passent toujours.
 
 ### Lot 3 est fini quand, sur ton iPhone
 
@@ -60,6 +72,7 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 - Durée du cours de saxophone et de l'orchestre : non renseignées, 1 h supposée en attendant (modifiable dans Réglages).
 - Jours et heure du ménage : lundi et jeudi à 17:30 par défaut, valeurs inventées pour démarrer.
 - Sous-tâches : propres à chaque jour (pas de liste récurrente) ; à confirmer à l'usage.
+- Report : un bloc non fait revient en bloc « sans heure » sur le jour cible (pas de nouvelle heure) ; à confirmer à l'usage. Les réglages déjà enregistrés avant la 0.5.0 reçoivent « à reporter » coché pour saxophone, ménage et concentration.
 
 ## À revoir plus tard
 
@@ -71,4 +84,6 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 - Pas de glisser-déposer.
 - Statistiques : les heures réelles, les confirmations et les « ratés » sont déjà conservés (400 jours) ; l'écran de statistiques reste à définir (lot 4 ?).
 - Le chrono tourne à la minute ; le bloc « en cours » se rafraîchit toutes les 15 secondes.
+- Report : pas de « prochain jour prévu » automatique pour une activité récurrente (demain par défaut, ou une date choisie) ; pas de report en chaîne annulable de bout en bout.
+- Statistiques : compter les reports et abandons (conservés dans les données du jour) par semaine et par mois, avec le lot 4.
 - Rappels et alarmes : export `.ics` à étudier.
