@@ -157,3 +157,10 @@ Une session = un lot, avec un résultat que l'utilisateur teste sur son iPhone o
 
 ## 20. Lignes repliables (0.8.1)
 Toute ligne `<details class="rowfold">` affiche un chevron ▾ (fermée) / ▴ (ouverte) à droite du résumé. Le marqueur natif est masqué. Un appui sur le titre de la ligne la plie ou la déplie.
+
+## 21. Congés séparés des profils (0.9.0)
+- `settings.leave = { periods:[{id,from,to}], wake, bedtime, removes, lastWake, returnBedtime }` : une seule série de règles, une liste de périodes. Champ additif, pas de changement de version des réglages.
+- Les profils ne portent plus de période. Pendant une période, `resolveProfile` renvoie le profil virtuel « Congé » (id `conge`) : les profils de journée sont suspendus. Hors période, ils reprennent. Un choix manuel sur la page du jour reste prioritaire.
+- `lastWake` s'applique au dernier jour de travail avant chaque période ; `returnBedtime` à la veille de la reprise (même si c'est un jour de congé).
+- Migration à la lecture : un ancien profil `prof-conge` ou à période est converti en section Congés (périodes, heures, retraits) puis retiré des profils.
+- Test : `test_lot9.js` ; `test_lot8.js` (ancien modèle) est abandonné.

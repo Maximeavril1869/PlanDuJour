@@ -191,6 +191,8 @@ details.fold > summary h2 { margin: 0; }
 .rowfold[open] > summary::after { content: "▴"; }
 .rowfold .sumtxt strong { display: block; }
 .rowfold .sumtxt small { display: block; color: var(--muted); font-size: 13px; }
+.leave-per { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0 12px; align-items: end; padding: 4px 0 8px; }
+.leave-per .err { grid-column: 1 / -1; }
 .rowgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; padding-top: 4px; }
 .act-row[data-fold] .del { top: 2px; }
 .card h2 .v { font-weight: 400; font-size: 14px; }
@@ -268,7 +270,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.8.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.9.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -313,10 +315,21 @@ function makeAct(id, name, days, mode, entry, start, duration, confirm, carry) {
 // Profils de journée : lever et coucher (facultatifs : null = libre), jours habituels, activités retirées.
 // Un profil peut avoir une période (congé : { from, to }) où il s'applique seul, avec deux heures particulières :
 // lastWake = lever du dernier jour de travail avant la période ; returnBedtime = coucher de la veille de la reprise.
-function makeProfile(id, name, wake, bedtime, days, removes, period, lastWake, returnBedtime) {
-  return { id: id, name: name, wake: wake, bedtime: bedtime, days: days, removes: removes, period: period || null,
-    lastWake: lastWake === undefined ? null : lastWake, returnBedtime: returnBedtime === undefined ? null : returnBedtime };
+function makeProfile(id, name, wake, bedtime, days, removes) {
+  return { id: id, name: name, wake: wake, bedtime: bedtime, days: days, removes: removes };
 }
+// Congés (0.9) : une seule série de règles et une liste de périodes. Pendant une période, le congé s'impose aux profils.
+// lastWake = lever du dernier jour de travail avant la période ; returnBedtime = coucher de la veille de la reprise.
+function makeLeave(periods, wake, bedtime, removes, lastWake, returnBedtime) {
+  return { periods: periods, wake: wake, bedtime: bedtime, removes: removes, lastWake: lastWake, returnBedtime: returnBedtime };
+}
+const TRIP_IDS = ['act-trajet-aller', 'act-trajet-retour'];
+function defaultLeave(wake, bedtime) { return makeLeave([], null, null, TRIP_IDS.slice(), wake, bedtime); }
+function leaveProfile(settings) {
+  const l = settings.leave;
+  return makeProfile('conge', 'Congé', l.wake, l.bedtime, [], l.removes);
+}
+function inLeave(settings, date) { return !!date && !!settings.leave && settings.leave.periods.some((p) => date >= p.from && date <= p.to); }
 function defaultProfiles(wake, bedtime) {
   const tele = Math.min(wake + 60, bedtime - 60);
   const trips = ['act-trajet-aller', 'act-trajet-retour'];
@@ -325,8 +338,7 @@ function defaultProfiles(wake, bedtime) {
     makeProfile('prof-vendredi', 'Vendredi', wake, null, [5], []),
     makeProfile('prof-samedi', 'Samedi', null, null, [6], []),
     makeProfile('prof-dimanche', 'Dimanche', null, bedtime, [7], []),
-    makeProfile('prof-teletravail', 'Télétravail', tele, bedtime, [], trips),
-    makeProfile('prof-conge', 'Congé', null, null, [], trips, null, wake, bedtime)
+    makeProfile('prof-teletravail', 'Télétravail', tele, bedtime, [], trips)
   ];
 }
 function defaultSettings() {
@@ -335,6 +347,7 @@ function defaultSettings() {
     wake: 345,            // 05:45 (profil « Semaine », gardé pour compatibilité)
     bedtime: 1320,        // 22:00
     profiles: defaultProfiles(345, 1320),
+    leave: defaultLeave(345, 1320),
     relaxFloor: 30,       // détente minimale avant le coucher, à valider
     activities: [
       makeAct('act-trajet-aller', 'Trajet aller', [1, 2, 3, 4, 5], 'fixed', 'end', 390, 60),        // 06:30–07:30
@@ -408,6 +421,7 @@ function fromOldSettings(raw) {
   });
   s.activities = sanitizeActs(acts, s.activities);
   s.profiles = defaultProfiles(s.wake, s.bedtime);
+  s.leave = defaultLeave(s.wake, s.bedtime);
   return s;
 }
 
@@ -419,11 +433,33 @@ function sanitizeProfiles(list, wake, bedtime) {
     const w = optMinute(p.wake), b = optMinute(p.bedtime);
     if ((p.wake !== null && p.wake !== undefined && w === null) || (p.bedtime !== null && p.bedtime !== undefined && b === null)) return;   // heure illisible
     if (w !== null && b !== null && b <= w) return;
-    const per = p.period && isDateKey(p.period.from) && isDateKey(p.period.to) && p.period.from <= p.period.to ? { from: p.period.from, to: p.period.to } : null;
     out.push(makeProfile(typeof p.id === 'string' && !out.some((o) => o.id === p.id) ? p.id : newId(), p.name.trim().slice(0, 40), w, b, cleanDays(p.days),
-      Array.isArray(p.removes) ? p.removes.filter((x) => typeof x === 'string') : [], per, optMinute(p.lastWake), optMinute(p.returnBedtime)));
+      Array.isArray(p.removes) ? p.removes.filter((x) => typeof x === 'string') : []));
   });
   return out.length ? out : defaultProfiles(wake, bedtime);
+}
+function sanitizeLeave(raw, wake, bedtime) {
+  const d = defaultLeave(wake, bedtime);
+  if (!raw || typeof raw !== 'object') return d;
+  const optMinute = (v, def) => (v === null ? null : (isMinute(v) ? v : def));
+  const periods = [];
+  (Array.isArray(raw.periods) ? raw.periods : []).forEach((p) => {
+    if (p && isDateKey(p.from) && isDateKey(p.to) && p.from <= p.to) periods.push({ id: typeof p.id === 'string' && !periods.some((o) => o.id === p.id) ? p.id : newId(), from: p.from, to: p.to });
+  });
+  periods.sort((a, b) => (a.from < b.from ? -1 : 1));
+  const w = optMinute(raw.wake, null), b = optMinute(raw.bedtime, null);
+  return makeLeave(periods, w, (w !== null && b !== null && b <= w) ? null : b,
+    Array.isArray(raw.removes) ? raw.removes.filter((x) => typeof x === 'string') : d.removes,
+    raw.lastWake === undefined ? d.lastWake : optMinute(raw.lastWake, d.lastWake), raw.returnBedtime === undefined ? d.returnBedtime : optMinute(raw.returnBedtime, d.returnBedtime));
+}
+// Avant 0.9, le congé était un profil avec une période : on le convertit en section Congés et on le retire des profils.
+const isOldLeave = (p) => !!p && (p.id === 'prof-conge' || (p.period && typeof p.period === 'object'));
+function migrateLeave(rawProfiles, wake, bedtime) {
+  const old = (Array.isArray(rawProfiles) ? rawProfiles : []).filter(isOldLeave);
+  if (!old.length) return null;
+  const base = old.find((p) => p.id === 'prof-conge') || old[0];
+  const periods = old.filter((p) => p.period).map((p) => ({ id: newId(), from: p.period.from, to: p.period.to }));
+  return sanitizeLeave({ periods: periods, wake: base.wake, bedtime: base.bedtime, removes: base.removes, lastWake: base.lastWake, returnBedtime: base.returnBedtime }, wake, bedtime);
 }
 
 function sanitize(raw) {
@@ -436,7 +472,8 @@ function sanitize(raw) {
   s.bedtime = isMinute(raw.bedtime) ? raw.bedtime : d.bedtime;
   s.relaxFloor = pickInt(raw.relaxFloor, d.relaxFloor, 0, 600);
   s.activities = sanitizeActs(raw.activities, d.activities);
-  s.profiles = sanitizeProfiles(raw.profiles, s.wake, s.bedtime);
+  s.leave = raw.leave !== undefined ? sanitizeLeave(raw.leave, s.wake, s.bedtime) : (migrateLeave(raw.profiles, s.wake, s.bedtime) || defaultLeave(s.wake, s.bedtime));
+  s.profiles = sanitizeProfiles((Array.isArray(raw.profiles) ? raw.profiles : []).filter((p) => !isOldLeave(p)), s.wake, s.bedtime);
   if (s.profiles[0].wake !== null) s.wake = s.profiles[0].wake;
   if (s.profiles[0].bedtime !== null) s.bedtime = s.profiles[0].bedtime;
   return s;
@@ -575,19 +612,19 @@ function isoWeekday(k) { const g = parseDateKey(k).getDay(); return g === 0 ? 7 
 // Dernier jour de travail (lundi–vendredi) avant `k` ; veille de la reprise après `k` (reprise = premier lundi–vendredi après `k`).
 function lastWorkDay(k) { let d = addDays(k, -1); while (isoWeekday(d) > 5) d = addDays(d, -1); return d; }
 function eveOfReturn(k) { let d = addDays(k, 1); while (isoWeekday(d) > 5) d = addDays(d, 1); return addDays(d, -1); }
-// Profil du jour : choix explicite, sinon période (congé) contenant la date, sinon jour de la semaine, sinon le premier.
-// Sans choix explicite, le lever du dernier jour de travail avant un congé et le coucher de la veille de la reprise sont ajustés.
+// Profil du jour : choix explicite, sinon congé si la date est dans une période (il s'impose aux profils), sinon jour de la semaine, sinon le premier.
+// Hors congé, le lever du dernier jour de travail avant une période et le coucher de la veille de la reprise sont ajustés.
 function resolveProfile(settings, weekday, profileId, date) {
   const list = settings.profiles && settings.profiles.length ? settings.profiles : [makeProfile('prof-defaut', 'Journée', settings.wake, settings.bedtime, [], [])];
   const chosen = profileId ? list.find((p) => p.id === profileId) : null;
   if (chosen) return chosen;
-  let prof = (date ? list.find((p) => p.period && date >= p.period.from && date <= p.period.to) : null) || list.find((p) => p.days.includes(weekday)) || list[0];
-  if (date) {
+  let prof = inLeave(settings, date) ? leaveProfile(settings) : (list.find((p) => p.days.includes(weekday)) || list[0]);
+  if (date && settings.leave) {
+    const l = settings.leave;
     let wake = prof.wake, bed = prof.bedtime, note = null;
-    list.forEach((c) => {
-      if (!c.period) return;
-      if (c.lastWake !== null && lastWorkDay(c.period.from) === date) { wake = c.lastWake; note = 'Dernier jour de travail avant « ' + c.name + ' » : lever à ' + formatTime(c.lastWake) + '.'; }
-      if (c.returnBedtime !== null && eveOfReturn(c.period.to) === date) { bed = c.returnBedtime; note = 'Veille de la reprise après « ' + c.name + ' » : coucher à ' + formatTime(c.returnBedtime) + '.'; }
+    l.periods.forEach((per) => {
+      if (l.lastWake !== null && lastWorkDay(per.from) === date) { wake = l.lastWake; note = 'Dernier jour de travail avant le congé : lever à ' + formatTime(l.lastWake) + '.'; }
+      if (l.returnBedtime !== null && eveOfReturn(per.to) === date) { bed = l.returnBedtime; note = 'Veille de la reprise après le congé : coucher à ' + formatTime(l.returnBedtime) + '.'; }
     });
     if (wake !== prof.wake || bed !== prof.bedtime) prof = Object.assign({}, prof, { wake: wake, bedtime: bed, note: note });
   }
@@ -761,7 +798,7 @@ function actSummaryHtml(r) {
   return '<span class="sumtxt"><strong>' + esc(r.name.trim() || 'Nouvelle activité') + '</strong><small>' + esc(daysText(r.days) + ' · ' + when) + '</small></span>';
 }
 function profSummaryHtml(r) {
-  return '<span class="sumtxt"><strong>' + esc(r.name.trim() || 'Nouveau profil') + '</strong><small>' + esc((r.wake || 'libre') + '–' + (r.bedtime || 'libre') + ' · ' + (r.from && r.to ? 'du ' + shortDate(r.from) + ' au ' + shortDate(r.to) : (r.days.length ? daysText(r.days) : 'choisi à la main'))) + '</small></span>';
+  return '<span class="sumtxt"><strong>' + esc(r.name.trim() || 'Nouveau profil') + '</strong><small>' + esc((r.wake || 'libre') + '–' + (r.bedtime || 'libre') + ' · ' + (r.days.length ? daysText(r.days) : 'choisi à la main')) + '</small></span>';
 }
 function updateSummary(row) {
   const sum = row && $('.rowfold > summary', row);
@@ -858,8 +895,7 @@ function readActRow(row, errors) {
 // ---- Éditeur de profil de journée ----
 const optTime = (v) => (v === null ? '' : formatTime(v));
 function profToRaw(p) {
-  return { id: p.id, name: p.name, wake: optTime(p.wake), bedtime: optTime(p.bedtime), days: p.days, removes: p.removes,
-    from: p.period ? p.period.from : '', to: p.period ? p.period.to : '', lastWake: optTime(p.lastWake), returnBedtime: optTime(p.returnBedtime) };
+  return { id: p.id, name: p.name, wake: optTime(p.wake), bedtime: optTime(p.bedtime), days: p.days, removes: p.removes };
 }
 function profRowHtml(r, acts) {
   return '<div class="act-row prof-row" data-id="' + esc(r.id) + '" data-fold="1">' + foldStart(r.id, profSummaryHtml(r)) +
@@ -868,11 +904,6 @@ function profRowHtml(r, acts) {
     '<label class="field"><span class="lbl">Coucher (vide = libre)</span><input ' + TIME_ATTRS_FREE + ' data-kind="time" data-p="bedtime" value="' + esc(r.bedtime) + '"></label>' +
     '<div class="field wide"><span class="lbl">Jours habituels (aucun : à choisir sur la page du jour)</span><div class="chips">' +
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>' +
-    '<div class="field wide"><span class="lbl">Congé : période (facultatif). Le profil s’applique alors tout seul chaque jour de la période.</span></div>' +
-    '<label class="field"><span class="lbl">Du</span><input type="date" data-p="from" value="' + esc(r.from) + '"></label>' +
-    '<label class="field"><span class="lbl">Au</span><input type="date" data-p="to" value="' + esc(r.to) + '"></label>' +
-    '<label class="field"><span class="lbl">Lever du dernier jour de travail avant</span><input ' + TIME_ATTRS_FREE + ' data-kind="time" data-p="lastWake" value="' + esc(r.lastWake) + '"></label>' +
-    '<label class="field"><span class="lbl">Coucher la veille de la reprise</span><input ' + TIME_ATTRS_FREE + ' data-kind="time" data-p="returnBedtime" value="' + esc(r.returnBedtime) + '"></label>' +
     '<div class="field wide"><span class="lbl">Activités retirées ce jour-là</span><div class="chips">' +
       (acts.length ? acts.map((a) => '<button type="button" class="chip" data-rm="' + esc(a.id) + '" aria-pressed="' + r.removes.includes(a.id) + '">' + esc(a.name || 'Sans nom') + '</button>').join('') : '<span class="help">Aucune activité.</span>') + '</div></div>' +
     '</div></details>' +
@@ -880,7 +911,6 @@ function profRowHtml(r, acts) {
 }
 function readProfRaw(row) {
   return { id: row.dataset.id, name: $('[data-p=name]', row).value, wake: $('[data-p=wake]', row).value, bedtime: $('[data-p=bedtime]', row).value,
-    from: $('[data-p=from]', row).value, to: $('[data-p=to]', row).value, lastWake: $('[data-p=lastWake]', row).value, returnBedtime: $('[data-p=returnBedtime]', row).value,
     days: $$('.chip[data-day][aria-pressed=true]', row).map((c) => Number(c.dataset.day)), removes: $$('.chip[data-rm][aria-pressed=true]', row).map((c) => c.dataset.rm) };
 }
 function actsFromForm() { return $$('#acts-list .act-row').map((r) => ({ id: r.dataset.id, name: $('[data-a=name]', r).value.trim() })); }
@@ -893,6 +923,7 @@ function rerenderProfiles(extra) {
 // Met à jour les libellés des cases « activités retirées » sans refaire les lignes (un champ en cours de saisie ne doit pas être remplacé).
 function syncActChips() {
   const acts = actsFromForm();
+  $$('#leave-rules .chip[data-lrm]').forEach((c) => { const a = acts.find((x) => x.id === c.dataset.lrm); if (a) c.textContent = a.name || 'Sans nom'; });
   $$('#profs-list .prof-row').forEach((row) => {
     const chips = $$('.chip[data-rm]', row);
     acts.forEach((a) => { const c = chips.find((x) => x.dataset.rm === a.id); if (c) c.textContent = a.name || 'Sans nom'; });
@@ -910,19 +941,51 @@ function readProfRow(row, errors) {
     if (t === null) flag(el(n), label + ' invalide (ex. 06:53)', errors);
     return t;
   };
-  const wake = opt('wake', 'Heure'), bed = opt('bedtime', 'Heure'), lastWake = opt('lastWake', 'Heure'), returnBed = opt('returnBedtime', 'Heure');
+  const wake = opt('wake', 'Heure'), bed = opt('bedtime', 'Heure');
   if (wake !== null && bed !== null && bed <= wake) flag(el('bedtime'), 'Le coucher doit être après le lever', errors);
-  const from = el('from').value, to = el('to').value;
-  let period = null;
-  if (from || to) {
-    if (!isDateKey(from)) flag(el('from'), 'Date de début manquante', errors);
-    else if (!isDateKey(to)) flag(el('to'), 'Date de fin manquante', errors);
-    else if (to < from) flag(el('to'), 'La fin doit être après le début', errors);
-    else period = { from: from, to: to };
-  }
   if (errors.length > before) return null;
   const r = readProfRaw(row);
-  return makeProfile(row.dataset.id || newId(), name, wake, bed, r.days, r.removes, period, lastWake, returnBed);
+  return makeProfile(row.dataset.id || newId(), name, wake, bed, r.days, r.removes);
+}
+
+// ---- Éditeur des congés ----
+function leavePeriodHtml(p) {
+  return '<div class="leave-per" data-id="' + esc(p.id) + '"><label class="field"><span class="lbl">Du</span><input type="date" data-l="from" value="' + esc(p.from) + '"></label>' +
+    '<label class="field"><span class="lbl">Au</span><input type="date" data-l="to" value="' + esc(p.to) + '"></label>' +
+    '<button type="button" class="icon-btn del" data-action="del-leave" aria-label="Supprimer cette période">✕</button><span class="err wide" hidden></span></div>';
+}
+function leaveCardHtml(s) {
+  const l = s.leave, o = (v) => esc(optTime(v));
+  return '<details class="card fold" data-fid="card-leave"' + (foldClosed.has('card-leave') ? '' : ' open') + '><summary><h2>Congés</h2></summary>' +
+    '<p class="help">Pendant une période de congé, les profils de journée sont suspendus : seul le congé s’applique. Hors période, les profils reprennent. Un jour peut toujours être changé à la main sur la page du jour.</p>' +
+    '<div id="leave-pers">' + l.periods.map(leavePeriodHtml).join('') + '</div>' +
+    '<button type="button" class="btn" data-action="add-leave">+ Ajouter une période</button>' +
+    '<div class="rowgrid" id="leave-rules" style="margin-top:12px">' +
+    '<label class="field"><span class="lbl">Lever en congé (vide = libre)</span><input ' + TIME_ATTRS_FREE + ' data-kind="time" data-l="wake" value="' + o(l.wake) + '"><span class="err" hidden></span></label>' +
+    '<label class="field"><span class="lbl">Coucher en congé (vide = libre)</span><input ' + TIME_ATTRS_FREE + ' data-kind="time" data-l="bedtime" value="' + o(l.bedtime) + '"><span class="err" hidden></span></label>' +
+    '<label class="field"><span class="lbl">Lever du dernier jour de travail avant</span><input ' + TIME_ATTRS_FREE + ' data-kind="time" data-l="lastWake" value="' + o(l.lastWake) + '"><span class="err" hidden></span></label>' +
+    '<label class="field"><span class="lbl">Coucher la veille de la reprise</span><input ' + TIME_ATTRS_FREE + ' data-kind="time" data-l="returnBedtime" value="' + o(l.returnBedtime) + '"><span class="err" hidden></span></label>' +
+    '<div class="field wide"><span class="lbl">Activités retirées en congé</span><div class="chips">' +
+    (s.activities.length ? s.activities.map((a) => '<button type="button" class="chip" data-lrm="' + esc(a.id) + '" aria-pressed="' + l.removes.includes(a.id) + '">' + esc(a.name || 'Sans nom') + '</button>').join('') : '<span class="help">Aucune activité.</span>') + '</div></div>' +
+    '</div></details>';
+}
+function readLeaveForm(errors) {
+  const el = (n) => $('[data-l=' + n + ']');
+  const opt = (n) => { const v = el(n).value.trim(); if (v === '') return null; const t = parseTime(v); if (t === null) flag(el(n), 'Heure invalide (ex. 06:53)', errors); return t; };
+  const wake = opt('wake'), bed = opt('bedtime'), lastWake = opt('lastWake'), returnBed = opt('returnBedtime');
+  if (wake !== null && bed !== null && bed <= wake) flag(el('bedtime'), 'Le coucher doit être après le lever', errors);
+  const periods = [];
+  $$('#leave-pers .leave-per').forEach((row) => {
+    const f = $('[data-l=from]', row), t = $('[data-l=to]', row);
+    if (!isDateKey(f.value)) flag(f, 'Date de début manquante', errors);
+    else if (!isDateKey(t.value)) flag(t, 'Date de fin manquante', errors);
+    else if (t.value < f.value) flag(t, 'La fin doit être après le début', errors);
+    else periods.push({ id: row.dataset.id || newId(), from: f.value, to: t.value });
+  });
+  periods.sort((a, b) => (a.from < b.from ? -1 : 1));
+  periods.forEach((p, i) => { if (i && p.from <= periods[i - 1].to) { const r = $$('#leave-pers .leave-per').find((x) => x.dataset.id === p.id); if (r) flag($('[data-l=from]', r), 'Cette période chevauche la précédente', errors); } });
+  const removes = $$('.chip[data-lrm][aria-pressed=true]').map((c) => c.dataset.lrm);
+  return makeLeave(periods, wake, bed, removes, lastWake, returnBed);
 }
 
 function renderForm(s) {
@@ -932,6 +995,7 @@ function renderForm(s) {
       'Un profil sans jour (télétravail) se choisit à la main sur la page du jour. Il peut retirer des activités (les trajets, par exemple).</p>' +
       '<div id="profs-list">' + s.profiles.map((p) => profRowHtml(profToRaw(p), s.activities)).join('') + '</div>' +
       '<button type="button" class="btn" data-action="add-prof">+ Ajouter un profil</button></details>' +
+    leaveCardHtml(s) +
     '<div class="card"><h2>Détente</h2>' + intField('relaxFloor', 'Détente minimale avant le coucher (minutes)', s.relaxFloor, 0, 600) + '</div>' +
     '<details class="card fold" data-fid="card-acts"' + (foldClosed.has('card-acts') ? '' : ' open') + '><summary><h2>Activités</h2></summary>' +
       '<p class="help">Tout ce qui revient chaque semaine. <strong>Heure fixe</strong> : ne bouge jamais (train, cours). ' +
@@ -1184,7 +1248,7 @@ function switchTab(name) {
 }
 
 // ---- Marquage des erreurs de saisie ----
-function errHost(el) { return el.closest('.act-row') || el.closest('.field'); }
+function errHost(el) { return el.closest('.act-row') || el.closest('.leave-per') || el.closest('.field'); }
 function clearFlags(root) {
   $$('[aria-invalid]', root).forEach((el) => el.removeAttribute('aria-invalid'));
   $$('.err', root).forEach((el) => { el.textContent = ''; el.hidden = true; });
@@ -1227,7 +1291,9 @@ function readForm() {
     const p = readProfRow(row, errors);
     if (p) s.profiles.push(p);
   });
+  s.leave = readLeaveForm(errors);
   const actIds = s.activities.map((a) => a.id);
+  s.leave.removes = s.leave.removes.filter((id) => actIds.includes(id));
   s.profiles.forEach((p) => { p.removes = p.removes.filter((id) => actIds.includes(id)); });
   if (!errors.length && !s.profiles.length) { s.profiles = defaultProfiles(345, 1320).slice(0, 1); }
   if (s.profiles.length && s.profiles[0].wake !== null) s.wake = s.profiles[0].wake;
@@ -1728,9 +1794,18 @@ function bindEvents() {
     } else if (action === 'add-prof') {
       const pid = newId();
       openRows.add(pid);
-      rerenderProfiles({ id: pid, name: '', wake: '07:00', bedtime: '22:00', days: [], removes: [], from: '', to: '', lastWake: '', returnBedtime: '' });
+      rerenderProfiles({ id: pid, name: '', wake: '07:00', bedtime: '22:00', days: [], removes: [] });
       const names = $$('#profs-list [data-p=name]');
       names[names.length - 1].focus();
+      setDirty(true);
+    } else if (action === 'add-leave') {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = leavePeriodHtml({ id: newId(), from: '', to: '' });
+      $('#leave-pers').appendChild(wrap.firstChild);
+      $$('#leave-pers [data-l=from]').slice(-1)[0].focus();
+      setDirty(true);
+    } else if (action === 'del-leave') {
+      btn.closest('.leave-per').remove();
       setDirty(true);
     } else if (action === 'del-prof') {
       const row = btn.closest('.prof-row');
