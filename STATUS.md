@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.7.0** (lot 4 livré) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.8.0** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -12,6 +12,16 @@ Version actuelle : **0.7.0** (lot 4 livré) (lots 1 à 3, option « à reporter 
 | 3 bis | Reporter ce qui n'a pas été fait | **Livré, à tester sur iPhone** | Dans le train, j'ouvre « Revue du jour » et je reporte au lendemain (ou à un autre jour) ce que je n'ai pas fait, avec ses sous-tâches non cochées ; je peux annuler |
 | 3 ter | Profils de journée (semaine, week-end, télétravail) | **Livré, à tester sur iPhone** | Le week-end a son lever et son coucher ; un jour de télétravail se choisit sur la page du jour, sans trajets |
 | 4 | Export, import, statistiques et finitions iPhone / iPad | **Livré, à tester sur iPhone et iPad** | Je sauvegarde et restaure mes données par fichier ; je vois le temps réel par activité, par semaine et par mois ; l'app est confortable sur iPhone et iPad |
+
+### Lot 4 bis (heures libres et congé) est fini quand, sur ton iPhone
+
+1. Dans **Réglages**, le lever et le coucher d'un profil peuvent être **vides = libres**. Lever libre : rien n'est compté avant le premier bloc. Coucher libre : plus de temps disponible avant le coucher, plus d'encart Détente, plus d'alerte « après le coucher ».
+2. Profils de départ : **Semaine** (lun.–jeu., 05:45–22:00), **Vendredi** (05:45, coucher libre), **Samedi** (libres), **Dimanche** (lever libre, coucher 22:00), **Télétravail** (choisi à la main, 06:45–22:00, sans trajets), **Congé** (libres, sans trajets).
+3. Un profil peut avoir une **période** (« Du … Au … ») : il s'applique alors tout seul chaque jour de la période et passe avant les jours de la semaine. Deux heures facultatives l'accompagnent : **lever du dernier jour de travail avant** la période (dernier lundi–vendredi avant le début) et **coucher la veille de la reprise** (veille du premier lundi–vendredi après la fin ; le dimanche si le congé finit un vendredi). Un choix manuel du profil sur la page du jour passe avant ces ajustements.
+4. Sur la page du jour, le sélecteur ne liste plus deux fois le profil habituel ; une note indique quand le lever ou le coucher a été ajusté pour un congé.
+5. Les trajets sont retirés pendant un congé ; les autres activités restent (à retirer dans le profil si tu pars).
+
+Vérifié côté code (navigateur automatisé) : tous les points, les calendriers de congé (début un lundi, fin un vendredi ou un dimanche), les anciens réglages à profils sans période, et les tests des lots précédents.
 
 ### Lot 4 est fini quand, sur ton iPhone et ton iPad
 
@@ -89,7 +99,9 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 
 ## À valider
 
-- Lever et coucher du week-end (07:30–22:30) et du télétravail (06:45–22:00) : valeurs inventées pour démarrer.
+- Congé : « dernier jour de travail » = dernier jour du lundi au vendredi avant le début de la période ; « reprise » = premier lundi–vendredi après la fin. Les jours fériés ne sont pas connus de l'app.
+- Dernier lever et coucher de reprise du profil Congé : 05:45 et 22:00 pour démarrer (à régler).
+- Lever du télétravail (06:45) et coucher du dimanche (22:00) : valeurs de départ à régler.
 - Plancher de détente : 30 min par défaut, ou autre valeur.
 - Durée du ménage : 30 min par défaut, valeur inventée pour démarrer.
 - Durée du cours de saxophone et de l'orchestre : non renseignées, 1 h supposée en attendant (modifiable dans Réglages).
@@ -109,5 +121,5 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 - Report : pas de « prochain jour prévu » automatique pour une activité récurrente (demain par défaut, ou une date choisie) ; pas de report en chaîne annulable de bout en bout.
 - Statistiques : seul le temps réel par activité est affiché. Temps prévu, nombre de faits / ratés / reportés / abandonnés et détente moyenne sont conservés dans les données mais non affichés (non souhaités pour l'instant).
 - Import : pas de fusion de deux appareils (remplacement seulement).
-- Profils : si un jour appartient à deux profils, le premier de la liste gagne (pas d'alerte). Pas de profil par date récurrente (ex. télétravail tous les 15 jours).
+- Profils : un seul congé à la fois n'est pas imposé ; si deux périodes se chevauchent, la première de la liste gagne. Si un jour appartient à deux profils, le premier de la liste gagne (pas d'alerte). Pas de profil par date récurrente (ex. télétravail tous les 15 jours).
 - Rappels et alarmes : export `.ics` à étudier.
