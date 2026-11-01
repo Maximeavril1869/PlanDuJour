@@ -200,3 +200,5 @@ Mise à jour 0.12.2 : Stats → mode « Jour » (navigation jour par jour) en pl
 - Pas de lien automatique : une PWA installée a un stockage séparé de Safari, donc un raccourci ne peut pas lui passer de données par une URL. Passage par le presse-papiers (bouton « Coller et importer ») ; aucune donnée de calendrier n'est envoyée à GitHub.
 - Les champs de la carte ne marquent pas « modifications non enregistrées » (`data-nodirty`).
 - Test : test_lot14.js.
+
+Mise à jour 0.13.1 : champ `noCal` sur les activités (« Ne pas exporter vers Calendrier », coché par défaut sur les trajets, car le calendrier de l'utilisateur contient déjà un événement récurrent « Train »). `settings.calIgnore` (défaut `["Train"]`) : titres exacts (sans tenir compte de la casse) ignorés à l'import des rendez-vous. Test : test_lot14.js.

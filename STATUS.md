@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.13.0** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.13.1** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -125,17 +125,17 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 - Rappels et alarmes : export `.ics` à étudier.
 
 
-## Lot 5 : sous-activités chronométrées (0.13.0) — livré, à valider sur appareil
+## Lot 5 : sous-activités chronométrées (0.13.1) — livré, à valider sur appareil
 Fini quand : sous-activités créées en Réglages, chrono par sous-activité dans le bloc, temps à la main sur un autre jour, Stats avec détail. Test : test_lot10.js.
 
 ## Lot 5 bis : chrono sur les sous-tâches du jour — à faire
 
 
-## Lot 6 : catégories et suivi du temps de travail (0.13.0) — livré, à valider sur appareil
+## Lot 6 : catégories et suivi du temps de travail (0.13.1) — livré, à valider sur appareil
 Fini quand : catégories créées en Réglages et affectées aux activités et blocs, barre « Travail du jour » vs 7 h 42, Stats semaine et mois avec écart, week-ends travaillés visibles. Test : test_lot11.js.
 À valider : catégories de départ (Trajets non comptés comme travail), cible 7 h 42 du lundi au vendredi, travail du soir (pas de repère d'heure pour l'instant : visible par le total du jour).
 
 
-## Lot 7 : calendrier (0.13.0) — livré, à valider sur appareil
+## Lot 7 : calendrier (0.13.1) — livré, à valider sur appareil
 Fini quand : export .ics ajouté à Calendrier depuis la feuille de partage ; raccourci iOS « Plan du jour RDV » configuré ; import des RDV par le presse-papiers. Test : test_lot14.js.
 À valider : l'option « Calendrier » dans la feuille de partage de l'iPhone ; le raccourci (à créer par l'utilisateur).

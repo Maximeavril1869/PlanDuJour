@@ -294,7 +294,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.13.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.13.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -337,6 +337,8 @@ const DEFAULT_CATS = [{ id: 'cat-travail', name: 'Travail', work: true }, { id: 
 const DEFAULT_ACT_CAT = { 'act-trajet-aller': 'cat-trajets', 'act-trajet-retour': 'cat-trajets', 'act-cours-sax': 'cat-musique', 'act-orchestre': 'cat-musique',
   'act-sax': 'cat-musique', 'act-menage': 'cat-maison', 'act-concentration': 'cat-travail' };
 const DEFAULT_PARALLEL = ['act-trajet-aller', 'act-trajet-retour'];   // on peut travailler pendant un trajet : pas d'alerte de chevauchement
+const DEFAULT_NOCAL = ['act-trajet-aller', 'act-trajet-retour'];   // déjà dans le calendrier (événement « Train ») : pas d'export
+const DEFAULT_CAL_IGNORE = ['Train'];                                  // titres du calendrier ignorés à l'import
 const WORK_TARGET = 462;   // 7 h 42 par jour, du lundi au vendredi
 function cleanCats(list) {
   const out = [];
@@ -346,10 +348,11 @@ function cleanCats(list) {
   });
   return out;
 }
-function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel) {
+function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel, noCal) {
   return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: mode === 'free' ? 1 : duration, confirm: confirm === true,
     carry: carry === undefined ? DEFAULT_CARRY.includes(id) : carry === true, children: Array.isArray(children) ? children : [],
-    cat: cat === undefined ? (DEFAULT_ACT_CAT[id] || null) : cat, parallel: parallel === undefined ? DEFAULT_PARALLEL.includes(id) : parallel === true };
+    cat: cat === undefined ? (DEFAULT_ACT_CAT[id] || null) : cat, parallel: parallel === undefined ? DEFAULT_PARALLEL.includes(id) : parallel === true,
+    noCal: noCal === undefined ? DEFAULT_NOCAL.includes(id) : noCal === true };
 }
 // Sous-activités permanentes d'une activité (lot 5) : { id, name }.
 function cleanChildren(list) {
@@ -407,6 +410,7 @@ function defaultSettings() {
     profiles: defaultProfiles(345, 1320),
     leave: defaultLeave(345, 1320),
     categories: cleanCats(DEFAULT_CATS),
+    calIgnore: DEFAULT_CAL_IGNORE.slice(),
     workTarget: WORK_TARGET,
     relaxFloor: 30,       // détente minimale avant le coucher, à valider
     activities: [
@@ -446,7 +450,8 @@ function sanitizeActs(list, fallback) {
       carry: a.carry === undefined ? DEFAULT_CARRY.includes(a.id) : a.carry === true,
       children: cleanChildren(a.children),
       cat: a.cat === undefined ? (DEFAULT_ACT_CAT[a.id] || null) : (typeof a.cat === 'string' ? a.cat : null),
-      parallel: a.parallel === undefined ? DEFAULT_PARALLEL.includes(a.id) : a.parallel === true
+      parallel: a.parallel === undefined ? DEFAULT_PARALLEL.includes(a.id) : a.parallel === true,
+      noCal: a.noCal === undefined ? DEFAULT_NOCAL.includes(a.id) : a.noCal === true
     });
   });
   return out;
@@ -536,6 +541,7 @@ function sanitize(raw) {
   s.relaxFloor = pickInt(raw.relaxFloor, d.relaxFloor, 0, 600);
   s.activities = sanitizeActs(raw.activities, d.activities);
   s.categories = raw.categories === undefined ? cleanCats(DEFAULT_CATS) : cleanCats(raw.categories);
+  s.calIgnore = Array.isArray(raw.calIgnore) ? raw.calIgnore.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim().slice(0, 40)).slice(0, 20) : DEFAULT_CAL_IGNORE.slice();
   s.workTarget = Number.isInteger(raw.workTarget) && raw.workTarget >= 1 && raw.workTarget <= 1440 ? raw.workTarget : WORK_TARGET;
   s.leave = raw.leave !== undefined ? sanitizeLeave(raw.leave, s.wake, s.bedtime) : (migrateLeave(raw.profiles, s.wake, s.bedtime) || defaultLeave(s.wake, s.bedtime));
   s.profiles = sanitizeProfiles((Array.isArray(raw.profiles) ? raw.profiles : []).filter((p) => !isOldLeave(p)), s.wake, s.bedtime);
@@ -702,7 +708,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
-    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
+    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, noCal: a.noCal === true, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
     items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
@@ -894,7 +900,7 @@ function actToRaw(a) {
   const entry = !free && a.entry === 'end' && a.start + a.duration < 1440 ? 'end' : 'duration';
   return {
     id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true, carry: a.carry === true,
-    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '', parallel: a.parallel === true,
+    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '', parallel: a.parallel === true, noCal: a.noCal === true,
     start: free || a.start === null ? '' : formatTime(a.start),
     second: free ? '30' : (entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration))
   };
@@ -962,6 +968,7 @@ function actRowHtml(r, opts) {
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>';
   }
   if (opts.days) {
+    html += '<label class="field wide chk"><input type="checkbox" data-a="noCal"' + (r.noCal ? ' checked' : '') + '> Ne pas exporter vers Calendrier (déjà dans mon calendrier)</label>';
     html += '<label class="field wide chk"><input type="checkbox" data-a="parallel"' + (r.parallel ? ' checked' : '') + '> On peut faire autre chose pendant (pas d’alerte de chevauchement : trajet, par exemple)</label>';
     html += '<div class="field wide"><span class="lbl">Sous-activités (chronométrables dans le bloc)</span><div class="childs">' + (r.children || []).map(childRowHtml).join('') + '</div>' +
       '<button type="button" class="btn small" data-action="add-child">+ Sous-activité</button></div>';
@@ -999,7 +1006,7 @@ function readActRaw(row) {
     start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value, confirm: $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked,
     days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)),
     children: $$('.child-row', row).map((c) => ({ id: c.dataset.cid, name: $('[data-c=name]', c).value })),
-    cat: $('[data-a=cat]', row).value, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked)
+    cat: $('[data-a=cat]', row).value, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked)
   };
 }
 // Lit et valide une ligne d'activité ; retourne l'activité ou null (champs invalides marqués).
@@ -1032,7 +1039,7 @@ function readActRow(row, errors) {
     if (!n) flag(inp, 'Nom de la sous-activité manquant', errors); else children.push({ id: c.dataset.cid || newId(), name: n.slice(0, 40) });
   });
   if (errors.length > before) return null;
-  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
+  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
     confirm: mode !== 'free' && $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked };
 }
 
@@ -1158,7 +1165,8 @@ function renderForm(s) {
       '<p class="help" style="margin-top:14px">Depuis Calendrier : un raccourci iOS copie tes rendez-vous (une ligne chacun : <code>2026-11-02 09:00 10:30 Titre</code>), puis tu les colles ici. Les doublons sont ignorés.</p>' +
       '<div class="btnrow"><a class="btn" href="shortcuts://run-shortcut?name=Plan%20du%20jour%20RDV">1. Lancer le raccourci</a><button type="button" class="btn" data-action="cal-paste">2. Coller et importer</button></div>' +
       '<label class="field" style="margin-top:8px"><span class="lbl">Ou colle le texte ici</span><textarea id="cal-text" rows="4" autocomplete="off" spellcheck="false" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--bg-field,transparent);color:inherit"></textarea></label>' +
-      '<button type="button" class="btn" data-action="cal-import">Importer</button><p class="help" id="cal-result" style="margin-top:8px" role="status"></p></div></details>' +
+      '<button type="button" class="btn" data-action="cal-import">Importer</button><p class="help" id="cal-result" style="margin-top:8px" role="status"></p></div>' +
+      '<label class="field" style="margin-top:10px"><span class="lbl">Titres du calendrier à ignorer à l’import (séparés par des virgules)</span><input type="text" maxlength="200" data-w="calIgnore" value="' + esc((s.calIgnore || []).join(', ')) + '"></label></details>' +
     '<div class="card"><h2>Sauvegarde</h2>' +
       '<p class="help">Un seul fichier avec tes réglages et tous tes jours. Sert à sauvegarder, ou à passer de l’iPhone à l’iPad : enregistre-le dans Fichiers (iCloud Drive), puis importe-le sur l’autre appareil.</p>' +
       '<div class="btnrow"><button type="button" class="btn primary" data-action="export">Exporter mes données</button>' +
@@ -1481,6 +1489,7 @@ function readForm() {
   });
   const wt = $('[data-w=target]', form), wtv = parseTime(wt.value);
   if (wtv === null || wtv < 1) { flag(wt, 'Durée invalide (ex. 07:42)', errors); s.workTarget = WORK_TARGET; } else s.workTarget = wtv;
+  s.calIgnore = $('[data-w=calIgnore]', form).value.split(',').map((x) => x.trim().slice(0, 40)).filter(Boolean).slice(0, 20);
   s.activities.forEach((a) => { if (a.cat && !s.categories.some((c) => c.id === a.cat)) a.cat = null; });
   const actIds = s.activities.map((a) => a.id);
   s.leave.removes = s.leave.removes.filter((id) => actIds.includes(id));
@@ -1567,6 +1576,7 @@ function calendarEvents(daysMap, settings, from, to, mode) {
   for (let k = from; k <= to; k = addDays(k, 1)) {
     const b = buildDay(settings, daysMap[k] || emptyDay(), isoWeekday(k), null, k < today, k);
     b.placed.forEach((it) => {
+      if (it.noCal) return;
       const cat = catName(it.cat);
       if (mode === 'real') {
         if (it.segs.length) {
@@ -1645,10 +1655,13 @@ async function doCalExport() {
 }
 function doCalImport() {
   const box = $('#cal-text'), out = $('#cal-result');
-  const events = parseCalendarText(box.value);
+  const ignore = (current.calIgnore || []).map((x) => x.toLowerCase());
+  const all = parseCalendarText(box.value);
+  const events = all.filter((e) => !ignore.includes(e.title.trim().toLowerCase()));
+  if (!events.length && all.length) { out.textContent = plural(all.length, 'événement ignoré', 'événements ignorés') + ' (titres ignorés : ' + (current.calIgnore || []).join(', ') + ').'; return; }
   if (!events.length) { out.textContent = 'Aucun rendez-vous reconnu. Format attendu par ligne : 2026-11-02 09:00 10:30 Titre'; return; }
   const r = importCalendarEvents(events);
-  out.textContent = plural(r.added, 'rendez-vous ajouté', 'rendez-vous ajoutés') + (r.skipped ? ' · ' + plural(r.skipped, 'déjà présent ou ignoré', 'déjà présents ou ignorés') : '') + '.';
+  out.textContent = plural(r.added, 'rendez-vous ajouté', 'rendez-vous ajoutés') + (r.skipped ? ' · ' + plural(r.skipped, 'déjà présent ou ignoré', 'déjà présents ou ignorés') : '') + (all.length > events.length ? ' · ' + plural(all.length - events.length, 'événement ignoré', 'événements ignorés') + ' par titre' : '') + '.';
   if (r.added) { box.value = ''; renderDay(); }
 }
 async function doCalPaste() {
@@ -2151,7 +2164,7 @@ function bindEvents() {
       const raws = $$('#acts-list .act-row').map(readActRaw);
       const nid = newId();
       openRows.add(nid);
-      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '', parallel: false });
+      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '', parallel: false, noCal: false });
       $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, actOpts())).join('');
       rerenderProfiles();
       const names = $$('#acts-list [data-a=name]');
