@@ -134,3 +134,9 @@ Une session = un lot, avec un résultat que l'utilisateur teste sur son iPhone o
 - **`removes`** : identifiants d'activités absentes de la journée (jamais des blocs ponctuels). Leurs données restent stockées.
 - **Migration** : des réglages sans `profiles` reçoivent trois profils (Semaine, Week-end, Télétravail) qui reprennent tous l'ancien lever et l'ancien coucher ; le télétravail retire les deux trajets. Les valeurs inventées (week-end, télétravail) ne s'appliquent qu'aux réglages de départ. Pas de changement de `DATA_VERSION` ni de `DAYS_VERSION`.
 - **Interface** : profils édités comme les activités (bouton « + », ✕, puces de jours et d'activités retirées, mises à jour quand les activités changent) ; sélecteur du profil sur la page du jour, enregistré immédiatement.
+
+## 17. Pliage dans Réglages (0.6.1, rien de ce qui précède n'est modifié)
+
+- Les cartes « Profils de journée » et « Activités » sont des `<details class="fold">` ; chaque profil et chaque activité est un `<details class="rowfold">` dont le résumé (nom, horaires, jours) est recalculé à chaque saisie (`updateSummary`). Les lignes sont repliées par défaut, une ligne ajoutée est dépliée.
+- L'état de pliage vit en mémoire (`openRows`, `foldClosed`) et survit aux réaffichages du formulaire, pas à la fermeture de l'app. Aucune donnée enregistrée n'est concernée.
+- `flag()` déplie les lignes et cartes qui contiennent un champ invalide. Les libellés des cases « activités retirées » se mettent à jour sur place (`syncActChips`) : on ne remplace jamais un champ pendant qu'il est en cours de saisie.

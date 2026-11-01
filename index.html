@@ -171,6 +171,17 @@ button { font: inherit; }
 .rvi small { display: block; color: var(--muted); font-size: 13px; }
 .rvbtn { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .profsel { margin: 8px 0 4px; }
+details.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::after { content: "▾"; color: var(--muted); }
+details.fold[open] > summary::after { content: "▴"; }
+details.fold > summary h2 { margin: 0; }
+.rowfold { grid-column: 1 / -1; }
+.rowfold > summary { display: flex; align-items: center; min-height: 48px; padding-right: 52px; cursor: pointer; }
+.rowfold .sumtxt strong { display: block; }
+.rowfold .sumtxt small { display: block; color: var(--muted); font-size: 13px; }
+.rowgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; padding-top: 4px; }
+.act-row[data-fold] .del { top: 2px; }
 .card h2 .v { font-weight: 400; font-size: 14px; }
 .card.pick { border-color: var(--accent); border-width: 2px; }
 .pickrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
@@ -242,7 +253,7 @@ button { font: inherit; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.6.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.6.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -658,13 +669,35 @@ function actToRaw(a) {
   };
 }
 
+// Pliage dans Réglages : lignes dépliées et cartes repliées, conservées d'un affichage à l'autre (en mémoire seulement).
+const openRows = new Set();
+const foldClosed = new Set();
+function daysText(days) { return days.length === 7 ? 'tous les jours' : (days.length ? days.map((d) => DAY_SHORT[d]).join(' ') : 'aucun jour'); }
+function actSummaryHtml(r) {
+  const free = r.mode === 'free', endEntry = !free && r.entry === 'end';
+  const when = free ? 'sans heure · ' + (r.second || '?') + ' min' : (r.start || '?') + (endEntry ? '–' + (r.second || '?') : ' · ' + (r.second || '?') + ' min');
+  return '<span class="sumtxt"><strong>' + esc(r.name.trim() || 'Nouvelle activité') + '</strong><small>' + esc(daysText(r.days) + ' · ' + when) + '</small></span>';
+}
+function profSummaryHtml(r) {
+  return '<span class="sumtxt"><strong>' + esc(r.name.trim() || 'Nouveau profil') + '</strong><small>' + esc((r.wake || '?') + '–' + (r.bedtime || '?') + ' · ' + (r.days.length ? daysText(r.days) : 'choisi à la main')) + '</small></span>';
+}
+function updateSummary(row) {
+  const sum = row && $('.rowfold > summary', row);
+  if (!sum) return;
+  sum.innerHTML = row.classList.contains('prof-row') ? profSummaryHtml(readProfRaw(row)) : actSummaryHtml(readActRaw(row));
+}
+function foldStart(id, summaryHtml) {
+  return '<details class="rowfold wide" data-fid="' + esc(id) + '"' + (openRows.has(id) ? ' open' : '') + '><summary>' + summaryHtml + '</summary><div class="rowgrid">';
+}
+
 function actRowHtml(r, opts) {
   const modeOptions = Object.keys(MODES).map((m) => '<option value="' + m + '"' + (r.mode === m ? ' selected' : '') + '>' + MODES[m] + '</option>').join('');
   const entryOptions = '<option value="end"' + (r.entry === 'end' ? ' selected' : '') + '>Début + fin</option>' +
     '<option value="duration"' + (r.entry === 'duration' ? ' selected' : '') + '>Début + durée</option>';
   const secondIsTime = r.mode !== 'free' && r.entry === 'end';
-  let html = '<div class="act-row" data-id="' + esc(r.id) + '" data-mode="' + r.mode + '">' +
-    '<label class="field wide' + (opts.del ? ' first' : '') + '"><span class="lbl">Nom</span><input type="text" maxlength="40" data-a="name" value="' + esc(r.name) + '"></label>' +
+  const fold = opts.fold === true;
+  let html = '<div class="act-row" data-id="' + esc(r.id) + '" data-mode="' + r.mode + '"' + (fold ? ' data-fold="1"' : '') + '>' + (fold ? foldStart(r.id, actSummaryHtml(r)) : '') +
+    '<label class="field wide' + (opts.del && !fold ? ' first' : '') + '"><span class="lbl">Nom</span><input type="text" maxlength="40" data-a="name" value="' + esc(r.name) + '"></label>' +
     '<label class="field wide"><span class="lbl">Heure</span><select data-a="mode">' + modeOptions + '</select></label>' +
     '<label class="field timed wide"><span class="lbl">Saisie</span><select data-a="entry">' + entryOptions + '</select></label>' +
     '<label class="field timed"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-a="start" value="' + esc(r.start) + '"></label>' +
@@ -676,6 +709,7 @@ function actRowHtml(r, opts) {
     html += '<div class="field wide"><span class="lbl">Jours</span><div class="chips">' +
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>';
   }
+  if (fold) html += '</div></details>';
   if (opts.del) html += '<button type="button" class="icon-btn del" data-action="del-act" aria-label="Supprimer cette activité">✕</button>';
   return html + '<span class="err wide" hidden></span></div>';
 }
@@ -742,14 +776,15 @@ function readActRow(row, errors) {
 // ---- Éditeur de profil de journée ----
 function profToRaw(p) { return { id: p.id, name: p.name, wake: formatTime(p.wake), bedtime: formatTime(p.bedtime), days: p.days, removes: p.removes }; }
 function profRowHtml(r, acts) {
-  return '<div class="act-row prof-row" data-id="' + esc(r.id) + '">' +
-    '<label class="field wide first"><span class="lbl">Nom</span><input type="text" maxlength="40" data-p="name" value="' + esc(r.name) + '"></label>' +
+  return '<div class="act-row prof-row" data-id="' + esc(r.id) + '" data-fold="1">' + foldStart(r.id, profSummaryHtml(r)) +
+    '<label class="field wide"><span class="lbl">Nom</span><input type="text" maxlength="40" data-p="name" value="' + esc(r.name) + '"></label>' +
     '<label class="field"><span class="lbl">Lever</span><input ' + TIME_ATTRS + ' data-kind="time" data-p="wake" value="' + esc(r.wake) + '"></label>' +
     '<label class="field"><span class="lbl">Coucher</span><input ' + TIME_ATTRS + ' data-kind="time" data-p="bedtime" value="' + esc(r.bedtime) + '"></label>' +
     '<div class="field wide"><span class="lbl">Jours habituels (aucun : à choisir sur la page du jour)</span><div class="chips">' +
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>' +
     '<div class="field wide"><span class="lbl">Activités retirées ce jour-là</span><div class="chips">' +
       (acts.length ? acts.map((a) => '<button type="button" class="chip" data-rm="' + esc(a.id) + '" aria-pressed="' + r.removes.includes(a.id) + '">' + esc(a.name || 'Sans nom') + '</button>').join('') : '<span class="help">Aucune activité.</span>') + '</div></div>' +
+    '</div></details>' +
     '<button type="button" class="icon-btn del" data-action="del-prof" aria-label="Supprimer ce profil">✕</button><span class="err wide" hidden></span></div>';
 }
 function readProfRaw(row) {
@@ -762,6 +797,14 @@ function rerenderProfiles(extra) {
   if (extra) raws.push(extra);
   const acts = actsFromForm();
   $('#profs-list').innerHTML = raws.map((r) => profRowHtml(r, acts)).join('');
+}
+// Met à jour les libellés des cases « activités retirées » sans refaire les lignes (un champ en cours de saisie ne doit pas être remplacé).
+function syncActChips() {
+  const acts = actsFromForm();
+  $$('#profs-list .prof-row').forEach((row) => {
+    const chips = $$('.chip[data-rm]', row);
+    acts.forEach((a) => { const c = chips.find((x) => x.dataset.rm === a.id); if (c) c.textContent = a.name || 'Sans nom'; });
+  });
 }
 function readProfRow(row, errors) {
   const nameEl = $('[data-p=name]', row), wEl = $('[data-p=wake]', row), bEl = $('[data-p=bedtime]', row);
@@ -779,17 +822,17 @@ function readProfRow(row, errors) {
 
 function renderForm(s) {
   $('#form-body').innerHTML =
-    '<div class="card"><h2>Profils de journée</h2>' +
+    '<details class="card fold" data-fid="card-profs"' + (foldClosed.has('card-profs') ? '' : ' open') + '><summary><h2>Profils de journée</h2></summary>' +
       '<p class="help">Heures en 24 h. Sur iPhone, tape les chiffres : 0653 devient 06:53. Chaque profil a son lever, son coucher et ses jours habituels. ' +
       'Un profil sans jour (télétravail) se choisit à la main sur la page du jour. Il peut retirer des activités (les trajets, par exemple).</p>' +
       '<div id="profs-list">' + s.profiles.map((p) => profRowHtml(profToRaw(p), s.activities)).join('') + '</div>' +
-      '<button type="button" class="btn" data-action="add-prof">+ Ajouter un profil</button>' +
-      intField('relaxFloor', 'Détente minimale avant le coucher (minutes)', s.relaxFloor, 0, 600) + '</div>' +
-    '<div class="card"><h2>Activités</h2>' +
+      '<button type="button" class="btn" data-action="add-prof">+ Ajouter un profil</button></details>' +
+    '<div class="card"><h2>Détente</h2>' + intField('relaxFloor', 'Détente minimale avant le coucher (minutes)', s.relaxFloor, 0, 600) + '</div>' +
+    '<details class="card fold" data-fid="card-acts"' + (foldClosed.has('card-acts') ? '' : ' open') + '><summary><h2>Activités</h2></summary>' +
       '<p class="help">Tout ce qui revient chaque semaine. <strong>Heure fixe</strong> : ne bouge jamais (train, cours). ' +
       '<strong>Heure prévue</strong> : glisse si ce qui précède déborde. <strong>Sans heure</strong> : tu la lances quand tu veux, avec le chrono.</p>' +
-      '<div id="acts-list">' + s.activities.map((a) => actRowHtml(actToRaw(a), { days: true, del: true })).join('') + '</div>' +
-      '<button type="button" class="btn" data-action="add-act">+ Ajouter une activité</button></div>' +
+      '<div id="acts-list">' + s.activities.map((a) => actRowHtml(actToRaw(a), { days: true, del: true, fold: true })).join('') + '</div>' +
+      '<button type="button" class="btn" data-action="add-act">+ Ajouter une activité</button></details>' +
     '<div class="foot"><button type="button" class="btn danger" data-action="reset">Rétablir les valeurs de départ</button>' +
       '<div>Plan du jour · version ' + APP_VERSION + '</div><div>Données stockées uniquement sur cet appareil.</div></div>';
 }
@@ -998,6 +1041,7 @@ function clearFlags(root) {
 }
 function flag(el, message, errors) {
   el.setAttribute('aria-invalid', 'true');
+  for (let d = el.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true;   // ligne ou carte repliée : on l'ouvre
   const err = errHost(el).querySelector('.err');
   err.textContent = err.textContent ? err.textContent + ' · ' + message : message;
   err.hidden = false;
@@ -1376,10 +1420,17 @@ function bindEvents() {
     if (b) { recapDay = Number(b.dataset.recapDay); renderRecap(current, loadStatus); }
   });
 
-  form.addEventListener('input', () => setDirty(true));
+  form.addEventListener('input', (e) => { setDirty(true); updateSummary(e.target.closest && e.target.closest('.act-row')); });
+  form.addEventListener('toggle', (e) => {                 // mémorise ce qui est plié ou déplié
+    const d = e.target, id = d.dataset && d.dataset.fid;
+    if (!id) return;
+    const set = d.classList.contains('fold') ? foldClosed : openRows;
+    if (d.classList.contains('fold')) { if (d.open) set.delete(id); else set.add(id); } else if (d.open) set.add(id); else set.delete(id);
+  }, true);
   form.addEventListener('change', (e) => {
-    if (e.target.matches('#acts-list [data-a=name]')) rerenderProfiles();
+    if (e.target.matches('#acts-list [data-a=name]')) syncActChips();
     const row = e.target.closest('.act-row');
+    updateSummary(row);
     if (row && row.dataset.mode !== undefined) {
       if (e.target.matches('[data-a=entry]')) convertSecond(row, e.target.value);
       if (e.target.matches('[data-a=mode],[data-a=entry]')) updateRowUi(row);
@@ -1402,6 +1453,7 @@ function bindEvents() {
     const chip = e.target.closest('.chip');
     if (chip) {
       chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
+      updateSummary(chip.closest('.act-row'));
       setDirty(true);
       return;
     }
@@ -1410,8 +1462,10 @@ function bindEvents() {
     const action = btn.dataset.action;
     if (action === 'add-act') {
       const raws = $$('#acts-list .act-row').map(readActRaw);
-      raws.push({ id: newId(), name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false });
-      $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true })).join('');
+      const nid = newId();
+      openRows.add(nid);
+      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false });
+      $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true, fold: true })).join('');
       rerenderProfiles();
       const names = $$('#acts-list [data-a=name]');
       names[names.length - 1].focus();
@@ -1419,11 +1473,13 @@ function bindEvents() {
     } else if (action === 'del-act') {
       const row = btn.closest('.act-row');
       const raws = $$('#acts-list .act-row').map(readActRaw).filter((r) => r.id !== row.dataset.id);
-      $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true })).join('');
+      $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true, fold: true })).join('');
       rerenderProfiles();
       setDirty(true);
     } else if (action === 'add-prof') {
-      rerenderProfiles({ id: newId(), name: '', wake: '07:00', bedtime: '22:00', days: [], removes: [] });
+      const pid = newId();
+      openRows.add(pid);
+      rerenderProfiles({ id: pid, name: '', wake: '07:00', bedtime: '22:00', days: [], removes: [] });
       const names = $$('#profs-list [data-p=name]');
       names[names.length - 1].focus();
       setDirty(true);

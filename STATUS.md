@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.6.0** (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.6.1** (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -19,7 +19,8 @@ Version actuelle : **0.6.0** (lots 1 à 3, option « à reporter » et profils d
 2. Sur la page **Jour**, le sélecteur « Profil de la journée » propose « Habituel (…) » (selon le jour de la semaine) ou n'importe quel profil. Le choix ne vaut que pour ce jour.
 3. Le lever, le coucher, le temps disponible, la détente et l'alerte « après le coucher » suivent le profil du jour. Les activités retirées par le profil disparaissent de ce jour.
 4. Le **Récapitulatif** indique le profil habituel de chaque jour de la semaine.
-5. Supprimer un profil renvoie les jours qui l'utilisaient à leur profil habituel. Tout est conservé après fermeture de l'app.
+5. Dans **Réglages**, les cartes « Profils de journée » et « Activités » se replient d'un tap ; chaque profil et chaque activité est une ligne repliée (nom, horaires, jours) qui se déplie d'un tap. Le résumé suit ce que tu tapes. Une erreur de saisie déplie la ligne concernée. La détente minimale a sa propre carte.
+6. Supprimer un profil renvoie les jours qui l'utilisaient à leur profil habituel. Tout est conservé après fermeture de l'app. Le pliage lui-même n'est pas mémorisé après fermeture : au rouvrir, tout est replié.
 
 Vérifié côté code (navigateur automatisé) : tous les points, la reprise des anciens réglages (lever et coucher repris dans les trois profils), et les tests des lots 1 à 3 bis.
 
