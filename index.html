@@ -294,7 +294,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.13.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.13.3';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1163,8 +1163,7 @@ function renderForm(s) {
       '<button type="button" class="btn" data-action="add-act">+ Ajouter une activité</button></details>' +
     '<details class="card fold" data-fid="card-cal"' + (foldClosed.has('card-cal') ? '' : ' open') + '><summary><h2>Calendrier</h2></summary><div data-nodirty>' +
       '<p class="help">Vers Calendrier : génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier » (les événements se mettent à jour si tu réexportes).</p>' +
-      '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="today">Aujourd’hui</option><option value="tomorrow">Demain</option><option value="week">7 jours</option></select></label>' +
-      '<label class="field"><span class="lbl">Contenu</span><select id="cal-mode"><option value="plan">Plan du jour</option><option value="real">Temps réels</option></select></label></div>' +
+      '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="tomorrow">Demain</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
       '<button type="button" class="btn primary" data-action="cal-export">Exporter vers Calendrier</button>' +
       '<p class="help" style="margin-top:14px">Depuis Calendrier : un raccourci iOS copie tes rendez-vous (une ligne chacun : <code>2026-11-02 09:00 10:30 Titre</code>), puis tu les colles ici. Les doublons sont ignorés.</p>' +
       '<div class="btnrow"><a class="btn" href="shortcuts://run-shortcut?name=Plan%20du%20jour%20RDV">1. Lancer le raccourci</a><button type="button" class="btn" data-action="cal-paste">2. Coller et importer</button></div>' +
@@ -1642,9 +1641,9 @@ function importCalendarEvents(events) {
   return { added: added, skipped: skipped };
 }
 async function doCalExport() {
-  const per = $('#cal-period').value, mode = $('#cal-mode').value, today = dateKey(new Date());
-  const from = per === 'tomorrow' ? addDays(today, 1) : today, to = per === 'week' ? addDays(today, 6) : from;
-  const events = calendarEvents(daysData.days, current, from, to, mode);
+  const per = $('#cal-period').value, today = dateKey(new Date());
+  const from = addDays(today, 1), to = per === 'week' ? addDays(today, 7) : from;   // jamais le jour même : on exporte le plan des jours suivants
+  const events = calendarEvents(daysData.days, current, from, to, 'plan');
   if (!events.length) { showToast('Rien à exporter sur cette période', 'err'); return; }
   const text = buildIcs(events), name = 'plandujour-' + from + (to !== from ? '_' + to : '') + '.ics';
   try {                                                   // feuille de partage : « Calendrier » propose d'ajouter les événements
