@@ -157,6 +157,11 @@ button { font: inherit; }
 .act-row .chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
 .chk input, .subchk input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
 .subh { margin: 14px 0 6px; font-size: 15px; }
+.child-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.child-row input { flex: 1; min-width: 0; }
+.stsub { list-style: none; margin: 4px 0 2px; padding: 0 0 0 14px; font-size: 14px; color: var(--muted); }
+.stsub li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border: 0; }
+.childbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .subs { list-style: none; margin: 0 0 8px; padding: 0; }
 .subs li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
 .subs li:first-child { border-top: 0; }
@@ -216,6 +221,17 @@ input[type=date] { min-width: 0; max-width: 100%; }
         <label class="field"><span class="lbl">Début réel</span><input type="text" id="bp-real-start" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
         <label class="field"><span class="lbl">Fin réelle</span><input type="text" id="bp-real-end" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
       </div>
+      <div id="bp-children" hidden>
+        <h3 class="subh">Sous-activités</h3>
+        <div class="childbtns" id="bp-child-btns"></div>
+        <ul class="subs" id="bp-seg-list"></ul>
+        <label class="field"><span class="lbl">Ajouter un temps à la main</span><select id="seg-child"></select></label>
+        <div class="grid2">
+          <label class="field"><span class="lbl">Début</span><input type="text" id="seg-start" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
+          <label class="field"><span class="lbl">Fin</span><input type="text" id="seg-end" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
+        </div>
+        <button type="button" class="btn small" data-bp="add-seg">+ Ajouter ce temps</button>
+      </div>
       <div id="bp-subs">
         <h3 class="subh">Sous-tâches <span id="bp-subs-count"></span></h3>
         <ul class="subs" id="bp-subs-list"></ul>
@@ -267,7 +283,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.10.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.11.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -305,9 +321,28 @@ function parseIntStrict(text) {
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 
 // ==== 3. VALEURS PAR DÉFAUT ====
-function makeAct(id, name, days, mode, entry, start, duration, confirm, carry) {
+function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children) {
   return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: mode === 'free' ? 1 : duration, confirm: confirm === true,
-    carry: carry === undefined ? DEFAULT_CARRY.includes(id) : carry === true };
+    carry: carry === undefined ? DEFAULT_CARRY.includes(id) : carry === true, children: Array.isArray(children) ? children : [] };
+}
+// Sous-activités permanentes d'une activité (lot 5) : { id, name }.
+function cleanChildren(list) {
+  const out = [];
+  (Array.isArray(list) ? list : []).forEach((c) => {
+    if (!c || typeof c.name !== 'string' || !c.name.trim() || out.length >= 20) return;
+    out.push({ id: typeof c.id === 'string' && !out.some((o) => o.id === c.id) ? c.id : newId(), name: c.name.trim().slice(0, 40) });
+  });
+  return out;
+}
+// Temps chronométrés dans un bloc : [{ cid, start, end|null }].
+function cleanSegs(list) {
+  const out = [];
+  (Array.isArray(list) ? list : []).forEach((g) => {
+    if (!g || typeof g.cid !== 'string' || !isMinute(g.start)) return;
+    const e = isMinute(g.end) && g.end > g.start ? g.end : null;
+    out.push({ cid: g.cid, start: g.start, end: e });
+  });
+  return out.sort((a, b) => a.start - b.start);
 }
 // Profils de journée : lever et coucher (facultatifs : null = libre), jours habituels, activités retirées.
 // Un profil peut avoir une période (congé : { from, to }) où il s'applique seul, avec deux heures particulières :
@@ -357,7 +392,7 @@ function defaultSettings() {
     ]
   };
 }
-function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null }; }
+function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {} }; }
 function emptyDays() { return { version: DAYS_VERSION, days: {} }; }
 
 // ==== 4. STOCKAGE ====
@@ -380,7 +415,8 @@ function sanitizeActs(list, fallback) {
       id: typeof a.id === 'string' ? a.id : newId(), name: a.name.trim().slice(0, 40), days: cleanDays(a.days), mode: a.mode,
       entry: a.entry === 'end' ? 'end' : 'duration', start: free ? null : a.start, duration: free ? 1 : Math.min(a.duration, 1440 - a.start),
       confirm: !free && a.confirm === true,
-      carry: a.carry === undefined ? DEFAULT_CARRY.includes(a.id) : a.carry === true
+      carry: a.carry === undefined ? DEFAULT_CARRY.includes(a.id) : a.carry === true,
+      children: cleanChildren(a.children)
     });
   });
   return out;
@@ -560,6 +596,7 @@ function sanitizeDays(raw) {
     } else {
       if (d.real && typeof d.real === 'object') Object.keys(d.real).forEach((key) => { const r = cleanReal(d.real[key]); if (r) day.real[key] = r; });
       (Array.isArray(d.ponctuels) ? d.ponctuels : []).forEach((p) => { const c = cleanPonctuel(p); if (c) day.ponctuels.push(c); });
+      if (d.segs && typeof d.segs === 'object') Object.keys(d.segs).forEach((key) => { const l = cleanSegs(d.segs[key]); if (l.length) day.segs[key] = l; });
       if (d.subtasks && typeof d.subtasks === 'object') Object.keys(d.subtasks).forEach((key) => { const l = cleanSubtasks(d.subtasks[key]); if (l.length) day.subtasks[key] = l; });
       if (typeof d.profile === 'string') day.profile = d.profile;
       if (d.review && typeof d.review === 'object') Object.keys(d.review).forEach((key) => { const r = cleanReview(d.review[key]); if (r) day.review[key] = r; });
@@ -633,16 +670,21 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
-    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
+    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
-    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
+    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
   });
   const timed = [];
   items.forEach((it) => {
     it.real = dayData.real[it.key] || { start: null, end: null };
     it.subs = (dayData.subtasks && dayData.subtasks[it.key]) || [];
     it.review = (dayData.review && dayData.review[it.key]) || null;
+    it.segs = (dayData.segs && dayData.segs[it.key]) || [];
+    if (it.segs.length && !it.real.missed) {         // bloc à sous-activités : ses heures viennent des temps chronométrés
+      const open = it.segs.some((g) => g.end === null);
+      it.real = { start: Math.min.apply(null, it.segs.map((g) => g.start)), end: open ? null : Math.max.apply(null, it.segs.map((g) => g.end)) };
+    }
     if (it.real.missed) out.missed.push(it);                      // raté : le bloc quitte le plan et libère son temps
     else if (it.mode === 'free' && it.real.start === null) out.pending.push(it);
     else timed.push(it);
@@ -704,25 +746,42 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
 
 // Statistiques : temps réel (fin − début) par nom d'activité sur les jours de `from` à `to` inclus. Les blocs ratés ou non terminés ne comptent pas.
 function statsFor(daysMap, settings, from, to) {
-  const names = {};
-  settings.activities.forEach((a) => { names['act:' + a.id] = a.name; });
-  const totals = {};
+  const names = {}, childNames = {};
+  settings.activities.forEach((a) => { names['act:' + a.id] = a.name; (a.children || []).forEach((c) => { childNames[c.id] = c.name; }); });
+  const totals = {}, detail = {};
   let daysUsed = 0;
   Object.keys(daysMap).sort().forEach((k) => {
     if (k < from || k > to) return;
     const d = daysMap[k];
     (d.ponctuels || []).forEach((p) => { names['p:' + p.id] = p.name; });
     let used = false;
-    Object.keys(d.real).forEach((key) => {
-      const r = d.real[key];
-      if (r.missed || r.start === null || r.end === null) return;
+    const segs = d.segs || {};
+    Object.keys(d.real).concat(Object.keys(segs).filter((x) => !(x in d.real))).forEach((key) => {
       const name = names[key] || 'Activité supprimée';
+      if (segs[key] && segs[key].length) {            // temps chronométrés par sous-activité
+        segs[key].forEach((g) => {
+          if (g.end === null) return;
+          const m = g.end - g.start, cn = childNames[g.cid] || 'Sous-activité supprimée';
+          totals[name] = (totals[name] || 0) + m;
+          detail[name] = detail[name] || {};
+          detail[name][cn] = (detail[name][cn] || 0) + m;
+          used = true;
+        });
+        return;
+      }
+      const r = d.real[key];
+      if (!r || r.missed || r.start === null || r.end === null) return;
       totals[name] = (totals[name] || 0) + (r.end - r.start);
       used = true;
     });
     if (used) daysUsed++;
   });
-  const rows = Object.keys(totals).map((n) => ({ name: n, minutes: totals[n] })).sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
+  const rows = Object.keys(totals).map((n) => {
+    const kids = Object.keys(detail[n] || {}).map((c) => ({ name: c, minutes: detail[n][c] })).sort((x, y) => y.minutes - x.minutes || x.name.localeCompare(y.name, 'fr'));
+    const rest = totals[n] - kids.reduce((t, c) => t + c.minutes, 0);
+    if (kids.length && rest > 0) kids.push({ name: 'Sans détail', minutes: rest });
+    return { name: n, minutes: totals[n], children: kids };
+  }).sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
   return { rows: rows, total: rows.reduce((t, r) => t + r.minutes, 0), daysUsed: daysUsed };
 }
 function statsRange(mode, anchor) {
@@ -778,6 +837,7 @@ function actToRaw(a) {
   const entry = !free && a.entry === 'end' && a.start + a.duration < 1440 ? 'end' : 'duration';
   return {
     id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true, carry: a.carry === true,
+    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })),
     start: free || a.start === null ? '' : formatTime(a.start),
     second: free ? '30' : (entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration))
   };
@@ -791,7 +851,8 @@ function daysText(days) { return days.length === 7 ? 'tous les jours' : (days.le
 function actSummaryHtml(r) {
   const free = r.mode === 'free', endEntry = !free && r.entry === 'end';
   const when = free ? 'sans heure' : (r.start || '?') + (endEntry ? '–' + (r.second || '?') : ' · ' + (r.second || '?') + ' min');
-  return '<span class="sumtxt"><strong>' + esc(r.name.trim() || 'Nouvelle activité') + '</strong><small>' + esc(daysText(r.days) + ' · ' + when) + '</small></span>';
+  const kids = r.children && r.children.length ? ' · ' + r.children.length + (r.children.length > 1 ? ' sous-activités' : ' sous-activité') : '';
+  return '<span class="sumtxt"><strong>' + esc(r.name.trim() || 'Nouvelle activité') + '</strong><small>' + esc(daysText(r.days) + ' · ' + when + kids) + '</small></span>';
 }
 function profSummaryHtml(r) {
   return '<span class="sumtxt"><strong>' + esc(r.name.trim() || 'Nouveau profil') + '</strong><small>' + esc((r.wake || 'libre') + '–' + (r.bedtime || 'libre') + ' · ' + (r.days.length ? daysText(r.days) : 'choisi à la main')) + '</small></span>';
@@ -805,6 +866,10 @@ function foldStart(id, summaryHtml) {
   return '<details class="rowfold wide" data-fid="' + esc(id) + '"' + (openRows.has(id) ? ' open' : '') + '><summary>' + summaryHtml + '</summary><div class="rowgrid">';
 }
 
+function childRowHtml(c) {
+  return '<div class="child-row" data-cid="' + esc(c.id) + '"><input type="text" maxlength="40" data-c="name" placeholder="Nom de la sous-activité" value="' + esc(c.name) + '">' +
+    '<button type="button" class="icon-btn" data-action="del-child" aria-label="Supprimer la sous-activité">✕</button></div>';
+}
 function actRowHtml(r, opts) {
   const modeOptions = Object.keys(MODES).map((m) => '<option value="' + m + '"' + (r.mode === m ? ' selected' : '') + '>' + MODES[m] + '</option>').join('');
   const entryOptions = '<option value="end"' + (r.entry === 'end' ? ' selected' : '') + '>Début + fin</option>' +
@@ -823,6 +888,10 @@ function actRowHtml(r, opts) {
   if (opts.days) {
     html += '<div class="field wide"><span class="lbl">Jours</span><div class="chips">' +
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>';
+  }
+  if (opts.days) {
+    html += '<div class="field wide"><span class="lbl">Sous-activités (chronométrables dans le bloc)</span><div class="childs">' + (r.children || []).map(childRowHtml).join('') + '</div>' +
+      '<button type="button" class="btn small" data-action="add-child">+ Sous-activité</button></div>';
   }
   if (fold) html += '</div></details>';
   if (opts.del) html += '<button type="button" class="icon-btn del" data-action="del-act" aria-label="Supprimer cette activité">✕</button>';
@@ -855,7 +924,8 @@ function readActRaw(row) {
   return {
     id: row.dataset.id, name: $('[data-a=name]', row).value, mode: $('[data-a=mode]', row).value, entry: $('[data-a=entry]', row).value,
     start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value, confirm: $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked,
-    days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day))
+    days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)),
+    children: $$('.child-row', row).map((c) => ({ id: c.dataset.cid, name: $('[data-c=name]', c).value }))
   };
 }
 // Lit et valide une ligne d'activité ; retourne l'activité ou null (champs invalides marqués).
@@ -882,8 +952,13 @@ function readActRow(row, errors) {
       else if (start !== null && start + duration > 1440) flag(secEl, 'Dépasse minuit', errors);
     }
   }
+  const children = [];
+  $$('.child-row', row).forEach((c) => {
+    const inp = $('[data-c=name]', c), n = inp.value.trim();
+    if (!n) flag(inp, 'Nom de la sous-activité manquant', errors); else children.push({ id: c.dataset.cid || newId(), name: n.slice(0, 40) });
+  });
   if (errors.length > before) return null;
-  return { id: row.dataset.id || newId(), name: name, days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
+  return { id: row.dataset.id || newId(), name: name, children: children, days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
     confirm: mode !== 'free' && $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked };
 }
 
@@ -1063,6 +1138,7 @@ function renderStats() {
   } else {
     html += '<div class="card"><h2>' + formatDuration(st.total) + ' <span class="v">· ' + plural(st.daysUsed, 'jour', 'jours') + ' avec des heures réelles</span></h2><ul class="rows">' +
       st.rows.map((r) => '<li class="strow"><div class="stline"><span>' + esc(r.name) + '</span><strong>' + formatDuration(r.minutes) + '</strong></div>' +
+        (r.children.length ? '<ul class="stsub">' + r.children.map((c) => '<li><span>' + esc(c.name) + '</span><span>' + formatDuration(c.minutes) + '</span></li>').join('') + '</ul>' : '') +
         '<div class="bar"><span style="width:' + Math.max(2, Math.round(r.minutes / max * 100)) + '%"></span></div></li>').join('') + '</ul>' +
       '<p class="help" style="margin:10px 0 0">Un bloc en cours n’est compté qu’une fois arrêté. Les blocs ratés ne comptent pas. Regroupement par nom d’activité.</p></div>';
   }
@@ -1157,14 +1233,15 @@ function renderDay() {
   }
   if (build.running) {
     const r = build.running;
-    head += '<div class="runbar"><div><strong>' + esc(r.name) + '</strong><small>en cours depuis ' + formatTime(r.start) + ' · ' + formatDuration(Math.max(0, dayNow() - r.start)) +
+    const rseg = r.segs.find((g) => g.end === null), rkid = rseg && r.children.find((c) => c.id === rseg.cid), since = rseg ? rseg.start : r.start;
+    head += '<div class="runbar"><div><strong>' + esc(r.name) + (rkid ? ' · ' + esc(rkid.name) : '') + '</strong><small>en cours depuis ' + formatTime(since) + ' · ' + formatDuration(Math.max(0, dayNow() - since)) +
       (r.mode === 'free' ? '' : ' (prévu ' + formatDuration(r.minutes) + ')') + '</small></div><button type="button" class="btn" data-action="stop" data-key="' + esc(r.key) + '">■ Arrêter</button></div>';
   }
   head += pickHtml(build) + reviewHtml(build, dateKey(new Date()));
   if (build.pending.length) {
     head += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + build.pending.map((it) =>
       '<li><span>' + esc(it.name) + ' <span class="v">' + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span></span><span>' +
-      (dayNow() !== null ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
+      (dayNow() !== null ? '<button type="button" class="btn small primary" data-action="' + (it.children.length ? 'open-block' : 'start') + '" data-key="' + esc(it.key) + '">▶ Démarrer' + (it.children.length ? '…' : '') + '</button> ' : '') +
       '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul></div>';
   }
   if (build.warnings.length) head += '<div class="banner warn"><strong>À vérifier</strong><ul>' + build.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
@@ -1314,21 +1391,40 @@ function persistDays() {
 }
 
 // ---- Chrono ----
+// Un seul chrono à la fois : arrête tous les blocs et toutes les sous-activités en cours (sauf le bloc `exceptKey`).
+function closeRunning(day, now, exceptKey) {
+  Object.keys(day.real).forEach((k) => {
+    const r = day.real[k];
+    if (k !== exceptKey && r.start !== null && r.end === null) r.end = Math.min(1439, Math.max(now, r.start + 1));
+  });
+  Object.keys(day.segs).forEach((k) => day.segs[k].forEach((g) => { if (g.end === null) g.end = Math.min(1439, Math.max(now, g.start + 1)); }));
+}
 function startNow(key) {
   const now = dayNow();
   if (now === null) return;
   const day = ensureDay();
-  Object.keys(day.real).forEach((k) => {           // un seul bloc en cours à la fois : on arrête les autres
-    const r = day.real[k];
-    if (k !== key && r.start !== null && r.end === null) r.end = Math.min(1439, Math.max(now, r.start + 1));
-  });
+  closeRunning(day, now, key);
   day.real[key] = { start: now, end: null };
   persistDays();
+  renderDay();
+}
+function toggleChild(key, cid) {
+  const now = dayNow();
+  if (now === null) return;
+  const day = ensureDay();
+  const list = day.segs[key] || [];
+  const open = list.find((g) => g.cid === cid && g.end === null);
+  closeRunning(day, now, null);
+  if (!open) { if (!day.segs[key]) day.segs[key] = []; day.segs[key].push({ cid: cid, start: now, end: null }); }
+  persistDays();
+  renderChildren();
   renderDay();
 }
 function stopNow(key) {
   const now = dayNow();
   const day = ensureDay();
+  const open = (day.segs[key] || []).find((g) => g.end === null);
+  if (now !== null && open) { open.end = Math.min(1439, Math.max(now, open.start + 1)); persistDays(); renderDay(); return; }
   const r = day.real[key];
   if (now === null || !r || r.start === null) return;
   r.end = Math.min(1439, Math.max(now, r.start + 1));
@@ -1495,6 +1591,45 @@ function renderSubs() {
     esc(t.label) + '</span>' + (t.action ? '<small>' + esc(t.action) + '</small>' : '') + '</span></label>' +
     '<button type="button" class="icon-btn" data-sub-del="' + esc(t.id) + '" aria-label="Supprimer la sous-tâche">✕</button></li>').join('');
 }
+function renderChildren() {
+  const day = daysData.days[selectedDate];
+  const it = panelKey ? findItem(panelKey) : null;
+  const box = $('#bp-children');
+  box.hidden = !(it && it.children.length);
+  if (box.hidden) return;
+  const today = dayNow() !== null;
+  const segs = ((day && day.segs[panelKey]) || []).slice();
+  const run = segs.find((g) => g.end === null);
+  $('#bp-child-btns').innerHTML = today ? it.children.map((c) => {
+    const on = run && run.cid === c.id;
+    return '<button type="button" class="btn ' + (on ? 'danger' : 'primary') + '" data-child-go="' + esc(c.id) + '">' + (on ? '■ ' : '▶ ') + esc(c.name) + '</button>';
+  }).join('') : '<p class="help" style="margin:0">Le chrono ne marche que pour aujourd’hui : ajoute les temps à la main ci-dessous.</p>';
+  const nm = (cid) => { const c = it.children.find((x) => x.id === cid); return c ? c.name : 'Sous-activité supprimée'; };
+  $('#bp-seg-list').innerHTML = segs.map((g, i) => '<li><span>' + esc(nm(g.cid)) + ' <span class="v">· ' + (g.end === null ? 'depuis ' + formatTime(g.start) + ' · en cours' :
+    formatTime(g.start) + '–' + formatTime(g.end) + ' (' + formatDuration(g.end - g.start) + ')') + '</span></span>' +
+    '<button type="button" class="icon-btn" data-seg-del="' + i + '" aria-label="Supprimer ce temps">✕</button></li>').join('');
+  const sel = $('#seg-child');
+  const keep = sel.value;
+  sel.innerHTML = it.children.map((c) => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('');
+  if (keep && it.children.some((c) => c.id === keep)) sel.value = keep;
+}
+function addSeg() {
+  const day = ensureDay();
+  const sEl = $('#seg-start'), eEl = $('#seg-end');
+  sEl.removeAttribute('aria-invalid'); eEl.removeAttribute('aria-invalid');
+  const st = parseTime(sEl.value), en = parseTime(eEl.value);
+  if (st === null) { sEl.setAttribute('aria-invalid', 'true'); sEl.focus(); return; }
+  if (en === null || en <= st) { eEl.setAttribute('aria-invalid', 'true'); eEl.focus(); return; }
+  const cid = $('#seg-child').value;
+  if (!cid || !panelKey) return;
+  if (!day.segs[panelKey]) day.segs[panelKey] = [];
+  day.segs[panelKey].push({ cid: cid, start: st, end: en });
+  day.segs[panelKey].sort((a, b) => a.start - b.start);
+  persistDays();
+  sEl.value = ''; eEl.value = '';
+  renderChildren();
+  renderDay();
+}
 function addSub() {
   const labelEl = $('#sub-label');
   const label = labelEl.value.trim();
@@ -1530,13 +1665,14 @@ function openPanel(key) {
   $('#bp-planned').textContent = !it ? 'Un bloc ponctuel ne concerne que ce jour.'
     : (it.mode === 'free' ? 'Sans heure' : 'Prévu : ' + formatTime(it.plannedStart) + '–' + formatTime(it.plannedStart + it.minutes) + ' · ' + MODE_TAG[it.mode]) +
       (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + (it.kind === 'act' ? ' · à modifier dans Réglages' : '');
-  $('#bp-real').hidden = !it;
+  const kids = !!(it && it.children.length);
+  $('#bp-real').hidden = !it || kids;
   const real = it ? it.real : { start: null, end: null };
   $('#bp-real-start').value = real.start === null ? '' : formatTime(real.start);
   $('#bp-real-end').value = real.end === null ? '' : formatTime(real.end);
-  $('#bp-start').hidden = !(it && today && real.start === null);
-  $('#bp-stop').hidden = !(it && today && real.start !== null && real.end === null);
-  $('#bp-clear').hidden = !(it && (real.start !== null || real.end !== null));
+  $('#bp-start').hidden = !(it && !kids && today && real.start === null);
+  $('#bp-stop').hidden = !(it && !kids && today && real.start !== null && real.end === null);
+  $('#bp-clear').hidden = !(it && !kids && (real.start !== null || real.end !== null));
   $('#bp-del').hidden = !(it && isP);
   $('#bp-save').textContent = it ? 'Enregistrer' : 'Ajouter';
   $('#bp-subs').hidden = !it;
@@ -1544,6 +1680,7 @@ function openPanel(key) {
   $('#sub-action').value = '';
   $('#sub-label').removeAttribute('aria-invalid');
   if (it) renderSubs();
+  renderChildren();
   $('#bp-err').hidden = true;
   form.hidden = false;
   form.scrollIntoView({ block: 'center' });
@@ -1561,7 +1698,8 @@ function savePanel() {
   let edited = null;
   if (isP) { edited = readActRow($('#bp-edit .act-row'), errors); }
   let rs = null, re = null;
-  if (it) {
+  const kidsBlock = !!(it && it.children.length);
+  if (it && !kidsBlock) {
     const sEl = $('#bp-real-start'), eEl = $('#bp-real-end');
     if (sEl.value.trim() !== '') { rs = parseTime(sEl.value); if (rs === null) flag(sEl, 'Heure invalide', errors); }
     if (eEl.value.trim() !== '') { re = parseTime(eEl.value); if (re === null) flag(eEl, 'Heure invalide', errors); }
@@ -1582,7 +1720,7 @@ function savePanel() {
     if (!it) { day.ponctuels.push(p); key = 'p:' + p.id; }
     else { const i = day.ponctuels.findIndex((x) => 'p:' + x.id === panelKey); if (i >= 0) day.ponctuels[i] = p; }
   }
-  if (it && key) { if (rs === null && re === null) delete day.real[key]; else day.real[key] = { start: rs, end: re }; }
+  if (it && key && !kidsBlock) { if (rs === null && re === null) delete day.real[key]; else day.real[key] = { start: rs, end: re }; }
   persistDays();
   closePanel();
   renderDay();
@@ -1631,6 +1769,17 @@ function bindDayEvents() {
       else if (a === 'rv-undo') { undoReview(act.dataset.key); renderDay(); }
       return;
     }
+    const cgo = e.target.closest('[data-child-go]');
+    if (cgo && panelKey) { toggleChild(panelKey, cgo.dataset.childGo); return; }
+    const segDel = e.target.closest('[data-seg-del]');
+    if (segDel && panelKey) {
+      const day = ensureDay();
+      const list = day.segs[panelKey] || [];
+      list.splice(Number(segDel.dataset.segDel), 1);
+      if (!list.length) delete day.segs[panelKey];
+      persistDays(); renderChildren(); renderDay();
+      return;
+    }
     const subDel = e.target.closest('[data-sub-del]');
     if (subDel && panelKey) {
       const day = ensureDay();
@@ -1648,12 +1797,14 @@ function bindDayEvents() {
     else if (what === 'start' && panelKey) { const key = panelKey; closePanel(); startNow(key); }
     else if (what === 'stop' && panelKey) { const key = panelKey; closePanel(); stopNow(key); }
     else if (what === 'add-sub') addSub();
+    else if (what === 'add-seg') addSeg();
     else if (what === 'clear' && panelKey) { delete ensureDay().real[panelKey]; persistDays(); closePanel(); renderDay(); }
     else if (what === 'delete' && panelKey) {
       const day = ensureDay();
       day.ponctuels = day.ponctuels.filter((p) => 'p:' + p.id !== panelKey);
       delete day.real[panelKey];
       delete day.subtasks[panelKey];
+      delete day.segs[panelKey];
       delete day.review[panelKey];
       persistDays();
       closePanel();
@@ -1767,7 +1918,7 @@ function bindEvents() {
       const raws = $$('#acts-list .act-row').map(readActRaw);
       const nid = newId();
       openRows.add(nid);
-      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false });
+      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [] });
       $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true, fold: true })).join('');
       rerenderProfiles();
       const names = $$('#acts-list [data-a=name]');
@@ -1785,6 +1936,18 @@ function bindEvents() {
       rerenderProfiles({ id: pid, name: '', wake: '07:00', bedtime: '22:00', days: [], removes: [] });
       const names = $$('#profs-list [data-p=name]');
       names[names.length - 1].focus();
+      setDirty(true);
+    } else if (action === 'add-child') {
+      const row = btn.closest('.act-row');
+      const box = $('.childs', row);
+      box.insertAdjacentHTML('beforeend', childRowHtml({ id: newId(), name: '' }));
+      $$('[data-c=name]', box).slice(-1)[0].focus();
+      updateSummary(row);
+      setDirty(true);
+    } else if (action === 'del-child') {
+      const row = btn.closest('.act-row');
+      btn.closest('.child-row').remove();
+      updateSummary(row);
       setDirty(true);
     } else if (action === 'add-leave') {
       const wrap = document.createElement('div');

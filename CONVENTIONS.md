@@ -170,3 +170,11 @@ Plus de carte « Détente » dans Réglages, plus d'encart sur la page du jour, 
 
 ## 23. Activités sans heure : plus de durée (0.10.0)
 Une activité ou un bloc « sans heure » n'a plus de durée prévue : le champ est masqué dans l'éditeur, la valeur stockée est neutre (1) et ignorée à l'affichage. Démarré, le bloc dure jusqu'à l'heure réelle d'arrêt (ou jusqu'à maintenant). Le chrono (▶ Démarrer / ■ Arrêter) n'existe que pour aujourd'hui : un autre jour se renseigne à la main (début/fin réels).
+
+## 24. Sous-activités chronométrées (lot 5, 0.11.0)
+- Une activité de Réglages peut avoir des sous-activités permanentes : `children: [{id,name}]` (20 max). Les blocs ponctuels n'en ont pas.
+- Temps d'un jour : `day.segs[blockKey] = [{cid,start,end|null}]` (champ additif, pas de changement de version). Pour un bloc qui a des segments, `buildDay` remplace `real` par début = premier segment, fin = dernier segment (null tant qu'un segment tourne). Le bloc n'a plus d'heures réelles propres (champs masqués) : son temps = somme des segments.
+- Un seul chrono à la fois : `closeRunning` arrête tout bloc et tout segment en cours avant d'en démarrer un autre. Chrono seulement aujourd'hui ; les autres jours se saisissent à la main (select + début + fin).
+- Stats : le total d'une activité compte la somme des segments terminés ; détail par sous-activité, « Sans détail » pour le temps sans sous-activité, « Sous-activité supprimée » si l'id n'existe plus.
+- Le bouton « ▶ Démarrer » d'une activité sans heure qui a des sous-activités ouvre le panneau (choix de la sous-activité).
+- Lot 5 bis (à faire) : chrono sur les sous-tâches du jour (checklist actuelle).
