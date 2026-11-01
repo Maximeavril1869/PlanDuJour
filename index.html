@@ -267,7 +267,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.9.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.9.3';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1023,7 +1023,7 @@ function renderRecap(s, status) {
   const entries = [];
   if (b.profile.wake !== null) entries.push({ at: b.profile.wake - 0.5, html: '<li class="mark"><span class="t">' + formatTime(b.profile.wake) + '</span><span class="dot"></span><span class="what">Lever</span></li>' });
   b.placed.forEach((it) => {
-    entries.push({ at: it.start, html: '<li><span class="t">' + formatTime(it.start) + '–' + formatTime(it.end) + ' (' + formatDuration(it.end - it.start) + ')</span><span class="dot"></span><span class="what">' + esc(it.name) +
+    entries.push({ at: it.start, html: '<li><span class="t">' + formatTime(it.start) + '–' + formatTime(it.end) + '</span><span class="dot"></span><span class="what">' + esc(it.name) + ' <span class="v">(' + formatDuration(it.end - it.start) + ')</span>' +
       '<small>' + MODE_TAG[it.mode] + '</small></span></li>' });
   });
   b.gaps.forEach((g) => {
