@@ -193,3 +193,10 @@ Mise à jour 0.11.2 : les sous-activités sont nommées dans la carte « Sans he
 Mise à jour 0.12.1 : champ `parallel` sur les activités (case « On peut faire autre chose pendant », cochée par défaut sur les trajets). Un chevauchement avec une telle activité ne déclenche plus l'alerte « À vérifier ». Le travail fait pendant un trajet se note en bloc ponctuel de catégorie Travail ; le trajet garde son temps (Trajets), le travail compte en plus. Test : test_lot12.js.
 
 Mise à jour 0.12.2 : Stats → mode « Jour » (navigation jour par jour) en plus de Semaine et Mois ; travail du jour face à la cible, ou « jour sans cible » le week-end. Test : test_lot13.js.
+
+## 26. Calendrier (lot 7, 0.13.0)
+- Export : `calendarEvents` (mode `plan` = blocs placés ; `real` = temps terminés, un événement par segment de sous-activité) puis `buildIcs` : heures locales sans fuseau, UID stable `pdj-<date>-<clé>@plandujour` (un réexport met à jour les événements). Remis par la feuille de partage (type `text/calendar`, l'option « Calendrier » ajoute les événements), sinon téléchargement.
+- Import : `parseCalendarText` lit des lignes `AAAA-MM-JJ HH:MM HH:MM Titre` (produites par un raccourci iOS) ou un .ics en heures locales ; `importCalendarEvents` crée des blocs ponctuels à heure fixe et ignore les doublons (même titre, début, durée).
+- Pas de lien automatique : une PWA installée a un stockage séparé de Safari, donc un raccourci ne peut pas lui passer de données par une URL. Passage par le presse-papiers (bouton « Coller et importer ») ; aucune donnée de calendrier n'est envoyée à GitHub.
+- Les champs de la carte ne marquent pas « modifications non enregistrées » (`data-nodirty`).
+- Test : test_lot14.js.

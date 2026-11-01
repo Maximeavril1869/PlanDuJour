@@ -294,7 +294,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.12.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.13.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -902,7 +902,7 @@ function actToRaw(a) {
 
 // Pliage dans Réglages : lignes dépliées et cartes repliées, conservées d'un affichage à l'autre (en mémoire seulement).
 const openRows = new Set();
-const foldClosed = new Set(['card-profs', 'card-leave', 'card-cats', 'card-acts']);   // cartes repliées au départ
+const foldClosed = new Set(['card-profs', 'card-leave', 'card-cats', 'card-acts', 'card-cal']);   // cartes repliées au départ
 function shortDate(k) { return k.slice(8, 10) + '/' + k.slice(5, 7); }
 function daysText(days) { return days.length === 7 ? 'tous les jours' : (days.length ? days.map((d) => DAY_SHORT[d]).join(' ') : 'aucun jour'); }
 function actSummaryHtml(r) {
@@ -1150,6 +1150,15 @@ function renderForm(s) {
       '<strong>Heure prévue</strong> : glisse si ce qui précède déborde. <strong>Sans heure</strong> : tu la lances quand tu veux, avec le chrono.</p>' +
       '<div id="acts-list">' + s.activities.map((a) => actRowHtml(actToRaw(a), { days: true, del: true, fold: true, cats: s.categories })).join('') + '</div>' +
       '<button type="button" class="btn" data-action="add-act">+ Ajouter une activité</button></details>' +
+    '<details class="card fold" data-fid="card-cal"' + (foldClosed.has('card-cal') ? '' : ' open') + '><summary><h2>Calendrier</h2></summary><div data-nodirty>' +
+      '<p class="help">Vers Calendrier : génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier » (les événements se mettent à jour si tu réexportes).</p>' +
+      '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="today">Aujourd’hui</option><option value="tomorrow">Demain</option><option value="week">7 jours</option></select></label>' +
+      '<label class="field"><span class="lbl">Contenu</span><select id="cal-mode"><option value="plan">Plan du jour</option><option value="real">Temps réels</option></select></label></div>' +
+      '<button type="button" class="btn primary" data-action="cal-export">Exporter vers Calendrier</button>' +
+      '<p class="help" style="margin-top:14px">Depuis Calendrier : un raccourci iOS copie tes rendez-vous (une ligne chacun : <code>2026-11-02 09:00 10:30 Titre</code>), puis tu les colles ici. Les doublons sont ignorés.</p>' +
+      '<div class="btnrow"><a class="btn" href="shortcuts://run-shortcut?name=Plan%20du%20jour%20RDV">1. Lancer le raccourci</a><button type="button" class="btn" data-action="cal-paste">2. Coller et importer</button></div>' +
+      '<label class="field" style="margin-top:8px"><span class="lbl">Ou colle le texte ici</span><textarea id="cal-text" rows="4" autocomplete="off" spellcheck="false" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--bg-field,transparent);color:inherit"></textarea></label>' +
+      '<button type="button" class="btn" data-action="cal-import">Importer</button><p class="help" id="cal-result" style="margin-top:8px" role="status"></p></div></details>' +
     '<div class="card"><h2>Sauvegarde</h2>' +
       '<p class="help">Un seul fichier avec tes réglages et tous tes jours. Sert à sauvegarder, ou à passer de l’iPhone à l’iPad : enregistre-le dans Fichiers (iCloud Drive), puis importe-le sur l’autre appareil.</p>' +
       '<div class="btnrow"><button type="button" class="btn primary" data-action="export">Exporter mes données</button>' +
@@ -1546,6 +1555,105 @@ function stopNow(key) {
   r.end = Math.min(1439, Math.max(now, r.start + 1));
   persistDays();
   renderDay();
+}
+
+// ---- Calendrier : export .ics et import de rendez-vous (lot 7) ----
+function icsEscape(t) { return String(t).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
+function icsStamp(k, m) { return k.replace(/-/g, '') + 'T' + pad2(Math.floor(m / 60)) + pad2(m % 60) + '00'; }
+// mode 'plan' : blocs placés (réels si faits, sinon prévus) ; 'real' : temps terminés seulement (un événement par sous-activité).
+function calendarEvents(daysMap, settings, from, to, mode) {
+  const today = dateKey(new Date()), out = [];
+  const catName = (id) => { const c = (settings.categories || []).find((x) => x.id === id); return c ? c.name : ''; };
+  for (let k = from; k <= to; k = addDays(k, 1)) {
+    const b = buildDay(settings, daysMap[k] || emptyDay(), isoWeekday(k), null, k < today, k);
+    b.placed.forEach((it) => {
+      const cat = catName(it.cat);
+      if (mode === 'real') {
+        if (it.segs.length) {
+          it.segs.forEach((g, i) => {
+            if (g.end === null) return;
+            const c = (it.children || []).find((x) => x.id === g.cid);
+            out.push({ uid: 'pdj-' + k + '-' + it.key + '-' + i, date: k, start: g.start, end: g.end, title: it.name + (c ? ' · ' + c.name : ''), cat: cat });
+          });
+          return;
+        }
+        if (it.state !== 'done') return;
+      }
+      out.push({ uid: 'pdj-' + k + '-' + it.key, date: k, start: it.start, end: it.end, title: it.name, cat: cat });
+    });
+  }
+  return out;
+}
+function buildIcs(events) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Plan du jour//FR', 'CALSCALE:GREGORIAN'];
+  events.forEach((e) => {
+    lines.push('BEGIN:VEVENT', 'UID:' + e.uid + '@plandujour', 'DTSTAMP:' + stamp, 'DTSTART:' + icsStamp(e.date, e.start), 'DTEND:' + icsStamp(e.date, e.end), 'SUMMARY:' + icsEscape(e.title));
+    if (e.cat) lines.push('CATEGORIES:' + icsEscape(e.cat));
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n') + '\r\n';
+}
+// Lit des rendez-vous : lignes « 2026-11-02 09:00 10:30 Titre » (raccourci iOS) ou un fichier .ics (heures locales, sans fuseau).
+function parseCalendarText(text) {
+  const t = String(text || ''), events = [];
+  if (/BEGIN:VEVENT/.test(t)) {
+    t.replace(/\r?\n[ \t]/g, '').split('BEGIN:VEVENT').slice(1).forEach((block) => {
+      const get = (n) => { const m = block.match(new RegExp('^' + n + '[^:\\r\\n]*:(.*)$', 'm')); return m ? m[1].trim() : null; };
+      const when = (v) => { const m = v && v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})/); return m ? { date: m[1] + '-' + m[2] + '-' + m[3], min: Number(m[4]) * 60 + Number(m[5]) } : null; };
+      const a = when(get('DTSTART')), b = when(get('DTEND')), title = get('SUMMARY');
+      if (a && b && title && a.date === b.date && b.min > a.min) events.push({ date: a.date, start: a.min, end: b.min, title: title.replace(/\\([,;])/g, '$1').replace(/\\n/g, ' ').slice(0, 40) });
+    });
+    return events;
+  }
+  t.split(/\r?\n/).forEach((line) => {
+    const m = line.trim().match(/^(\d{4}-\d{2}-\d{2})[ ;|T]+(\d{1,2})[:h](\d{2})[ ;|\-–]+(\d{1,2})[:h](\d{2})[ ;|]+(.+)$/);
+    if (!m) return;
+    const st = Number(m[2]) * 60 + Number(m[3]), en = Number(m[4]) * 60 + Number(m[5]);
+    if (isDateKey(m[1]) && isMinute(st) && isMinute(en) && en > st) events.push({ date: m[1], start: st, end: en, title: m[6].trim().slice(0, 40) });
+  });
+  return events;
+}
+function importCalendarEvents(events) {
+  let added = 0, skipped = 0;
+  events.forEach((ev) => {
+    const day = daysData.days[ev.date] || (daysData.days[ev.date] = emptyDay());
+    if (day.ponctuels.some((p) => p.name === ev.title && p.start === ev.start && p.duration === ev.end - ev.start)) { skipped++; return; }   // déjà importé
+    const p = cleanPonctuel({ id: newId(), name: ev.title, mode: 'fixed', entry: 'end', start: ev.start, duration: ev.end - ev.start, confirm: false, carry: false, cat: null, from: null });
+    if (p) { day.ponctuels.push(p); added++; } else skipped++;
+  });
+  if (added) persistDays();
+  return { added: added, skipped: skipped };
+}
+async function doCalExport() {
+  const per = $('#cal-period').value, mode = $('#cal-mode').value, today = dateKey(new Date());
+  const from = per === 'tomorrow' ? addDays(today, 1) : today, to = per === 'week' ? addDays(today, 6) : from;
+  const events = calendarEvents(daysData.days, current, from, to, mode);
+  if (!events.length) { showToast('Rien à exporter sur cette période', 'err'); return; }
+  const text = buildIcs(events), name = 'plandujour-' + from + (to !== from ? '_' + to : '') + '.ics';
+  try {                                                   // feuille de partage : « Calendrier » propose d'ajouter les événements
+    const file = new File([text], name, { type: 'text/calendar' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Plan du jour' }); showToast(plural(events.length, 'événement prêt', 'événements prêts')); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/calendar' }));
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  showToast('Fichier .ics téléchargé');
+}
+function doCalImport() {
+  const box = $('#cal-text'), out = $('#cal-result');
+  const events = parseCalendarText(box.value);
+  if (!events.length) { out.textContent = 'Aucun rendez-vous reconnu. Format attendu par ligne : 2026-11-02 09:00 10:30 Titre'; return; }
+  const r = importCalendarEvents(events);
+  out.textContent = plural(r.added, 'rendez-vous ajouté', 'rendez-vous ajoutés') + (r.skipped ? ' · ' + plural(r.skipped, 'déjà présent ou ignoré', 'déjà présents ou ignorés') : '') + '.';
+  if (r.added) { box.value = ''; renderDay(); }
+}
+async function doCalPaste() {
+  try { $('#cal-text').value = await navigator.clipboard.readText(); doCalImport(); }
+  catch (e) { $('#cal-result').textContent = 'Lecture du presse-papiers refusée : colle le texte à la main dans la zone, puis touche « Importer ».'; $('#cal-text').focus(); }
 }
 
 // ---- Sauvegarde : export et import ----
@@ -1985,7 +2093,7 @@ function bindEvents() {
     if (b) { recapDay = Number(b.dataset.recapDay); renderRecap(current, loadStatus); }
   });
 
-  form.addEventListener('input', (e) => { if (e.target.id === 'import-file') return; if (e.target.closest && e.target.closest('#cats-list')) syncCatOptions(); setDirty(true); updateSummary(e.target.closest && e.target.closest('.act-row')); });
+  form.addEventListener('input', (e) => { if (e.target.id === 'import-file' || (e.target.closest && e.target.closest('[data-nodirty]'))) return; if (e.target.closest && e.target.closest('#cats-list')) syncCatOptions(); setDirty(true); updateSummary(e.target.closest && e.target.closest('.act-row')); });
   form.addEventListener('toggle', (e) => {                 // mémorise ce qui est plié ou déplié
     const d = e.target, id = d.dataset && d.dataset.fid;
     if (!id) return;
@@ -1994,6 +2102,7 @@ function bindEvents() {
   }, true);
   form.addEventListener('change', (e) => {
     if (e.target.id === 'import-file') { onImportFile(e.target); return; }
+    if (e.target.closest && e.target.closest('[data-nodirty]')) return;
     if (e.target.matches('#acts-list [data-a=name]')) syncActChips();
     const row = e.target.closest('.act-row');
     updateSummary(row);
@@ -2027,6 +2136,9 @@ function bindEvents() {
     if (!btn) return;
     const action = btn.dataset.action;
     if (action === 'export') { doExport(); return; }
+    if (action === 'cal-export') { doCalExport(); return; }
+    if (action === 'cal-import') { doCalImport(); return; }
+    if (action === 'cal-paste') { doCalPaste(); return; }
     if (action === 'import') {
       if (dirty && !window.confirm('Des modifications ne sont pas enregistrées. Elles seront perdues si tu remplaces les réglages. Continuer ?')) return;
       $('#import-file').click();
@@ -2142,7 +2254,7 @@ function init() {
   setInterval(() => {
     if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && dayNow() !== null) renderDay();
   }, 15000);
-  window.PDJ = { workReport: workReport, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
+  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, parseCalendarText: parseCalendarText, workReport: workReport, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });
