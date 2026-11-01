@@ -178,3 +178,5 @@ Une activité ou un bloc « sans heure » n'a plus de durée prévue : le champ 
 - Stats : le total d'une activité compte la somme des segments terminés ; détail par sous-activité, « Sans détail » pour le temps sans sous-activité, « Sous-activité supprimée » si l'id n'existe plus.
 - Le bouton « ▶ Démarrer » d'une activité sans heure qui a des sous-activités ouvre le panneau (choix de la sous-activité).
 - Lot 5 bis (à faire) : chrono sur les sous-tâches du jour (checklist actuelle).
+
+Mise à jour 0.11.1 : au premier affichage, les cartes Profils, Congés et Activités de Réglages sont repliées (les lignes l'étaient déjà). L'état de pliage reste en mémoire pendant la session.
