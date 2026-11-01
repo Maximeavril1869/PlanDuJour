@@ -189,3 +189,5 @@ Mise à jour 0.11.2 : les sous-activités sont nommées dans la carte « Sans he
 - Page du jour : barre « Travail du jour » (temps terminés seulement). Stats : carte « Travail » (semaine : détail par jour ; mois : total + week-ends travaillés) puis « Par catégorie », puis activités.
 - Carte « Sans heure » : un ▶ par sous-activité aujourd'hui ; pendant un chrono, boutons ▶/■ des sous-activités sous la barre en cours.
 - Test : test_lot11.js.
+
+Mise à jour 0.12.1 : champ `parallel` sur les activités (case « On peut faire autre chose pendant », cochée par défaut sur les trajets). Un chevauchement avec une telle activité ne déclenche plus l'alerte « À vérifier ». Le travail fait pendant un trajet se note en bloc ponctuel de catégorie Travail ; le trajet garde son temps (Trajets), le travail compte en plus. Test : test_lot12.js.

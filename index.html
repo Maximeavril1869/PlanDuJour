@@ -294,7 +294,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.12.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.12.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -336,6 +336,7 @@ const DEFAULT_CATS = [{ id: 'cat-travail', name: 'Travail', work: true }, { id: 
   { id: 'cat-musique', name: 'Musique', work: false }, { id: 'cat-maison', name: 'Maison', work: false }];
 const DEFAULT_ACT_CAT = { 'act-trajet-aller': 'cat-trajets', 'act-trajet-retour': 'cat-trajets', 'act-cours-sax': 'cat-musique', 'act-orchestre': 'cat-musique',
   'act-sax': 'cat-musique', 'act-menage': 'cat-maison', 'act-concentration': 'cat-travail' };
+const DEFAULT_PARALLEL = ['act-trajet-aller', 'act-trajet-retour'];   // on peut travailler pendant un trajet : pas d'alerte de chevauchement
 const WORK_TARGET = 462;   // 7 h 42 par jour, du lundi au vendredi
 function cleanCats(list) {
   const out = [];
@@ -345,10 +346,10 @@ function cleanCats(list) {
   });
   return out;
 }
-function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat) {
+function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel) {
   return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: mode === 'free' ? 1 : duration, confirm: confirm === true,
     carry: carry === undefined ? DEFAULT_CARRY.includes(id) : carry === true, children: Array.isArray(children) ? children : [],
-    cat: cat === undefined ? (DEFAULT_ACT_CAT[id] || null) : cat };
+    cat: cat === undefined ? (DEFAULT_ACT_CAT[id] || null) : cat, parallel: parallel === undefined ? DEFAULT_PARALLEL.includes(id) : parallel === true };
 }
 // Sous-activités permanentes d'une activité (lot 5) : { id, name }.
 function cleanChildren(list) {
@@ -444,7 +445,8 @@ function sanitizeActs(list, fallback) {
       confirm: !free && a.confirm === true,
       carry: a.carry === undefined ? DEFAULT_CARRY.includes(a.id) : a.carry === true,
       children: cleanChildren(a.children),
-      cat: a.cat === undefined ? (DEFAULT_ACT_CAT[a.id] || null) : (typeof a.cat === 'string' ? a.cat : null)
+      cat: a.cat === undefined ? (DEFAULT_ACT_CAT[a.id] || null) : (typeof a.cat === 'string' ? a.cat : null),
+      parallel: a.parallel === undefined ? DEFAULT_PARALLEL.includes(a.id) : a.parallel === true
     });
   });
   return out;
@@ -700,7 +702,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
-    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
+    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
     items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
@@ -748,7 +750,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   let prevEnd = prof.wake !== null ? prof.wake : (byStart.length ? byStart[0].start : 0), prev = null;
   byStart.forEach((it) => {
     if (it.start > prevEnd) out.gaps.push({ from: prevEnd, to: it.start, minutes: it.start - prevEnd, last: false });
-    else if (prev && it.start < prevEnd) out.warnings.push('« ' + prev.name + ' » (' + formatTime(prev.start) + '–' + formatTime(prev.end) + ') chevauche « ' + it.name + ' » (' + formatTime(it.start) + '–' + formatTime(it.end) + ').');
+    else if (prev && it.start < prevEnd && !prev.parallel && !it.parallel) out.warnings.push('« ' + prev.name + ' » (' + formatTime(prev.start) + '–' + formatTime(prev.end) + ') chevauche « ' + it.name + ' » (' + formatTime(it.start) + '–' + formatTime(it.end) + ').');
     if (it.end > prevEnd || prev === null) { prevEnd = Math.max(prevEnd, it.end); prev = it; }
   });
   if (byStart.length && prof.bedtime !== null) {
@@ -891,7 +893,7 @@ function actToRaw(a) {
   const entry = !free && a.entry === 'end' && a.start + a.duration < 1440 ? 'end' : 'duration';
   return {
     id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true, carry: a.carry === true,
-    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '',
+    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '', parallel: a.parallel === true,
     start: free || a.start === null ? '' : formatTime(a.start),
     second: free ? '30' : (entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration))
   };
@@ -959,6 +961,7 @@ function actRowHtml(r, opts) {
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>';
   }
   if (opts.days) {
+    html += '<label class="field wide chk"><input type="checkbox" data-a="parallel"' + (r.parallel ? ' checked' : '') + '> On peut faire autre chose pendant (pas d’alerte de chevauchement : trajet, par exemple)</label>';
     html += '<div class="field wide"><span class="lbl">Sous-activités (chronométrables dans le bloc)</span><div class="childs">' + (r.children || []).map(childRowHtml).join('') + '</div>' +
       '<button type="button" class="btn small" data-action="add-child">+ Sous-activité</button></div>';
   }
@@ -995,7 +998,7 @@ function readActRaw(row) {
     start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value, confirm: $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked,
     days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)),
     children: $$('.child-row', row).map((c) => ({ id: c.dataset.cid, name: $('[data-c=name]', c).value })),
-    cat: $('[data-a=cat]', row).value
+    cat: $('[data-a=cat]', row).value, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked)
   };
 }
 // Lit et valide une ligne d'activité ; retourne l'activité ou null (champs invalides marqués).
@@ -1028,7 +1031,7 @@ function readActRow(row, errors) {
     if (!n) flag(inp, 'Nom de la sous-activité manquant', errors); else children.push({ id: c.dataset.cid || newId(), name: n.slice(0, 40) });
   });
   if (errors.length > before) return null;
-  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
+  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
     confirm: mode !== 'free' && $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked };
 }
 
@@ -2032,7 +2035,7 @@ function bindEvents() {
       const raws = $$('#acts-list .act-row').map(readActRaw);
       const nid = newId();
       openRows.add(nid);
-      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '' });
+      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '', parallel: false });
       $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, actOpts())).join('');
       rerenderProfiles();
       const names = $$('#acts-list [data-a=name]');
