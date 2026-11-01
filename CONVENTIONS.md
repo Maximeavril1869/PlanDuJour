@@ -126,3 +126,11 @@ Une session = un lot, avec un résultat que l'utilisateur teste sur son iPhone o
 - **Abandonner** (`dropItem`) : un bloc non fait est marqué raté ; un bloc fait garde ses sous-tâches telles quelles ; dans les deux cas la trace `dropped` retire la ligne de la revue.
 - **Annuler** (`undoReview`) : supprime la copie sur le jour cible (bloc ponctuel et sous-tâches copiées), retire le raté posé par le report, efface la trace. « Rétablir » sur un raté reporté annule d'abord le report.
 - **Interface** : la carte est repliée pour aujourd'hui, ouverte pour un jour passé, repliée de nouveau quand on change de jour. Le choix du jour (`<input type="date">`) est une carte séparée en haut du jour ; le rafraîchissement automatique de 15 s est suspendu pendant le choix.
+
+## 16. Ajouts du lot 3 ter : profils de journée (rien de ce qui précède n'est modifié)
+
+- **Profil** : `{ id, name, wake, bedtime, days, removes }` dans `settings.profiles` (liste, au moins un). `wake` et `bedtime` au niveau des réglages restent ceux du premier profil (compatibilité) ; l'app lit toujours ceux du profil du jour. `relaxFloor` reste global.
+- **Résolution** (`resolveProfile`) : profil choisi pour le jour (`days[date].profile`) s'il existe, sinon le premier profil dont `days` contient le jour de la semaine, sinon le premier de la liste. `buildDay` renvoie `profile` et n'utilise que lui (lever, coucher, activités retirées).
+- **`removes`** : identifiants d'activités absentes de la journée (jamais des blocs ponctuels). Leurs données restent stockées.
+- **Migration** : des réglages sans `profiles` reçoivent trois profils (Semaine, Week-end, Télétravail) qui reprennent tous l'ancien lever et l'ancien coucher ; le télétravail retire les deux trajets. Les valeurs inventées (week-end, télétravail) ne s'appliquent qu'aux réglages de départ. Pas de changement de `DATA_VERSION` ni de `DAYS_VERSION`.
+- **Interface** : profils édités comme les activités (bouton « + », ✕, puces de jours et d'activités retirées, mises à jour quand les activités changent) ; sélecteur du profil sur la page du jour, enregistré immédiatement.

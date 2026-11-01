@@ -170,6 +170,8 @@ button { font: inherit; }
 .rows li.rvi { display: block; }
 .rvi small { display: block; color: var(--muted); font-size: 13px; }
 .rvbtn { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.profsel { margin: 8px 0 4px; }
+.card h2 .v { font-weight: 400; font-size: 14px; }
 .card.pick { border-color: var(--accent); border-width: 2px; }
 .pickrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
 .pickrow input[type=date] { width: auto; flex: 1 1 150px; }
@@ -240,7 +242,7 @@ button { font: inherit; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.5.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.6.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -282,11 +284,21 @@ function makeAct(id, name, days, mode, entry, start, duration, confirm, carry) {
   return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: duration, confirm: confirm === true,
     carry: carry === undefined ? DEFAULT_CARRY.includes(id) : carry === true };
 }
+// Profils de journée : lever, coucher, jours habituels, activités retirées. Valeurs du week-end et du télétravail inventées, à régler.
+function makeProfile(id, name, wake, bedtime, days, removes) { return { id: id, name: name, wake: wake, bedtime: bedtime, days: days, removes: removes }; }
+function defaultProfiles(wake, bedtime, invented) {
+  return [
+    makeProfile('prof-semaine', 'Semaine', wake, bedtime, [1, 2, 3, 4, 5], []),
+    makeProfile('prof-weekend', 'Week-end', invented ? 450 : wake, invented ? 1350 : bedtime, [6, 7], []),
+    makeProfile('prof-teletravail', 'Télétravail', invented ? 405 : wake, bedtime, [], ['act-trajet-aller', 'act-trajet-retour'])
+  ];
+}
 function defaultSettings() {
   return {
     version: DATA_VERSION,
-    wake: 345,            // 05:45
+    wake: 345,            // 05:45 (profil « Semaine », gardé pour compatibilité)
     bedtime: 1320,        // 22:00
+    profiles: defaultProfiles(345, 1320, true),
     relaxFloor: 30,       // détente minimale avant le coucher, à valider
     activities: [
       makeAct('act-trajet-aller', 'Trajet aller', [1, 2, 3, 4, 5], 'fixed', 'end', 390, 60),        // 06:30–07:30
@@ -299,7 +311,7 @@ function defaultSettings() {
     ]
   };
 }
-function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {} }; }
+function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null }; }
 function emptyDays() { return { version: DAYS_VERSION, days: {} }; }
 
 // ==== 4. STOCKAGE ====
@@ -359,7 +371,18 @@ function fromOldSettings(raw) {
     if (b && typeof b.name === 'string' && Number.isInteger(b.minutes)) acts.push(makeAct(typeof b.id === 'string' ? b.id : newId(), b.name, [1, 2, 3, 4, 5], 'free', 'duration', null, b.minutes));
   });
   s.activities = sanitizeActs(acts, s.activities);
+  s.profiles = defaultProfiles(s.wake, s.bedtime, false);
   return s;
+}
+
+function sanitizeProfiles(list, wake, bedtime) {
+  const out = [];
+  (Array.isArray(list) ? list : []).forEach((p) => {
+    if (!p || typeof p.name !== 'string' || !p.name.trim() || !isMinute(p.wake) || !isMinute(p.bedtime) || p.bedtime <= p.wake) return;
+    out.push(makeProfile(typeof p.id === 'string' && !out.some((o) => o.id === p.id) ? p.id : newId(), p.name.trim().slice(0, 40), p.wake, p.bedtime, cleanDays(p.days),
+      Array.isArray(p.removes) ? p.removes.filter((x) => typeof x === 'string') : []));
+  });
+  return out.length ? out : defaultProfiles(wake, bedtime, false);
 }
 
 function sanitize(raw) {
@@ -372,6 +395,8 @@ function sanitize(raw) {
   s.bedtime = isMinute(raw.bedtime) ? raw.bedtime : d.bedtime;
   s.relaxFloor = pickInt(raw.relaxFloor, d.relaxFloor, 0, 600);
   s.activities = sanitizeActs(raw.activities, d.activities);
+  s.profiles = sanitizeProfiles(raw.profiles, s.wake, s.bedtime);
+  s.wake = s.profiles[0].wake; s.bedtime = s.profiles[0].bedtime;
   return s;
 }
 
@@ -460,6 +485,7 @@ function sanitizeDays(raw) {
       if (d.real && typeof d.real === 'object') Object.keys(d.real).forEach((key) => { const r = cleanReal(d.real[key]); if (r) day.real[key] = r; });
       (Array.isArray(d.ponctuels) ? d.ponctuels : []).forEach((p) => { const c = cleanPonctuel(p); if (c) day.ponctuels.push(c); });
       if (d.subtasks && typeof d.subtasks === 'object') Object.keys(d.subtasks).forEach((key) => { const l = cleanSubtasks(d.subtasks[key]); if (l.length) day.subtasks[key] = l; });
+      if (typeof d.profile === 'string') day.profile = d.profile;
       if (d.review && typeof d.review === 'object') Object.keys(d.review).forEach((key) => { const r = cleanReview(d.review[key]); if (r) day.review[key] = r; });
     }
     out.days[k] = day;
@@ -504,11 +530,17 @@ function isoWeekday(k) { const g = parseDateKey(k).getDay(); return g === 0 ? 7 
 
 // nowMin : minutes actuelles si le jour affiché est aujourd'hui, sinon null.
 // past : vrai si le jour affiché est antérieur à aujourd'hui (les blocs « à confirmer » non pointés sont alors tous à confirmer).
+function resolveProfile(settings, weekday, profileId) {
+  const list = settings.profiles && settings.profiles.length ? settings.profiles : [makeProfile('prof-defaut', 'Journée', settings.wake, prof.bedtime, [], [])];
+  return list.find((p) => p.id === profileId) || list.find((p) => p.days.includes(weekday)) || list[0];
+}
+
 function buildDay(settings, dayData, weekday, nowMin, past) {
-  const out = { placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null, review: [], reviewed: [] };
+  const prof = resolveProfile(settings, weekday, dayData.profile);
+  const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
-    if (a.days.includes(weekday)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
+    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
     items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
@@ -548,19 +580,19 @@ function buildDay(settings, dayData, weekday, nowMin, past) {
 
   // Temps disponible entre deux blocs (du lever au premier bloc, puis jusqu'au coucher).
   const byStart = timed.slice().sort((a, b) => a.start - b.start || a.end - b.end);
-  let prevEnd = settings.wake, prev = null;
+  let prevEnd = prof.wake, prev = null;
   byStart.forEach((it) => {
     if (it.start > prevEnd) out.gaps.push({ from: prevEnd, to: it.start, minutes: it.start - prevEnd, last: false });
     else if (prev && it.start < prevEnd) out.warnings.push('« ' + prev.name + ' » (' + formatTime(prev.start) + '–' + formatTime(prev.end) + ') chevauche « ' + it.name + ' » (' + formatTime(it.start) + '–' + formatTime(it.end) + ').');
     if (it.end > prevEnd || prev === null) { prevEnd = Math.max(prevEnd, it.end); prev = it; }
   });
   if (byStart.length) {
-    out.relax = Math.max(0, settings.bedtime - prevEnd);
-    if (settings.bedtime > prevEnd) {
-      out.gaps.push({ from: prevEnd, to: settings.bedtime, minutes: settings.bedtime - prevEnd, last: true });
-      if (settings.bedtime - prevEnd < settings.relaxFloor) out.warnings.push('Il ne reste que ' + formatDuration(settings.bedtime - prevEnd) + ' avant le coucher (détente minimale : ' + formatDuration(settings.relaxFloor) + ').');
+    out.relax = Math.max(0, prof.bedtime - prevEnd);
+    if (prof.bedtime > prevEnd) {
+      out.gaps.push({ from: prevEnd, to: prof.bedtime, minutes: prof.bedtime - prevEnd, last: true });
+      if (prof.bedtime - prevEnd < settings.relaxFloor) out.warnings.push('Il ne reste que ' + formatDuration(prof.bedtime - prevEnd) + ' avant le coucher (détente minimale : ' + formatDuration(settings.relaxFloor) + ').');
     } else {
-      out.warnings.push('Les blocs vont jusqu’à ' + formatTime(prevEnd) + ', après l’heure du coucher (' + formatTime(settings.bedtime) + ').');
+      out.warnings.push('Les blocs vont jusqu’à ' + formatTime(prevEnd) + ', après l’heure du coucher (' + formatTime(prof.bedtime) + ').');
     }
   }
   out.gaps.forEach((g) => { out.largestGap = Math.max(out.largestGap, g.minutes); });
@@ -707,11 +739,51 @@ function readActRow(row, errors) {
     confirm: mode !== 'free' && $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked };
 }
 
+// ---- Éditeur de profil de journée ----
+function profToRaw(p) { return { id: p.id, name: p.name, wake: formatTime(p.wake), bedtime: formatTime(p.bedtime), days: p.days, removes: p.removes }; }
+function profRowHtml(r, acts) {
+  return '<div class="act-row prof-row" data-id="' + esc(r.id) + '">' +
+    '<label class="field wide first"><span class="lbl">Nom</span><input type="text" maxlength="40" data-p="name" value="' + esc(r.name) + '"></label>' +
+    '<label class="field"><span class="lbl">Lever</span><input ' + TIME_ATTRS + ' data-kind="time" data-p="wake" value="' + esc(r.wake) + '"></label>' +
+    '<label class="field"><span class="lbl">Coucher</span><input ' + TIME_ATTRS + ' data-kind="time" data-p="bedtime" value="' + esc(r.bedtime) + '"></label>' +
+    '<div class="field wide"><span class="lbl">Jours habituels (aucun : à choisir sur la page du jour)</span><div class="chips">' +
+      [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>' +
+    '<div class="field wide"><span class="lbl">Activités retirées ce jour-là</span><div class="chips">' +
+      (acts.length ? acts.map((a) => '<button type="button" class="chip" data-rm="' + esc(a.id) + '" aria-pressed="' + r.removes.includes(a.id) + '">' + esc(a.name || 'Sans nom') + '</button>').join('') : '<span class="help">Aucune activité.</span>') + '</div></div>' +
+    '<button type="button" class="icon-btn del" data-action="del-prof" aria-label="Supprimer ce profil">✕</button><span class="err wide" hidden></span></div>';
+}
+function readProfRaw(row) {
+  return { id: row.dataset.id, name: $('[data-p=name]', row).value, wake: $('[data-p=wake]', row).value, bedtime: $('[data-p=bedtime]', row).value,
+    days: $$('.chip[data-day][aria-pressed=true]', row).map((c) => Number(c.dataset.day)), removes: $$('.chip[data-rm][aria-pressed=true]', row).map((c) => c.dataset.rm) };
+}
+function actsFromForm() { return $$('#acts-list .act-row').map((r) => ({ id: r.dataset.id, name: $('[data-a=name]', r).value.trim() })); }
+function rerenderProfiles(extra) {
+  const raws = $$('#profs-list .prof-row').map(readProfRaw);
+  if (extra) raws.push(extra);
+  const acts = actsFromForm();
+  $('#profs-list').innerHTML = raws.map((r) => profRowHtml(r, acts)).join('');
+}
+function readProfRow(row, errors) {
+  const nameEl = $('[data-p=name]', row), wEl = $('[data-p=wake]', row), bEl = $('[data-p=bedtime]', row);
+  const before = errors.length;
+  const name = nameEl.value.trim();
+  if (!name) flag(nameEl, 'Nom obligatoire', errors);
+  const wake = parseTime(wEl.value), bed = parseTime(bEl.value);
+  if (wake === null) flag(wEl, 'Heure invalide (ex. 06:53)', errors);
+  if (bed === null) flag(bEl, 'Heure invalide (ex. 22:00)', errors);
+  if (wake !== null && bed !== null && bed <= wake) flag(bEl, 'Le coucher doit être après le lever', errors);
+  if (errors.length > before) return null;
+  const r = readProfRaw(row);
+  return makeProfile(row.dataset.id || newId(), name, wake, bed, r.days, r.removes);
+}
+
 function renderForm(s) {
   $('#form-body').innerHTML =
-    '<div class="card"><h2>Ma journée</h2>' +
-      '<p class="help">Heures en 24 h. Sur iPhone, tape les chiffres : 0653 devient 06:53.</p>' +
-      '<div class="grid2">' + timeField('wake', 'Lever', s.wake) + timeField('bedtime', 'Coucher', s.bedtime) + '</div>' +
+    '<div class="card"><h2>Profils de journée</h2>' +
+      '<p class="help">Heures en 24 h. Sur iPhone, tape les chiffres : 0653 devient 06:53. Chaque profil a son lever, son coucher et ses jours habituels. ' +
+      'Un profil sans jour (télétravail) se choisit à la main sur la page du jour. Il peut retirer des activités (les trajets, par exemple).</p>' +
+      '<div id="profs-list">' + s.profiles.map((p) => profRowHtml(profToRaw(p), s.activities)).join('') + '</div>' +
+      '<button type="button" class="btn" data-action="add-prof">+ Ajouter un profil</button>' +
       intField('relaxFloor', 'Détente minimale avant le coucher (minutes)', s.relaxFloor, 0, 600) + '</div>' +
     '<div class="card"><h2>Activités</h2>' +
       '<p class="help">Tout ce qui revient chaque semaine. <strong>Heure fixe</strong> : ne bouge jamais (train, cours). ' +
@@ -734,7 +806,7 @@ function renderRecap(s, status) {
 
   const b = buildDay(s, emptyDay(), recapDay, null);
   if (b.warnings.length) html += '<div class="banner warn"><strong>À vérifier</strong><ul>' + b.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
-  const entries = [{ at: s.wake - 0.5, html: '<li class="mark"><span class="t">' + formatTime(s.wake) + '</span><span class="dot"></span><span class="what">Lever</span></li>' }];
+  const entries = [{ at: b.profile.wake - 0.5, html: '<li class="mark"><span class="t">' + formatTime(b.profile.wake) + '</span><span class="dot"></span><span class="what">Lever</span></li>' }];
   b.placed.forEach((it) => {
     entries.push({ at: it.start, html: '<li><span class="t">' + formatTime(it.start) + '–' + formatTime(it.end) + '</span><span class="dot"></span><span class="what">' + esc(it.name) +
       '<small>' + MODE_TAG[it.mode] + '</small></span></li>' });
@@ -742,9 +814,9 @@ function renderRecap(s, status) {
   b.gaps.forEach((g) => {
     entries.push({ at: g.from + 0.1, html: '<li class="gapli"><span class="t">' + formatDuration(g.minutes) + '</span><span class="dot"></span><span class="what">disponible' + (g.last ? ' avant le coucher' : '') + '</span></li>' });
   });
-  entries.push({ at: 99999, html: '<li class="mark"><span class="t">' + formatTime(s.bedtime) + '</span><span class="dot"></span><span class="what">Coucher</span></li>' });
+  entries.push({ at: 99999, html: '<li class="mark"><span class="t">' + formatTime(b.profile.bedtime) + '</span><span class="dot"></span><span class="what">Coucher</span></li>' });
   entries.sort((x, y) => x.at - y.at);
-  html += '<div class="card"><h2>' + DAY_NAMES[recapDay] + '</h2><ul class="tl">' + entries.map((e) => e.html).join('') + '</ul>' +
+  html += '<div class="card"><h2>' + DAY_NAMES[recapDay] + ' <span class="v">· profil ' + esc(b.profile.name) + '</span></h2><ul class="tl">' + entries.map((e) => e.html).join('') + '</ul>' +
     (b.placed.length ? '' : '<p class="help">Aucune activité ce jour-là.</p>') + '</div>';
   if (b.pending.length) {
     html += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + b.pending.map((it) =>
@@ -826,6 +898,9 @@ function renderDay() {
     '<button type="button" class="icon-btn" data-day-nav="1" aria-label="Jour suivant">›</button></div>' +
     '<div class="daytools"><button type="button" class="btn" data-day-nav="today">Aujourd’hui</button>' +
     '<button type="button" class="btn primary" data-action="add-block">+ Bloc ponctuel</button></div>';
+  const wd = isoWeekday(selectedDate), dayProf = (daysData.days[selectedDate] || {}).profile;
+  head += '<label class="field profsel"><span class="lbl">Profil de la journée</span><select id="day-profile"><option value="">Habituel (' + esc(resolveProfile(current, wd, null).name) + ')</option>' +
+    current.profiles.map((p) => '<option value="' + esc(p.id) + '"' + (dayProf === p.id ? ' selected' : '') + '>' + esc(p.name) + ' · ' + formatTime(p.wake) + '–' + formatTime(p.bedtime) + '</option>').join('') + '</select></label>';
   if (loadStatus === 'empty') head += '<div class="banner info">Tu utilises les valeurs de départ : enregistre tes réglages dans l’onglet Réglages.</div>';
 
   if (build.relax !== null) {
@@ -862,7 +937,7 @@ function renderDay() {
   $('#day-head').innerHTML = head;
 
   // Timeline
-  const t = current;
+  const t = build.profile;
   const items = build.placed.map((b) => Object.assign({}, b));
   let lo = Math.min.apply(null, [t.wake].concat(items.map((b) => b.start)));
   let hi = Math.max.apply(null, [t.bedtime].concat(items.map((b) => b.end)));
@@ -948,14 +1023,20 @@ function readForm() {
     if (v === null || v < min || v > max) { flag(inp, 'Nombre entier entre ' + min + ' et ' + max, errors); return; }
     setPath(s, inp.dataset.path, v);
   });
-  if (parsed.wake !== undefined && parsed.bedtime !== undefined && parsed.bedtime <= parsed.wake) {
-    flag($('[data-path=bedtime]', form), 'Le coucher doit être après le lever', errors);
-  }
   s.activities = [];
   $$('#acts-list .act-row', form).forEach((row) => {
     const a = readActRow(row, errors);
     if (a) s.activities.push(a);
   });
+  s.profiles = [];
+  $$('#profs-list .prof-row', form).forEach((row) => {
+    const p = readProfRow(row, errors);
+    if (p) s.profiles.push(p);
+  });
+  const actIds = s.activities.map((a) => a.id);
+  s.profiles.forEach((p) => { p.removes = p.removes.filter((id) => actIds.includes(id)); });
+  if (!errors.length && !s.profiles.length) { s.profiles = defaultProfiles(345, 1320, true).slice(0, 1); }
+  if (s.profiles.length) { s.wake = s.profiles[0].wake; s.bedtime = s.profiles[0].bedtime; }
   return { settings: s, errors: errors };
 }
 
@@ -1257,6 +1338,13 @@ function bindDayEvents() {
     if (e.key === 'Enter' && e.target.matches && e.target.matches('#sub-label, #sub-action')) { e.preventDefault(); addSub(); }
   });
   panel.addEventListener('change', (e) => {
+    if (e.target.id === 'day-profile') {
+      const day = ensureDay();
+      day.profile = e.target.value || null;
+      persistDays();
+      renderDay();
+      return;
+    }
     if (e.target.matches && e.target.matches('[data-sub-done]') && panelKey) {
       const t = ((daysData.days[selectedDate] || {}).subtasks[panelKey] || []).find((x) => x.id === e.target.dataset.subDone);
       if (t) { t.done = e.target.checked; persistDays(); renderSubs(); renderDay(); }
@@ -1290,8 +1378,9 @@ function bindEvents() {
 
   form.addEventListener('input', () => setDirty(true));
   form.addEventListener('change', (e) => {
+    if (e.target.matches('#acts-list [data-a=name]')) rerenderProfiles();
     const row = e.target.closest('.act-row');
-    if (row) {
+    if (row && row.dataset.mode !== undefined) {
       if (e.target.matches('[data-a=entry]')) convertSecond(row, e.target.value);
       if (e.target.matches('[data-a=mode],[data-a=entry]')) updateRowUi(row);
     }
@@ -1323,6 +1412,7 @@ function bindEvents() {
       const raws = $$('#acts-list .act-row').map(readActRaw);
       raws.push({ id: newId(), name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false });
       $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true })).join('');
+      rerenderProfiles();
       const names = $$('#acts-list [data-a=name]');
       names[names.length - 1].focus();
       setDirty(true);
@@ -1330,6 +1420,17 @@ function bindEvents() {
       const row = btn.closest('.act-row');
       const raws = $$('#acts-list .act-row').map(readActRaw).filter((r) => r.id !== row.dataset.id);
       $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, { days: true, del: true })).join('');
+      rerenderProfiles();
+      setDirty(true);
+    } else if (action === 'add-prof') {
+      rerenderProfiles({ id: newId(), name: '', wake: '07:00', bedtime: '22:00', days: [], removes: [] });
+      const names = $$('#profs-list [data-p=name]');
+      names[names.length - 1].focus();
+      setDirty(true);
+    } else if (action === 'del-prof') {
+      const row = btn.closest('.prof-row');
+      if ($$('#profs-list .prof-row').length <= 1) { showToast('Garde au moins un profil', 'err'); return; }
+      row.remove();
       setDirty(true);
     } else if (action === 'reset') {
       if (window.confirm('Remplacer les champs par les valeurs de départ ? Rien ne sera enregistré avant que tu appuies sur « Enregistrer ».')) {
@@ -1378,7 +1479,7 @@ function init() {
   switchTab('day');
   // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
-    if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && dayNow() !== null) renderDay();
+    if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && dayNow() !== null) renderDay();
   }, 15000);
   window.PDJ = { buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);

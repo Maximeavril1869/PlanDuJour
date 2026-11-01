@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.5.0** (lots 1 à 3 et option « à reporter »). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.6.0** (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -10,7 +10,18 @@ Version actuelle : **0.5.0** (lots 1 à 3 et option « à reporter »). Règles 
 | 2 | Plan du jour et recalage autour des rendez-vous | **Livré, à tester sur iPhone** | J'ajoute un rendez-vous à 9h et le bloc « 1h30 de concentration » se décale seul ; la journée s'affiche en timeline ; je saisis l'heure réelle d'arrivée et de départ du jour |
 | 3 | Sous-tâches, détente et blocs à confirmer | **Livré, à tester sur iPhone** | Je coche des sous-tâches et je les retrouve après fermeture de l'app ; la détente s'affiche en permanence ; les blocs « à confirmer » se confirment en un tap ; quand ça déborde, l'app le dit sans rien supprimer |
 | 3 bis | Reporter ce qui n'a pas été fait | **Livré, à tester sur iPhone** | Dans le train, j'ouvre « Revue du jour » et je reporte au lendemain (ou à un autre jour) ce que je n'ai pas fait, avec ses sous-tâches non cochées ; je peux annuler |
+| 3 ter | Profils de journée (semaine, week-end, télétravail) | **Livré, à tester sur iPhone** | Le week-end a son lever et son coucher ; un jour de télétravail se choisit sur la page du jour, sans trajets |
 | 4 | Export, import, statistiques et finitions iPhone / iPad | À faire | Je sauvegarde et restaure mes données par fichier ; l'app est confortable sur iPhone et iPad |
+
+### Lot 3 ter (profils de journée) est fini quand, sur ton iPhone
+
+1. Dans **Réglages**, la carte « Profils de journée » liste des profils : nom, lever, coucher, jours habituels, activités retirées. Le « + » en ajoute un. Valeurs de départ : Semaine (lun.–ven., 05:45–22:00), Week-end (sam.–dim., 07:30–22:30), Télétravail (sans jour, 06:45–22:00, retire les deux trajets). Les heures du week-end et du télétravail sont inventées : à régler.
+2. Sur la page **Jour**, le sélecteur « Profil de la journée » propose « Habituel (…) » (selon le jour de la semaine) ou n'importe quel profil. Le choix ne vaut que pour ce jour.
+3. Le lever, le coucher, le temps disponible, la détente et l'alerte « après le coucher » suivent le profil du jour. Les activités retirées par le profil disparaissent de ce jour.
+4. Le **Récapitulatif** indique le profil habituel de chaque jour de la semaine.
+5. Supprimer un profil renvoie les jours qui l'utilisaient à leur profil habituel. Tout est conservé après fermeture de l'app.
+
+Vérifié côté code (navigateur automatisé) : tous les points, la reprise des anciens réglages (lever et coucher repris dans les trois profils), et les tests des lots 1 à 3 bis.
 
 ### Lot 3 bis (« à reporter ») est fini quand, sur ton iPhone
 
@@ -67,6 +78,7 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 
 ## À valider
 
+- Lever et coucher du week-end (07:30–22:30) et du télétravail (06:45–22:00) : valeurs inventées pour démarrer.
 - Plancher de détente : 30 min par défaut, ou autre valeur.
 - Durée du ménage : 30 min par défaut, valeur inventée pour démarrer.
 - Durée du cours de saxophone et de l'orchestre : non renseignées, 1 h supposée en attendant (modifiable dans Réglages).
@@ -86,4 +98,5 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 - Le chrono tourne à la minute ; le bloc « en cours » se rafraîchit toutes les 15 secondes.
 - Report : pas de « prochain jour prévu » automatique pour une activité récurrente (demain par défaut, ou une date choisie) ; pas de report en chaîne annulable de bout en bout.
 - Statistiques : compter les reports et abandons (conservés dans les données du jour) par semaine et par mois, avec le lot 4.
+- Profils : si un jour appartient à deux profils, le premier de la liste gagne (pas d'alerte). Pas de profil par date récurrente (ex. télétravail tous les 15 jours).
 - Rappels et alarmes : export `.ics` à étudier.
