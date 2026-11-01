@@ -185,6 +185,10 @@ details.fold[open] > summary::after { content: "▴"; }
 details.fold > summary h2 { margin: 0; }
 .rowfold { grid-column: 1 / -1; }
 .rowfold > summary { display: flex; align-items: center; min-height: 48px; padding-right: 52px; cursor: pointer; }
+.rowfold > summary { list-style: none; }
+.rowfold > summary::-webkit-details-marker { display: none; }
+.rowfold > summary::after { content: "▾"; margin-left: auto; padding: 0 8px; color: var(--muted); font-size: 18px; }
+.rowfold[open] > summary::after { content: "▴"; }
 .rowfold .sumtxt strong { display: block; }
 .rowfold .sumtxt small { display: block; color: var(--muted); font-size: 13px; }
 .rowgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; padding-top: 4px; }
@@ -264,7 +268,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.8.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.8.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';

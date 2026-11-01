@@ -154,3 +154,6 @@ Une session = un lot, avec un résultat que l'utilisateur teste sur son iPhone o
 - **Période** : `period: { from, to }` (dates incluses), facultative, sur n'importe quel profil. Un profil à période s'applique tout seul pour les dates concernées, avant les jours de la semaine (premier de la liste en cas de chevauchement). `lastWake` et `returnBedtime` (heures facultatives) ne comptent que si la période existe.
 - **Ajustements de congé** (`resolveProfile`, avec la date) : le jour `lastWorkDay(period.from)` reçoit `lastWake` comme lever ; le jour `eveOfReturn(period.to)` reçoit `returnBedtime` comme coucher. `lastWorkDay(k)` = dernier lundi–vendredi avant `k` ; `eveOfReturn(k)` = veille du premier lundi–vendredi après `k`. Un profil choisi à la main pour le jour n'est jamais ajusté. `buildDay` prend la date en paramètre supplémentaire (le récapitulatif, sans date, ne voit que les jours de la semaine).
 - **Profils de départ** : Semaine (lun.–jeu.), Vendredi, Samedi, Dimanche, Télétravail, Congé. Des profils enregistrés avant la 0.8.0 sont lus tels quels. Pas de changement de `DATA_VERSION` ni de `DAYS_VERSION`.
+
+## 20. Lignes repliables (0.8.1)
+Toute ligne `<details class="rowfold">` affiche un chevron ▾ (fermée) / ▴ (ouverte) à droite du résumé. Le marqueur natif est masqué. Un appui sur le titre de la ligne la plie ou la déplie.
