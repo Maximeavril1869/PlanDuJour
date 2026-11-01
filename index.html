@@ -267,7 +267,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.9.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.9.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1023,7 +1023,7 @@ function renderRecap(s, status) {
   const entries = [];
   if (b.profile.wake !== null) entries.push({ at: b.profile.wake - 0.5, html: '<li class="mark"><span class="t">' + formatTime(b.profile.wake) + '</span><span class="dot"></span><span class="what">Lever</span></li>' });
   b.placed.forEach((it) => {
-    entries.push({ at: it.start, html: '<li><span class="t">' + formatTime(it.start) + '–' + formatTime(it.end) + '</span><span class="dot"></span><span class="what">' + esc(it.name) +
+    entries.push({ at: it.start, html: '<li><span class="t">' + formatTime(it.start) + '–' + formatTime(it.end) + ' (' + formatDuration(it.end - it.start) + ')</span><span class="dot"></span><span class="what">' + esc(it.name) +
       '<small>' + MODE_TAG[it.mode] + '</small></span></li>' });
   });
   b.gaps.forEach((g) => {
@@ -1153,7 +1153,7 @@ function renderDay() {
 
   if (build.toConfirm.length) {
     head += '<div class="card"><h2>À confirmer</h2><ul class="rows">' + build.toConfirm.map((it) =>
-      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatTime(it.start) + '–' + formatTime(it.end) + '</span></span><span>' +
+      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatTime(it.start) + '–' + formatTime(it.end) + ' (' + formatDuration(it.end - it.start) + ')</span></span><span>' +
       '<button type="button" class="btn small primary" data-action="confirm-done" data-key="' + esc(it.key) + '">Fait</button> ' +
       '<button type="button" class="btn small" data-action="confirm-missed" data-key="' + esc(it.key) + '">Raté</button></span></li>').join('') + '</ul></div>';
   }
@@ -1211,7 +1211,7 @@ function renderDay() {
     if (b.from) note += ' · reporté de ' + fromLabel(b.from);
     html += '<button type="button" class="blk b-' + b.mode + (b.state === 'done' ? ' b-done' : '') + (b.state === 'running' ? ' b-running' : '') + (h < 40 ? ' short' : '') +
       '" data-action="open-block" data-key="' + esc(b.key) + '" style="top:' + y(b.start) + 'px;height:' + h + 'px;left:calc(' + b.col * w + '% + 1px);width:calc(' + w + '% - 3px)">' +
-      '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + formatTime(b.start) + '–' + formatTime(b.end) + esc(note) + '</span></button>';
+      '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + formatTime(b.start) + '–' + formatTime(b.end) + ' (' + formatDuration(b.end - b.start) + ')' + esc(note) + '</span></button>';
   });
   html += '</div></div>';
   $('#day-timeline').innerHTML = html;
