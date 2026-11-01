@@ -182,3 +182,10 @@ Une activité ou un bloc « sans heure » n'a plus de durée prévue : le champ 
 Mise à jour 0.11.1 : au premier affichage, les cartes Profils, Congés et Activités de Réglages sont repliées (les lignes l'étaient déjà). L'état de pliage reste en mémoire pendant la session.
 
 Mise à jour 0.11.2 : les sous-activités sont nommées dans la carte « Sans heure » ; hors aujourd'hui, le panneau propose un bouton « + nom » par sous-activité (présélection pour saisir le temps à la main).
+
+## 25. Catégories et suivi du travail (lot 6, 0.12.0)
+- `settings.categories = [{id,name,work}]` (12 max) ; `settings.workTarget` (minutes, 462 = 7 h 42). Chaque activité a `cat` (id ou null) ; chaque bloc ponctuel aussi. Valeurs de départ : Travail (travail), Trajets, Musique, Maison, assignées aux activités d'origine par leur id (`DEFAULT_ACT_CAT`). Champs additifs, pas de changement de version.
+- `timeEntries` donne tous les temps terminés (bloc ou segment de sous-activité) ; `statsFor` en tire activités, sous-activités et catégories ; `workReport` ne garde que les catégories « travail » et compare à la cible : lundi–vendredi, hors périodes de congé. Le week-end n'a pas de cible : tout y est « hors cible ».
+- Page du jour : barre « Travail du jour » (temps terminés seulement). Stats : carte « Travail » (semaine : détail par jour ; mois : total + week-ends travaillés) puis « Par catégorie », puis activités.
+- Carte « Sans heure » : un ▶ par sous-activité aujourd'hui ; pendant un chrono, boutons ▶/■ des sous-activités sous la barre en cours.
+- Test : test_lot11.js.
