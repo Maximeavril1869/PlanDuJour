@@ -180,3 +180,5 @@ Une activité ou un bloc « sans heure » n'a plus de durée prévue : le champ 
 - Lot 5 bis (à faire) : chrono sur les sous-tâches du jour (checklist actuelle).
 
 Mise à jour 0.11.1 : au premier affichage, les cartes Profils, Congés et Activités de Réglages sont repliées (les lignes l'étaient déjà). L'état de pliage reste en mémoire pendant la session.
+
+Mise à jour 0.11.2 : les sous-activités sont nommées dans la carte « Sans heure » ; hors aujourd'hui, le panneau propose un bouton « + nom » par sous-activité (présélection pour saisir le temps à la main).

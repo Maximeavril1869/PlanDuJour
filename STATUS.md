@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.11.1** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.11.2** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -125,7 +125,7 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 - Rappels et alarmes : export `.ics` à étudier.
 
 
-## Lot 5 : sous-activités chronométrées (0.11.1) — livré, à valider sur appareil
+## Lot 5 : sous-activités chronométrées (0.11.2) — livré, à valider sur appareil
 Fini quand : sous-activités créées en Réglages, chrono par sous-activité dans le bloc, temps à la main sur un autre jour, Stats avec détail. Test : test_lot10.js.
 
 ## Lot 5 bis : chrono sur les sous-tâches du jour — à faire

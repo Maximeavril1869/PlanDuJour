@@ -161,6 +161,7 @@ button { font: inherit; }
 .child-row input { flex: 1; min-width: 0; }
 .stsub { list-style: none; margin: 4px 0 2px; padding: 0 0 0 14px; font-size: 14px; color: var(--muted); }
 .stsub li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border: 0; }
+.kids { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
 .childbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .subs { list-style: none; margin: 0 0 8px; padding: 0; }
 .subs li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
@@ -283,7 +284,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.11.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.11.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1240,7 +1241,8 @@ function renderDay() {
   head += pickHtml(build) + reviewHtml(build, dateKey(new Date()));
   if (build.pending.length) {
     head += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + build.pending.map((it) =>
-      '<li><span>' + esc(it.name) + ' <span class="v">' + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span></span><span>' +
+      '<li><span>' + esc(it.name) + ' <span class="v">' + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
+      (it.children.length ? '<small class="kids">' + it.children.map((c) => esc(c.name)).join(' · ') + '</small>' : '') + '</span><span>' +
       (dayNow() !== null ? '<button type="button" class="btn small primary" data-action="' + (it.children.length ? 'open-block' : 'start') + '" data-key="' + esc(it.key) + '">▶ Démarrer' + (it.children.length ? '…' : '') + '</button> ' : '') +
       '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul></div>';
   }
@@ -1603,7 +1605,8 @@ function renderChildren() {
   $('#bp-child-btns').innerHTML = today ? it.children.map((c) => {
     const on = run && run.cid === c.id;
     return '<button type="button" class="btn ' + (on ? 'danger' : 'primary') + '" data-child-go="' + esc(c.id) + '">' + (on ? '■ ' : '▶ ') + esc(c.name) + '</button>';
-  }).join('') : '<p class="help" style="margin:0">Le chrono ne marche que pour aujourd’hui : ajoute les temps à la main ci-dessous.</p>';
+  }).join('') : it.children.map((c) => '<button type="button" class="btn" data-child-pick="' + esc(c.id) + '">+ ' + esc(c.name) + '</button>').join('') +
+    '<p class="help" style="margin:4px 0 0;width:100%">Le chrono ne marche que pour aujourd’hui : touche une sous-activité pour ajouter son temps à la main.</p>';
   const nm = (cid) => { const c = it.children.find((x) => x.id === cid); return c ? c.name : 'Sous-activité supprimée'; };
   $('#bp-seg-list').innerHTML = segs.map((g, i) => '<li><span>' + esc(nm(g.cid)) + ' <span class="v">· ' + (g.end === null ? 'depuis ' + formatTime(g.start) + ' · en cours' :
     formatTime(g.start) + '–' + formatTime(g.end) + ' (' + formatDuration(g.end - g.start) + ')') + '</span></span>' +
@@ -1769,6 +1772,8 @@ function bindDayEvents() {
       else if (a === 'rv-undo') { undoReview(act.dataset.key); renderDay(); }
       return;
     }
+    const cpick = e.target.closest('[data-child-pick]');
+    if (cpick) { $('#seg-child').value = cpick.dataset.childPick; $('#seg-start').focus(); return; }
     const cgo = e.target.closest('[data-child-go]');
     if (cgo && panelKey) { toggleChild(panelKey, cgo.dataset.childGo); return; }
     const segDel = e.target.closest('[data-seg-del]');
