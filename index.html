@@ -294,7 +294,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.12.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.12.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -841,6 +841,7 @@ function workReport(daysMap, settings, from, to, today) {
   return { enabled: wcats.length > 0, days: days, total: total, target: target, targetSoFar: targetSoFar, balance: total - targetSoFar, weekendMinutes: weekendMinutes, weekendDays: weekendDays };
 }
 function statsRange(mode, anchor) {
+  if (mode === 'day') return { from: anchor, to: anchor };
   if (mode === 'month') {
     const d = parseDateKey(anchor);
     return { from: dateKey(new Date(d.getFullYear(), d.getMonth(), 1)), to: dateKey(new Date(d.getFullYear(), d.getMonth() + 1, 0)) };
@@ -1193,18 +1194,19 @@ function renderRecap(s, status) {
 }
 
 // ---- Statistiques ----
-let statsMode = 'week';       // 'week' | 'month'
+let statsMode = 'week';       // 'day' | 'week' | 'month'
 let statsAnchor = null;       // un jour de la période affichée
 function renderStats() {
   if (!statsAnchor) statsAnchor = dateKey(new Date());
   const range = statsRange(statsMode, statsAnchor);
   const st = statsFor(daysData.days, current, range.from, range.to);
   const short = (k) => parseDateKey(k).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-  const label = statsMode === 'month'
+  const label = statsMode === 'day' ? fmtDateLabel(range.from) : statsMode === 'month'
     ? parseDateKey(range.from).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
     : 'Semaine du ' + short(range.from) + ' au ' + short(range.to) + ' ' + parseDateKey(range.to).getFullYear();
   const max = st.rows.length ? st.rows[0].minutes : 1;
   let html = '<div class="chips" style="margin:12px 0">' +
+    '<button type="button" class="chip" data-stats-mode="day" aria-pressed="' + (statsMode === 'day') + '">Jour</button>' +
     '<button type="button" class="chip" data-stats-mode="week" aria-pressed="' + (statsMode === 'week') + '">Semaine</button>' +
     '<button type="button" class="chip" data-stats-mode="month" aria-pressed="' + (statsMode === 'month') + '">Mois</button></div>' +
     '<div class="stnav"><button type="button" class="icon-btn" data-stats-nav="-1" aria-label="Période précédente">‹</button>' +
@@ -1213,13 +1215,14 @@ function renderStats() {
     '<div class="daytools"><button type="button" class="btn" data-stats-nav="today">Aujourd’hui</button></div>';
   const wr = workReport(daysData.days, current, range.from, range.to, dateKey(new Date()));
   if (wr.enabled) {
-    html += '<div class="card"><h2>Travail <span class="v">· ' + formatDuration(wr.total) + ' sur ' + formatDuration(wr.target) + '</span></h2>' +
-      '<p class="help" style="margin:0 0 8px">Cible à ce jour : ' + formatDuration(wr.targetSoFar) + ' · écart : <strong>' + signed(wr.balance) + '</strong></p>';
+    html += '<div class="card"><h2>Travail <span class="v">· ' + formatDuration(wr.total) + (wr.target ? ' sur ' + formatDuration(wr.target) : ' · jour sans cible') + '</span></h2>' +
+      (wr.target ? '<p class="help" style="margin:0 0 8px">Cible à ce jour : ' + formatDuration(wr.targetSoFar) + ' · écart : <strong>' + signed(wr.balance) + '</strong></p>' : '');
     if (statsMode === 'week') {
       html += '<ul class="rows">' + wr.days.map((d) => '<li><span>' + DAY_SHORT[d.weekday] + ' ' + shortDate(d.date) + '</span><span class="v">' + formatDuration(d.minutes) +
         (d.target ? ' / ' + formatDuration(d.target) + (d.date <= dateKey(new Date()) ? ' · ' + signed(d.minutes - d.target) : '') : (d.minutes ? ' · hors cible' : '')) + '</span></li>').join('') + '</ul>';
     }
-    html += '<p class="help" style="margin:8px 0 0">Week-end travaillé : ' + (wr.weekendDays ? plural(wr.weekendDays, 'jour', 'jours') + ' · ' + formatDuration(wr.weekendMinutes) : 'aucun') + '.</p></div>';
+    if (statsMode !== 'day') html += '<p class="help" style="margin:8px 0 0">Week-end travaillé : ' + (wr.weekendDays ? plural(wr.weekendDays, 'jour', 'jours') + ' · ' + formatDuration(wr.weekendMinutes) : 'aucun') + '.</p>';
+    html += '</div>';
   }
   if (st.cats.length) {
     const cmax = st.cats[0].minutes;
@@ -1972,6 +1975,7 @@ function bindEvents() {
     if (!n) return;
     const v = n.dataset.statsNav;
     if (v === 'today') statsAnchor = dateKey(new Date());
+    else if (statsMode === 'day') statsAnchor = addDays(statsAnchor, Number(v));
     else if (statsMode === 'week') statsAnchor = addDays(statsAnchor, 7 * Number(v));
     else { const d = parseDateKey(statsAnchor); statsAnchor = dateKey(new Date(d.getFullYear(), d.getMonth() + Number(v), 1)); }
     renderStats();

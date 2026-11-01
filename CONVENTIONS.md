@@ -191,3 +191,5 @@ Mise à jour 0.11.2 : les sous-activités sont nommées dans la carte « Sans he
 - Test : test_lot11.js.
 
 Mise à jour 0.12.1 : champ `parallel` sur les activités (case « On peut faire autre chose pendant », cochée par défaut sur les trajets). Un chevauchement avec une telle activité ne déclenche plus l'alerte « À vérifier ». Le travail fait pendant un trajet se note en bloc ponctuel de catégorie Travail ; le trajet garde son temps (Trajets), le travail compte en plus. Test : test_lot12.js.
+
+Mise à jour 0.12.2 : Stats → mode « Jour » (navigation jour par jour) en plus de Semaine et Mois ; travail du jour face à la cible, ou « jour sans cible » le week-end. Test : test_lot13.js.
