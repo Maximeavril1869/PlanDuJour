@@ -140,3 +140,10 @@ Une session = un lot, avec un résultat que l'utilisateur teste sur son iPhone o
 - Les cartes « Profils de journée » et « Activités » sont des `<details class="fold">` ; chaque profil et chaque activité est un `<details class="rowfold">` dont le résumé (nom, horaires, jours) est recalculé à chaque saisie (`updateSummary`). Les lignes sont repliées par défaut, une ligne ajoutée est dépliée.
 - L'état de pliage vit en mémoire (`openRows`, `foldClosed`) et survit aux réaffichages du formulaire, pas à la fermeture de l'app. Aucune donnée enregistrée n'est concernée.
 - `flag()` déplie les lignes et cartes qui contiennent un champ invalide. Les libellés des cases « activités retirées » se mettent à jour sur place (`syncActChips`) : on ne remplace jamais un champ pendant qu'il est en cours de saisie.
+
+## 18. Ajouts du lot 4 : sauvegarde et statistiques (rien de ce qui précède n'est modifié)
+
+- **Fichier d'export** : `{ app: 'plandujour', format: 1, appVersion, exportedAt, settings, days }` où `settings` et `days` ont exactement le format des clés `plandujour.reglages` et `plandujour.jours`. Pas de nouvelle version de données.
+- **Import** : le fichier est lu et validé avec `sanitize` et `sanitizeDays` (les anciens formats sont donc migrés) avant tout choix ; rien n'est écrit tant que l'utilisateur n'a pas choisi. Deux modes : tout remplacer, ou réglages seulement. Avant d'écrire, l'état précédent est copié sous `plandujour.avant-import.reglages` et `plandujour.avant-import.jours` (une seule génération). Pas de fusion.
+- **Export refusé** s'il reste des modifications de Réglages non enregistrées (on exporte l'enregistré).
+- **Statistiques** (`statsFor`, `statsRange`, fonctions pures) : somme de `fin − début` des heures réelles complètes, regroupée par nom d'activité (clé `act:` → nom courant de l'activité, `p:` → nom du bloc ponctuel du jour, activité supprimée → « Activité supprimée »). Les blocs ratés ou sans fin sont ignorés. Semaine ISO lundi–dimanche, mois civil ; changer de mode garde la période affichée.

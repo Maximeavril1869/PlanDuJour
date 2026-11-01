@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.6.1** (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.7.0** (lot 4 livré) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -11,7 +11,17 @@ Version actuelle : **0.6.1** (lots 1 à 3, option « à reporter » et profils d
 | 3 | Sous-tâches, détente et blocs à confirmer | **Livré, à tester sur iPhone** | Je coche des sous-tâches et je les retrouve après fermeture de l'app ; la détente s'affiche en permanence ; les blocs « à confirmer » se confirment en un tap ; quand ça déborde, l'app le dit sans rien supprimer |
 | 3 bis | Reporter ce qui n'a pas été fait | **Livré, à tester sur iPhone** | Dans le train, j'ouvre « Revue du jour » et je reporte au lendemain (ou à un autre jour) ce que je n'ai pas fait, avec ses sous-tâches non cochées ; je peux annuler |
 | 3 ter | Profils de journée (semaine, week-end, télétravail) | **Livré, à tester sur iPhone** | Le week-end a son lever et son coucher ; un jour de télétravail se choisit sur la page du jour, sans trajets |
-| 4 | Export, import, statistiques et finitions iPhone / iPad | À faire | Je sauvegarde et restaure mes données par fichier ; l'app est confortable sur iPhone et iPad |
+| 4 | Export, import, statistiques et finitions iPhone / iPad | **Livré, à tester sur iPhone et iPad** | Je sauvegarde et restaure mes données par fichier ; je vois le temps réel par activité, par semaine et par mois ; l'app est confortable sur iPhone et iPad |
+
+### Lot 4 est fini quand, sur ton iPhone et ton iPad
+
+1. **Réglages → Sauvegarde → Exporter mes données** produit un fichier `plandujour-AAAA-MM-JJ.json` (réglages, profils, activités et tous les jours). Sur iPhone et iPad, la feuille de partage s'ouvre : « Enregistrer dans Fichiers » (iCloud Drive). L'export est refusé tant que des modifications de Réglages ne sont pas enregistrées.
+2. **Importer un fichier…** lit le fichier, affiche un résumé (activités, profils, jours) et propose : **Tout remplacer sur cet appareil**, **Remplacer les réglages seulement (garder mes jours)** ou **Annuler**. Un fichier qui n'est pas un export de l'app est refusé sans rien modifier. Une copie de sécurité de l'état précédent est gardée dans l'appareil.
+3. Usage prévu : tu configures sur l'iPhone, tu exportes, tu importes sur l'iPad avec « Réglages seulement » pour ne pas écraser le suivi de l'iPad.
+4. L'onglet **Stats** affiche, pour une semaine (lun.–dim.) ou un mois, le temps réel passé par activité (fin réelle − début réel), avec des barres et le total. Flèches pour changer de période, « Aujourd'hui » pour revenir. Les blocs ratés, ou démarrés et pas arrêtés, ne comptent pas. Regroupement par nom d'activité.
+5. Mise en page vérifiée sur un écran d'iPad (820 px) : aucun défilement horizontal sur les quatre onglets.
+
+Vérifié côté code (navigateur automatisé, écrans iPhone et iPad) : tous les points, et les tests des lots 1 à 3 ter. Le partage vers Fichiers et le clavier se jugent sur l'appareil.
 
 ### Lot 3 ter (profils de journée) est fini quand, sur ton iPhone
 
@@ -95,9 +105,9 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 - Week-end : non planifié en version 1 (les jours de saxophone peuvent déjà inclure sam. et dim.).
 - Un bloc n'est jamais coupé en deux.
 - Pas de glisser-déposer.
-- Statistiques : les heures réelles, les confirmations et les « ratés » sont déjà conservés (400 jours) ; l'écran de statistiques reste à définir (lot 4 ?).
 - Le chrono tourne à la minute ; le bloc « en cours » se rafraîchit toutes les 15 secondes.
 - Report : pas de « prochain jour prévu » automatique pour une activité récurrente (demain par défaut, ou une date choisie) ; pas de report en chaîne annulable de bout en bout.
-- Statistiques : compter les reports et abandons (conservés dans les données du jour) par semaine et par mois, avec le lot 4.
+- Statistiques : seul le temps réel par activité est affiché. Temps prévu, nombre de faits / ratés / reportés / abandonnés et détente moyenne sont conservés dans les données mais non affichés (non souhaités pour l'instant).
+- Import : pas de fusion de deux appareils (remplacement seulement).
 - Profils : si un jour appartient à deux profils, le premier de la liste gagne (pas d'alerte). Pas de profil par date récurrente (ex. télétravail tous les 15 jours).
 - Rappels et alarmes : export `.ics` à étudier.

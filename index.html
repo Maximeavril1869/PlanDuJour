@@ -115,10 +115,10 @@ button { font: inherit; }
 .savebar .msg { font-size: 14px; color: var(--muted); }
 .savebar .msg.dirty { color: var(--warn-ink); font-weight: 600; }
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr 1fr;
+  position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr);
   background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 5;
 }
-.tabbar button { height: var(--tabbar-h); border: 0; background: none; color: var(--muted); font-size: 15px; }
+.tabbar button { height: var(--tabbar-h); border: 0; background: none; color: var(--muted); font-size: 14px; padding: 0 2px; }
 .tabbar button[aria-selected=true] { color: var(--accent); font-weight: 700; }
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + 76px + env(safe-area-inset-bottom));
@@ -171,6 +171,13 @@ button { font: inherit; }
 .rvi small { display: block; color: var(--muted); font-size: 13px; }
 .rvbtn { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .profsel { margin: 8px 0 4px; }
+.rows li.strow { display: block; }
+.stline { display: flex; justify-content: space-between; gap: 12px; }
+.bar { height: 8px; margin-top: 6px; border-radius: 4px; background: var(--accent-soft); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--accent); }
+.stnav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; }
+.stnav .lab { flex: 1; text-align: center; font-weight: 700; }
+.imp { border: 2px solid var(--accent); border-radius: 12px; padding: 10px 14px; margin-top: 12px; }
 details.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
 details.fold > summary::-webkit-details-marker { display: none; }
 details.fold > summary::after { content: "▾"; color: var(--muted); }
@@ -229,6 +236,8 @@ details.fold > summary h2 { margin: 0; }
 
   <section id="panel-recap" role="tabpanel" aria-labelledby="tab-recap" hidden></section>
 
+  <section id="panel-stats" role="tabpanel" aria-labelledby="tab-stats" hidden></section>
+
   <section id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
     <form id="settings-form" novalidate autocomplete="off">
       <div id="form-body"></div>
@@ -243,6 +252,7 @@ details.fold > summary h2 { margin: 0; }
 <nav class="tabbar" role="tablist" aria-label="Navigation">
   <button type="button" role="tab" id="tab-day" data-tab="day" aria-selected="true">Jour</button>
   <button type="button" role="tab" id="tab-recap" data-tab="recap" aria-selected="false">Récapitulatif</button>
+  <button type="button" role="tab" id="tab-stats" data-tab="stats" aria-selected="false">Stats</button>
   <button type="button" role="tab" id="tab-settings" data-tab="settings" aria-selected="false">Réglages</button>
 </nav>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -253,7 +263,7 @@ details.fold > summary h2 { margin: 0; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.6.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.7.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -621,6 +631,38 @@ function buildDay(settings, dayData, weekday, nowMin, past) {
   return out;
 }
 
+// Statistiques : temps réel (fin − début) par nom d'activité sur les jours de `from` à `to` inclus. Les blocs ratés ou non terminés ne comptent pas.
+function statsFor(daysMap, settings, from, to) {
+  const names = {};
+  settings.activities.forEach((a) => { names['act:' + a.id] = a.name; });
+  const totals = {};
+  let daysUsed = 0;
+  Object.keys(daysMap).sort().forEach((k) => {
+    if (k < from || k > to) return;
+    const d = daysMap[k];
+    (d.ponctuels || []).forEach((p) => { names['p:' + p.id] = p.name; });
+    let used = false;
+    Object.keys(d.real).forEach((key) => {
+      const r = d.real[key];
+      if (r.missed || r.start === null || r.end === null) return;
+      const name = names[key] || 'Activité supprimée';
+      totals[name] = (totals[name] || 0) + (r.end - r.start);
+      used = true;
+    });
+    if (used) daysUsed++;
+  });
+  const rows = Object.keys(totals).map((n) => ({ name: n, minutes: totals[n] })).sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
+  return { rows: rows, total: rows.reduce((t, r) => t + r.minutes, 0), daysUsed: daysUsed };
+}
+function statsRange(mode, anchor) {
+  if (mode === 'month') {
+    const d = parseDateKey(anchor);
+    return { from: dateKey(new Date(d.getFullYear(), d.getMonth(), 1)), to: dateKey(new Date(d.getFullYear(), d.getMonth() + 1, 0)) };
+  }
+  const from = addDays(anchor, -(isoWeekday(anchor) - 1));
+  return { from: from, to: addDays(from, 6) };
+}
+
 // Répartit en colonnes les blocs qui se chevauchent (affichage uniquement).
 function layoutColumns(items) {
   items.sort((a, b) => a.start - b.start || b.end - a.end);
@@ -833,10 +875,17 @@ function renderForm(s) {
       '<strong>Heure prévue</strong> : glisse si ce qui précède déborde. <strong>Sans heure</strong> : tu la lances quand tu veux, avec le chrono.</p>' +
       '<div id="acts-list">' + s.activities.map((a) => actRowHtml(actToRaw(a), { days: true, del: true, fold: true })).join('') + '</div>' +
       '<button type="button" class="btn" data-action="add-act">+ Ajouter une activité</button></details>' +
+    '<div class="card"><h2>Sauvegarde</h2>' +
+      '<p class="help">Un seul fichier avec tes réglages et tous tes jours. Sert à sauvegarder, ou à passer de l’iPhone à l’iPad : enregistre-le dans Fichiers (iCloud Drive), puis importe-le sur l’autre appareil.</p>' +
+      '<div class="btnrow"><button type="button" class="btn primary" data-action="export">Exporter mes données</button>' +
+      '<button type="button" class="btn" data-action="import">Importer un fichier…</button></div>' +
+      '<input type="file" id="import-file" accept="application/json,.json" hidden><div id="import-box"></div></div>' +
     '<div class="foot"><button type="button" class="btn danger" data-action="reset">Rétablir les valeurs de départ</button>' +
       '<div>Plan du jour · version ' + APP_VERSION + '</div><div>Données stockées uniquement sur cet appareil.</div></div>';
+  renderImportBox();
 }
 
+let pendingImport = null;   // fichier lu et validé, en attente de choix
 let recapDay = 1;   // jour de semaine affiché dans le récapitulatif
 
 function renderRecap(s, status) {
@@ -867,6 +916,36 @@ function renderRecap(s, status) {
       '<p class="help" style="margin-top:8px">Plus grand temps disponible : ' + formatDuration(b.largestGap) + '.</p></div>';
   }
   $('#panel-recap').innerHTML = html;
+}
+
+// ---- Statistiques ----
+let statsMode = 'week';       // 'week' | 'month'
+let statsAnchor = null;       // un jour de la période affichée
+function renderStats() {
+  if (!statsAnchor) statsAnchor = dateKey(new Date());
+  const range = statsRange(statsMode, statsAnchor);
+  const st = statsFor(daysData.days, current, range.from, range.to);
+  const short = (k) => parseDateKey(k).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  const label = statsMode === 'month'
+    ? parseDateKey(range.from).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+    : 'Semaine du ' + short(range.from) + ' au ' + short(range.to) + ' ' + parseDateKey(range.to).getFullYear();
+  const max = st.rows.length ? st.rows[0].minutes : 1;
+  let html = '<div class="chips" style="margin:12px 0">' +
+    '<button type="button" class="chip" data-stats-mode="week" aria-pressed="' + (statsMode === 'week') + '">Semaine</button>' +
+    '<button type="button" class="chip" data-stats-mode="month" aria-pressed="' + (statsMode === 'month') + '">Mois</button></div>' +
+    '<div class="stnav"><button type="button" class="icon-btn" data-stats-nav="-1" aria-label="Période précédente">‹</button>' +
+    '<div class="lab">' + esc(label.charAt(0).toUpperCase() + label.slice(1)) + '</div>' +
+    '<button type="button" class="icon-btn" data-stats-nav="1" aria-label="Période suivante">›</button></div>' +
+    '<div class="daytools"><button type="button" class="btn" data-stats-nav="today">Aujourd’hui</button></div>';
+  if (!st.rows.length) {
+    html += '<div class="card"><p class="help" style="margin:0">Aucune heure réelle sur cette période. Les heures viennent du chrono ou des heures réelles saisies sur la page du jour.</p></div>';
+  } else {
+    html += '<div class="card"><h2>' + formatDuration(st.total) + ' <span class="v">· ' + plural(st.daysUsed, 'jour', 'jours') + ' avec des heures réelles</span></h2><ul class="rows">' +
+      st.rows.map((r) => '<li class="strow"><div class="stline"><span>' + esc(r.name) + '</span><strong>' + formatDuration(r.minutes) + '</strong></div>' +
+        '<div class="bar"><span style="width:' + Math.max(2, Math.round(r.minutes / max * 100)) + '%"></span></div></li>').join('') + '</ul>' +
+      '<p class="help" style="margin:10px 0 0">Un bloc en cours n’est compté qu’une fois arrêté. Les blocs ratés ne comptent pas. Regroupement par nom d’activité.</p></div>';
+  }
+  $('#panel-stats').innerHTML = html;
 }
 
 // ---- Vue du jour ----
@@ -1027,9 +1106,11 @@ function switchTab(name) {
   $$('.tabbar button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   $('#panel-day').hidden = name !== 'day';
   $('#panel-recap').hidden = name !== 'recap';
+  $('#panel-stats').hidden = name !== 'stats';
   $('#panel-settings').hidden = name !== 'settings';
-  $('#subtitle').textContent = { day: 'Ton plan, recalé selon la réalité.', recap: 'Ta semaine type et le temps disponible.', settings: 'Modifie, puis enregistre.' }[name];
+  $('#subtitle').textContent = { day: 'Ton plan, recalé selon la réalité.', recap: 'Ta semaine type et le temps disponible.', stats: 'Le temps réel passé, par activité.', settings: 'Modifie, puis enregistre.' }[name];
   if (name === 'day') renderDay();
+  if (name === 'stats') renderStats();
   window.scrollTo(0, 0);
 }
 
@@ -1129,6 +1210,83 @@ function stopNow(key) {
   r.end = Math.min(1439, Math.max(now, r.start + 1));
   persistDays();
   renderDay();
+}
+
+// ---- Sauvegarde : export et import ----
+function exportPayload() {
+  return { app: 'plandujour', format: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), settings: current, days: daysData };
+}
+async function doExport() {
+  if (dirty) { showToast('Enregistre d’abord tes modifications', 'err'); return; }
+  const text = JSON.stringify(exportPayload());
+  const name = 'plandujour-' + dateKey(new Date()) + '.json';
+  try {                                                   // iPhone / iPad : feuille de partage (« Enregistrer dans Fichiers »)
+    const file = new File([text], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Plan du jour' }); showToast('Export prêt'); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a');                  // sinon : téléchargement classique
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  showToast('Fichier téléchargé');
+}
+// Lit et valide un fichier d'export ; retourne null s'il n'est pas reconnu. Rien n'est écrit.
+function readImportText(text) {
+  let raw;
+  try { raw = JSON.parse(text); } catch (e) { return null; }
+  if (!raw || typeof raw !== 'object' || raw.app !== 'plandujour') return null;
+  const settings = sanitize(raw.settings), days = sanitizeDays(raw.days);
+  if (!settings || !days) return null;
+  return { settings: settings, days: days, exportedAt: typeof raw.exportedAt === 'string' ? raw.exportedAt : null };
+}
+function renderImportBox() {
+  const box = $('#import-box');
+  if (!box) return;
+  const p = pendingImport;
+  if (!p) { box.innerHTML = ''; return; }
+  const d = p.exportedAt ? new Date(p.exportedAt) : null;
+  const when = d && !isNaN(d.getTime()) ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'date inconnue';
+  box.innerHTML = '<div class="imp"><strong>Fichier du ' + esc(when) + '</strong>' +
+    '<p class="help" style="margin:4px 0 8px">' + plural(p.settings.activities.length, 'activité', 'activités') + ', ' + plural(p.settings.profiles.length, 'profil', 'profils') + ', ' +
+    plural(Object.keys(p.days.days).length, 'jour', 'jours') + '. Une copie de sécurité de cet appareil est gardée avant de remplacer.</p>' +
+    '<div class="btnrow"><button type="button" class="btn primary" data-action="imp-all">Tout remplacer sur cet appareil</button>' +
+    '<button type="button" class="btn" data-action="imp-settings">Remplacer les réglages seulement (garder mes jours)</button>' +
+    '<button type="button" class="btn" data-action="imp-cancel">Annuler</button></div></div>';
+}
+function applyImport(mode) {
+  const p = pendingImport;
+  if (!p) return;
+  try {                                                   // filet de sécurité : l'état d'avant, une seule fois
+    const rs = window.localStorage.getItem(STORAGE_KEY), rd = window.localStorage.getItem(DAYS_KEY);
+    if (rs !== null) window.localStorage.setItem('plandujour.avant-import.reglages', rs);
+    if (rd !== null) window.localStorage.setItem('plandujour.avant-import.jours', rd);
+  } catch (e) { /* ignoré */ }
+  if (!saveSettings(p.settings)) { showToast('Enregistrement impossible sur cet appareil', 'err'); return; }
+  current = p.settings;
+  loadStatus = 'ok';
+  if (mode === 'all') { daysData = p.days; if (!saveDays(daysData)) showToast('Enregistrement impossible sur cet appareil', 'err'); }
+  pendingImport = null;
+  closePanel();
+  closePick();
+  renderForm(current);
+  renderRecap(current, loadStatus);
+  renderDay();
+  setDirty(false);
+  showToast(mode === 'all' ? 'Données remplacées' : 'Réglages remplacés');
+}
+async function onImportFile(input) {
+  const f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  pendingImport = null;
+  let parsed = null;
+  try { if (f.size <= 5 * 1024 * 1024) parsed = readImportText(await f.text()); } catch (e) { parsed = null; }
+  if (!parsed) { renderImportBox(); showToast('Fichier non reconnu : rien n’a été modifié', 'err'); return; }
+  pendingImport = parsed;
+  renderImportBox();
 }
 
 // ---- Revue du jour : reporter / abandonner / annuler ----
@@ -1415,12 +1573,23 @@ function bindEvents() {
   const form = $('#settings-form');
 
   $$('.tabbar button').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  $('#panel-stats').addEventListener('click', (e) => {
+    const m = e.target.closest('[data-stats-mode]');
+    if (m) { statsMode = m.dataset.statsMode; renderStats(); return; }
+    const n = e.target.closest('[data-stats-nav]');
+    if (!n) return;
+    const v = n.dataset.statsNav;
+    if (v === 'today') statsAnchor = dateKey(new Date());
+    else if (statsMode === 'week') statsAnchor = addDays(statsAnchor, 7 * Number(v));
+    else { const d = parseDateKey(statsAnchor); statsAnchor = dateKey(new Date(d.getFullYear(), d.getMonth() + Number(v), 1)); }
+    renderStats();
+  });
   $('#panel-recap').addEventListener('click', (e) => {
     const b = e.target.closest('[data-recap-day]');
     if (b) { recapDay = Number(b.dataset.recapDay); renderRecap(current, loadStatus); }
   });
 
-  form.addEventListener('input', (e) => { setDirty(true); updateSummary(e.target.closest && e.target.closest('.act-row')); });
+  form.addEventListener('input', (e) => { if (e.target.id === 'import-file') return; setDirty(true); updateSummary(e.target.closest && e.target.closest('.act-row')); });
   form.addEventListener('toggle', (e) => {                 // mémorise ce qui est plié ou déplié
     const d = e.target, id = d.dataset && d.dataset.fid;
     if (!id) return;
@@ -1428,6 +1597,7 @@ function bindEvents() {
     if (d.classList.contains('fold')) { if (d.open) set.delete(id); else set.add(id); } else if (d.open) set.add(id); else set.delete(id);
   }, true);
   form.addEventListener('change', (e) => {
+    if (e.target.id === 'import-file') { onImportFile(e.target); return; }
     if (e.target.matches('#acts-list [data-a=name]')) syncActChips();
     const row = e.target.closest('.act-row');
     updateSummary(row);
@@ -1460,6 +1630,15 @@ function bindEvents() {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
+    if (action === 'export') { doExport(); return; }
+    if (action === 'import') {
+      if (dirty && !window.confirm('Des modifications ne sont pas enregistrées. Elles seront perdues si tu remplaces les réglages. Continuer ?')) return;
+      $('#import-file').click();
+      return;
+    }
+    if (action === 'imp-all') { applyImport('all'); return; }
+    if (action === 'imp-settings') { applyImport('settings'); return; }
+    if (action === 'imp-cancel') { pendingImport = null; renderImportBox(); return; }
     if (action === 'add-act') {
       const raws = $$('#acts-list .act-row').map(readActRaw);
       const nid = newId();
@@ -1537,7 +1716,7 @@ function init() {
   setInterval(() => {
     if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && dayNow() !== null) renderDay();
   }, 15000);
-  window.PDJ = { buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
+  window.PDJ = { statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });
