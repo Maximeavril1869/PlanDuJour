@@ -167,3 +167,6 @@ Toute ligne `<details class="rowfold">` affiche un chevron ▾ (fermée) / ▴ (
 
 ## 22. Détente supprimée (0.9.1)
 Plus de carte « Détente » dans Réglages, plus d'encart sur la page du jour, plus d'alerte de détente minimale. Le champ `relaxFloor` reste dans les données (inutilisé) pour que les anciens exports restent lisibles. Les alertes de chevauchement et de dépassement du coucher restent.
+
+## 23. Activités sans heure : plus de durée (0.10.0)
+Une activité ou un bloc « sans heure » n'a plus de durée prévue : le champ est masqué dans l'éditeur, la valeur stockée est neutre (1) et ignorée à l'affichage. Démarré, le bloc dure jusqu'à l'heure réelle d'arrêt (ou jusqu'à maintenant). Le chrono (▶ Démarrer / ■ Arrêter) n'existe que pour aujourd'hui : un autre jour se renseigne à la main (début/fin réels).

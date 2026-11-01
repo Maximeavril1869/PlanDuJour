@@ -267,7 +267,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.9.3';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.10.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -306,7 +306,7 @@ function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMi
 
 // ==== 3. VALEURS PAR DÉFAUT ====
 function makeAct(id, name, days, mode, entry, start, duration, confirm, carry) {
-  return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: duration, confirm: confirm === true,
+  return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: mode === 'free' ? 1 : duration, confirm: confirm === true,
     carry: carry === undefined ? DEFAULT_CARRY.includes(id) : carry === true };
 }
 // Profils de journée : lever et coucher (facultatifs : null = libre), jours habituels, activités retirées.
@@ -373,12 +373,12 @@ function sanitizeActs(list, fallback) {
   const out = [];
   list.forEach((a) => {
     if (!a || typeof a.name !== 'string' || !a.name.trim() || !MODES[a.mode]) return;
-    if (!Number.isInteger(a.duration) || a.duration < 1 || a.duration > 1440) return;
     const free = a.mode === 'free';
+    if (!free && (!Number.isInteger(a.duration) || a.duration < 1 || a.duration > 1440)) return;
     if (!free && !isMinute(a.start)) return;
     out.push({
       id: typeof a.id === 'string' ? a.id : newId(), name: a.name.trim().slice(0, 40), days: cleanDays(a.days), mode: a.mode,
-      entry: a.entry === 'end' ? 'end' : 'duration', start: free ? null : a.start, duration: free ? a.duration : Math.min(a.duration, 1440 - a.start),
+      entry: a.entry === 'end' ? 'end' : 'duration', start: free ? null : a.start, duration: free ? 1 : Math.min(a.duration, 1440 - a.start),
       confirm: !free && a.confirm === true,
       carry: a.carry === undefined ? DEFAULT_CARRY.includes(a.id) : a.carry === true
     });
@@ -519,11 +519,11 @@ function cleanSubtasks(list) {
 function cleanPonctuel(p) {
   if (!p || typeof p.name !== 'string' || !p.name.trim()) return null;
   const mode = MODES[p.mode] ? p.mode : 'fixed';
-  if (!Number.isInteger(p.duration) || p.duration < 1 || p.duration > 1440) return null;
+  if (mode !== 'free' && (!Number.isInteger(p.duration) || p.duration < 1 || p.duration > 1440)) return null;
   if (mode !== 'free' && !isMinute(p.start)) return null;
   return {
     id: typeof p.id === 'string' ? p.id : newId(), name: p.name.trim().slice(0, 40), mode: mode, entry: p.entry === 'end' ? 'end' : 'duration',
-    start: mode === 'free' ? null : p.start, duration: mode === 'free' ? p.duration : Math.min(p.duration, 1440 - p.start),
+    start: mode === 'free' ? null : p.start, duration: mode === 'free' ? 1 : Math.min(p.duration, 1440 - p.start),
     confirm: mode !== 'free' && p.confirm === true,
     carry: p.carry === true,
     from: isDateKey(p.from) ? p.from : null          // jour d'origine d'un bloc reporté
@@ -779,7 +779,7 @@ function actToRaw(a) {
   return {
     id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true, carry: a.carry === true,
     start: free || a.start === null ? '' : formatTime(a.start),
-    second: !free && entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration)
+    second: free ? '30' : (entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration))
   };
 }
 
@@ -790,7 +790,7 @@ function shortDate(k) { return k.slice(8, 10) + '/' + k.slice(5, 7); }
 function daysText(days) { return days.length === 7 ? 'tous les jours' : (days.length ? days.map((d) => DAY_SHORT[d]).join(' ') : 'aucun jour'); }
 function actSummaryHtml(r) {
   const free = r.mode === 'free', endEntry = !free && r.entry === 'end';
-  const when = free ? 'sans heure · ' + (r.second || '?') + ' min' : (r.start || '?') + (endEntry ? '–' + (r.second || '?') : ' · ' + (r.second || '?') + ' min');
+  const when = free ? 'sans heure' : (r.start || '?') + (endEntry ? '–' + (r.second || '?') : ' · ' + (r.second || '?') + ' min');
   return '<span class="sumtxt"><strong>' + esc(r.name.trim() || 'Nouvelle activité') + '</strong><small>' + esc(daysText(r.days) + ' · ' + when) + '</small></span>';
 }
 function profSummaryHtml(r) {
@@ -816,7 +816,7 @@ function actRowHtml(r, opts) {
     '<label class="field wide"><span class="lbl">Heure</span><select data-a="mode">' + modeOptions + '</select></label>' +
     '<label class="field timed wide"><span class="lbl">Saisie</span><select data-a="entry">' + entryOptions + '</select></label>' +
     '<label class="field timed"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-a="start" value="' + esc(r.start) + '"></label>' +
-    '<label class="field"><span class="lbl" data-a-label>' + (secondIsTime ? 'Fin' : 'Durée (minutes)') + '</span><input ' + (secondIsTime ? TIME_ATTRS : INT_ATTRS) +
+    '<label class="field timed"><span class="lbl" data-a-label>' + (secondIsTime ? 'Fin' : 'Durée (minutes)') + '</span><input ' + (secondIsTime ? TIME_ATTRS : INT_ATTRS) +
     ' data-kind="' + (secondIsTime ? 'time' : 'int') + '" data-a="second" value="' + esc(r.second) + '"></label>' +
     '<label class="field timed wide chk"><input type="checkbox" data-a="confirm"' + (r.confirm ? ' checked' : '') + '> À confirmer (« Fait / Raté » proposé après l’heure)</label>' +
     '<label class="field wide chk"><input type="checkbox" data-a="carry"' + (r.carry ? ' checked' : '') + '> À reporter (proposé dans la revue du jour si non fait)</label>';
@@ -867,8 +867,7 @@ function readActRow(row, errors) {
   if (!name) flag(nameEl, 'Nom obligatoire', errors);
   let start = null, duration = null;
   if (mode === 'free') {
-    duration = parseIntStrict(secEl.value);
-    if (duration === null || duration < 1 || duration > 1440) flag(secEl, 'Durée entre 1 et 1440 min', errors);
+    duration = 1;                                   // sans heure : aucune durée prévue
   } else {
     start = parseTime(startEl.value);
     if (start === null) flag(startEl, 'Heure de début invalide (ex. 09:00)', errors);
@@ -1035,8 +1034,7 @@ function renderRecap(s, status) {
     (b.placed.length ? '' : '<p class="help">Aucune activité ce jour-là.</p>') + '</div>';
   if (b.pending.length) {
     html += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + b.pending.map((it) =>
-      '<li><span>' + esc(it.name) + '</span><span class="v">' + formatDuration(it.minutes) + '</span></li>').join('') + '</ul>' +
-      '<p class="help" style="margin-top:8px">' + (b.profile.bedtime === null ? 'Pas d’heure de coucher : rien ne limite ces blocs.' : 'Plus grand temps disponible : ' + formatDuration(b.largestGap) + '.') + '</p></div>';
+      '<li><span>' + esc(it.name) + '</span></li>').join('') + '</ul></div>';
   }
   $('#panel-recap').innerHTML = html;
 }
@@ -1160,16 +1158,14 @@ function renderDay() {
   if (build.running) {
     const r = build.running;
     head += '<div class="runbar"><div><strong>' + esc(r.name) + '</strong><small>en cours depuis ' + formatTime(r.start) + ' · ' + formatDuration(Math.max(0, dayNow() - r.start)) +
-      ' (prévu ' + formatDuration(r.minutes) + ')</small></div><button type="button" class="btn" data-action="stop" data-key="' + esc(r.key) + '">■ Arrêter</button></div>';
+      (r.mode === 'free' ? '' : ' (prévu ' + formatDuration(r.minutes) + ')') + '</small></div><button type="button" class="btn" data-action="stop" data-key="' + esc(r.key) + '">■ Arrêter</button></div>';
   }
   head += pickHtml(build) + reviewHtml(build, dateKey(new Date()));
   if (build.pending.length) {
     head += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + build.pending.map((it) =>
-      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatDuration(it.minutes) + (it.subs.length ? ' · ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span></span><span>' +
+      '<li><span>' + esc(it.name) + ' <span class="v">' + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span></span><span>' +
       (dayNow() !== null ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
-      '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul>' +
-      '<p class="hours-help">' + (build.profile.bedtime === null ? 'Pas d’heure de coucher : rien ne limite ces blocs.' : 'Plus grand temps disponible : ' + formatDuration(build.largestGap) +
-      (build.pending.some((it) => it.minutes > build.largestGap) ? ' — au moins un bloc ne tient dans aucun créneau (rien n’est supprimé).' : '.')) + '</p></div>';
+      '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul></div>';
   }
   if (build.warnings.length) head += '<div class="banner warn"><strong>À vérifier</strong><ul>' + build.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
   if (build.missed.length) {
@@ -1211,7 +1207,7 @@ function renderDay() {
     if (b.from) note += ' · reporté de ' + fromLabel(b.from);
     html += '<button type="button" class="blk b-' + b.mode + (b.state === 'done' ? ' b-done' : '') + (b.state === 'running' ? ' b-running' : '') + (h < 40 ? ' short' : '') +
       '" data-action="open-block" data-key="' + esc(b.key) + '" style="top:' + y(b.start) + 'px;height:' + h + 'px;left:calc(' + b.col * w + '% + 1px);width:calc(' + w + '% - 3px)">' +
-      '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + formatTime(b.start) + '–' + formatTime(b.end) + ' (' + formatDuration(b.end - b.start) + ')' + esc(note) + '</span></button>';
+      '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + (b.mode === 'free' && b.state !== 'done' ? formatTime(b.start) : formatTime(b.start) + '–' + formatTime(b.end) + ' (' + formatDuration(b.end - b.start) + ')') + esc(note) + '</span></button>';
   });
   html += '</div></div>';
   $('#day-timeline').innerHTML = html;
@@ -1532,7 +1528,7 @@ function openPanel(key) {
     : '';
   if (it && it.mode === 'free') { /* durée seule */ }
   $('#bp-planned').textContent = !it ? 'Un bloc ponctuel ne concerne que ce jour.'
-    : (it.mode === 'free' ? 'Sans heure · ' + formatDuration(it.minutes) : 'Prévu : ' + formatTime(it.plannedStart) + '–' + formatTime(it.plannedStart + it.minutes) + ' · ' + MODE_TAG[it.mode]) +
+    : (it.mode === 'free' ? 'Sans heure' : 'Prévu : ' + formatTime(it.plannedStart) + '–' + formatTime(it.plannedStart + it.minutes) + ' · ' + MODE_TAG[it.mode]) +
       (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + (it.kind === 'act' ? ' · à modifier dans Réglages' : '');
   $('#bp-real').hidden = !it;
   const real = it ? it.real : { start: null, end: null };
