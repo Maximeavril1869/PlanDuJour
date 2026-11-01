@@ -164,3 +164,6 @@ Toute ligne `<details class="rowfold">` affiche un chevron ▾ (fermée) / ▴ (
 - `lastWake` s'applique au dernier jour de travail avant chaque période ; `returnBedtime` à la veille de la reprise (même si c'est un jour de congé).
 - Migration à la lecture : un ancien profil `prof-conge` ou à période est converti en section Congés (périodes, heures, retraits) puis retiré des profils.
 - Test : `test_lot9.js` ; `test_lot8.js` (ancien modèle) est abandonné.
+
+## 22. Détente supprimée (0.9.1)
+Plus de carte « Détente » dans Réglages, plus d'encart sur la page du jour, plus d'alerte de détente minimale. Le champ `relaxFloor` reste dans les données (inutilisé) pour que les anciens exports restent lisibles. Les alertes de chevauchement et de dépassement du coucher restent.

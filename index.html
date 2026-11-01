@@ -154,9 +154,6 @@ button { font: inherit; }
 .b-done .bn { text-decoration: line-through; }
 .b-running { outline: 2px solid var(--accent); }
 .hours-help { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
-.relax { display: flex; justify-content: space-between; align-items: center; background: var(--accent-soft); border-radius: 12px; padding: 10px 14px; margin: 10px 0; }
-.relax strong { font-size: 18px; }
-.relax.low { background: var(--warn-bg); color: var(--warn-ink); }
 .act-row .chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
 .chk input, .subchk input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
 .subh { margin: 14px 0 6px; font-size: 15px; }
@@ -270,7 +267,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.9.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.9.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -686,7 +683,6 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     out.relax = Math.max(0, prof.bedtime - prevEnd);
     if (prof.bedtime > prevEnd) {
       out.gaps.push({ from: prevEnd, to: prof.bedtime, minutes: prof.bedtime - prevEnd, last: true });
-      if (prof.bedtime - prevEnd < settings.relaxFloor) out.warnings.push('Il ne reste que ' + formatDuration(prof.bedtime - prevEnd) + ' avant le coucher (détente minimale : ' + formatDuration(settings.relaxFloor) + ').');
     } else {
       out.warnings.push('Les blocs vont jusqu’à ' + formatTime(prevEnd) + ', après l’heure du coucher (' + formatTime(prof.bedtime) + ').');
     }
@@ -996,7 +992,6 @@ function renderForm(s) {
       '<div id="profs-list">' + s.profiles.map((p) => profRowHtml(profToRaw(p), s.activities)).join('') + '</div>' +
       '<button type="button" class="btn" data-action="add-prof">+ Ajouter un profil</button></details>' +
     leaveCardHtml(s) +
-    '<div class="card"><h2>Détente</h2>' + intField('relaxFloor', 'Détente minimale avant le coucher (minutes)', s.relaxFloor, 0, 600) + '</div>' +
     '<details class="card fold" data-fid="card-acts"' + (foldClosed.has('card-acts') ? '' : ' open') + '><summary><h2>Activités</h2></summary>' +
       '<p class="help">Tout ce qui revient chaque semaine. <strong>Heure fixe</strong> : ne bouge jamais (train, cours). ' +
       '<strong>Heure prévue</strong> : glisse si ce qui précède déborde. <strong>Sans heure</strong> : tu la lances quand tu veux, avec le chrono.</p>' +
@@ -1156,9 +1151,6 @@ function renderDay() {
     (build.profile.note && !dayProf ? '<p class="hours-help">' + esc(build.profile.note) + '</p>' : '');
   if (loadStatus === 'empty') head += '<div class="banner info">Tu utilises les valeurs de départ : enregistre tes réglages dans l’onglet Réglages.</div>';
 
-  if (build.relax !== null) {
-    head += '<div class="relax' + (build.relax < current.relaxFloor ? ' low' : '') + '"><span>Détente avant le coucher</span><strong>' + formatDuration(build.relax) + '</strong></div>';
-  }
   if (build.toConfirm.length) {
     head += '<div class="card"><h2>À confirmer</h2><ul class="rows">' + build.toConfirm.map((it) =>
       '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatTime(it.start) + '–' + formatTime(it.end) + '</span></span><span>' +
