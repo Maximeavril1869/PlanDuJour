@@ -294,7 +294,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.13.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.13.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -339,6 +339,8 @@ const DEFAULT_ACT_CAT = { 'act-trajet-aller': 'cat-trajets', 'act-trajet-retour'
 const DEFAULT_PARALLEL = ['act-trajet-aller', 'act-trajet-retour'];   // on peut travailler pendant un trajet : pas d'alerte de chevauchement
 const DEFAULT_NOCAL = ['act-trajet-aller', 'act-trajet-retour'];   // déjà dans le calendrier (événement « Train ») : pas d'export
 const DEFAULT_CAL_IGNORE = ['Train'];                                  // titres du calendrier ignorés à l'import
+const ALARMS = [0, 5, 10, 15, 30, 60];   // rappels exportés vers Calendrier : minutes avant le début (0 = à l'heure)
+const cleanAlarm = (v) => (Number.isInteger(v) && ALARMS.includes(v) ? v : null);
 const WORK_TARGET = 462;   // 7 h 42 par jour, du lundi au vendredi
 function cleanCats(list) {
   const out = [];
@@ -348,11 +350,11 @@ function cleanCats(list) {
   });
   return out;
 }
-function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel, noCal) {
+function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel, noCal, alarm) {
   return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: mode === 'free' ? 1 : duration, confirm: confirm === true,
     carry: carry === undefined ? DEFAULT_CARRY.includes(id) : carry === true, children: Array.isArray(children) ? children : [],
     cat: cat === undefined ? (DEFAULT_ACT_CAT[id] || null) : cat, parallel: parallel === undefined ? DEFAULT_PARALLEL.includes(id) : parallel === true,
-    noCal: noCal === undefined ? DEFAULT_NOCAL.includes(id) : noCal === true };
+    noCal: noCal === undefined ? DEFAULT_NOCAL.includes(id) : noCal === true, alarm: cleanAlarm(alarm) };
 }
 // Sous-activités permanentes d'une activité (lot 5) : { id, name }.
 function cleanChildren(list) {
@@ -451,7 +453,8 @@ function sanitizeActs(list, fallback) {
       children: cleanChildren(a.children),
       cat: a.cat === undefined ? (DEFAULT_ACT_CAT[a.id] || null) : (typeof a.cat === 'string' ? a.cat : null),
       parallel: a.parallel === undefined ? DEFAULT_PARALLEL.includes(a.id) : a.parallel === true,
-      noCal: a.noCal === undefined ? DEFAULT_NOCAL.includes(a.id) : a.noCal === true
+      noCal: a.noCal === undefined ? DEFAULT_NOCAL.includes(a.id) : a.noCal === true,
+      alarm: cleanAlarm(a.alarm)
     });
   });
   return out;
@@ -599,7 +602,7 @@ function cleanPonctuel(p) {
     id: typeof p.id === 'string' ? p.id : newId(), name: p.name.trim().slice(0, 40), mode: mode, entry: p.entry === 'end' ? 'end' : 'duration',
     start: mode === 'free' ? null : p.start, duration: mode === 'free' ? 1 : Math.min(p.duration, 1440 - p.start),
     confirm: mode !== 'free' && p.confirm === true,
-    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null,
+    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null, alarm: cleanAlarm(p.alarm),
     from: isDateKey(p.from) ? p.from : null          // jour d'origine d'un bloc reporté
   };
 }
@@ -708,10 +711,10 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
-    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, noCal: a.noCal === true, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
+    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, noCal: a.noCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
-    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
+    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
   });
   const timed = [];
   items.forEach((it) => {
@@ -900,7 +903,7 @@ function actToRaw(a) {
   const entry = !free && a.entry === 'end' && a.start + a.duration < 1440 ? 'end' : 'duration';
   return {
     id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true, carry: a.carry === true,
-    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '', parallel: a.parallel === true, noCal: a.noCal === true,
+    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '', parallel: a.parallel === true, noCal: a.noCal === true, alarm: a.alarm === null || a.alarm === undefined ? '' : String(a.alarm),
     start: free || a.start === null ? '' : formatTime(a.start),
     second: free ? '30' : (entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration))
   };
@@ -956,6 +959,7 @@ function actRowHtml(r, opts) {
   let html = '<div class="act-row" data-id="' + esc(r.id) + '" data-mode="' + r.mode + '"' + (fold ? ' data-fold="1"' : '') + '>' + (fold ? foldStart(r.id, actSummaryHtml(r)) : '') +
     '<label class="field wide' + (opts.del && !fold ? ' first' : '') + '"><span class="lbl">Nom</span><input type="text" maxlength="40" data-a="name" value="' + esc(r.name) + '"></label>' +
     '<label class="field wide"><span class="lbl">Catégorie</span><select data-a="cat">' + catOptionsHtml(opts.cats || (current && current.categories) || [], r.cat) + '</select></label>' +
+    '<label class="field wide"><span class="lbl">Rappel dans Calendrier (à l’export)</span><select data-a="alarm"><option value="">Aucun</option>' + ALARMS.map((m) => '<option value="' + m + '"' + (String(r.alarm) === String(m) ? ' selected' : '') + '>' + (m === 0 ? 'À l’heure' : (m === 60 ? '1 h avant' : m + ' min avant')) + '</option>').join('') + '</select></label>' +
     '<label class="field wide"><span class="lbl">Heure</span><select data-a="mode">' + modeOptions + '</select></label>' +
     '<label class="field timed wide"><span class="lbl">Saisie</span><select data-a="entry">' + entryOptions + '</select></label>' +
     '<label class="field timed"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-a="start" value="' + esc(r.start) + '"></label>' +
@@ -1006,7 +1010,7 @@ function readActRaw(row) {
     start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value, confirm: $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked,
     days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)),
     children: $$('.child-row', row).map((c) => ({ id: c.dataset.cid, name: $('[data-c=name]', c).value })),
-    cat: $('[data-a=cat]', row).value, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked)
+    cat: $('[data-a=cat]', row).value, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), alarm: $('[data-a=alarm]', row).value
   };
 }
 // Lit et valide une ligne d'activité ; retourne l'activité ou null (champs invalides marqués).
@@ -1039,7 +1043,7 @@ function readActRow(row, errors) {
     if (!n) flag(inp, 'Nom de la sous-activité manquant', errors); else children.push({ id: c.dataset.cid || newId(), name: n.slice(0, 40) });
   });
   if (errors.length > before) return null;
-  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
+  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), alarm: $('[data-a=alarm]', row).value === '' ? null : Number($('[data-a=alarm]', row).value), days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
     confirm: mode !== 'free' && $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked };
 }
 
@@ -1589,7 +1593,7 @@ function calendarEvents(daysMap, settings, from, to, mode) {
         }
         if (it.state !== 'done') return;
       }
-      out.push({ uid: 'pdj-' + k + '-' + it.key, date: k, start: it.start, end: it.end, title: it.name, cat: cat });
+      out.push({ uid: 'pdj-' + k + '-' + it.key, date: k, start: it.start, end: it.end, title: it.name, cat: cat, alarm: it.alarm === undefined ? null : it.alarm });
     });
   }
   return out;
@@ -1600,6 +1604,7 @@ function buildIcs(events) {
   events.forEach((e) => {
     lines.push('BEGIN:VEVENT', 'UID:' + e.uid + '@plandujour', 'DTSTAMP:' + stamp, 'DTSTART:' + icsStamp(e.date, e.start), 'DTEND:' + icsStamp(e.date, e.end), 'SUMMARY:' + icsEscape(e.title));
     if (e.cat) lines.push('CATEGORIES:' + icsEscape(e.cat));
+    if (Number.isInteger(e.alarm)) lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEscape(e.title), 'TRIGGER:' + (e.alarm === 0 ? 'PT0S' : '-PT' + e.alarm + 'M'), 'END:VALARM');
     lines.push('END:VEVENT');
   });
   lines.push('END:VCALENDAR');
@@ -1896,7 +1901,7 @@ function openPanel(key) {
   const today = dayNow() !== null;
   $('#bp-title').textContent = it ? it.name : 'Nouveau bloc ponctuel';
   $('#bp-edit').innerHTML = isP
-    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm, carry: it.carry, cat: it.cat } :
+    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm, carry: it.carry, cat: it.cat, alarm: it.alarm } :
       { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60, confirm: false, carry: false }), { days: false, del: false })
     : '';
   if (it && it.mode === 'free') { /* durée seule */ }
@@ -1954,7 +1959,7 @@ function savePanel() {
   const day = ensureDay();
   let key = panelKey;
   if (isP && edited) {
-    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, from: it ? it.from : null };
+    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, alarm: edited.alarm, from: it ? it.from : null };
     if (!it) { day.ponctuels.push(p); key = 'p:' + p.id; }
     else { const i = day.ponctuels.findIndex((x) => 'p:' + x.id === panelKey); if (i >= 0) day.ponctuels[i] = p; }
   }
@@ -2164,7 +2169,7 @@ function bindEvents() {
       const raws = $$('#acts-list .act-row').map(readActRaw);
       const nid = newId();
       openRows.add(nid);
-      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '', parallel: false, noCal: false });
+      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '', parallel: false, noCal: false, alarm: '' });
       $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, actOpts())).join('');
       rerenderProfiles();
       const names = $$('#acts-list [data-a=name]');

@@ -202,3 +202,5 @@ Mise à jour 0.12.2 : Stats → mode « Jour » (navigation jour par jour) en pl
 - Test : test_lot14.js.
 
 Mise à jour 0.13.1 : champ `noCal` sur les activités (« Ne pas exporter vers Calendrier », coché par défaut sur les trajets, car le calendrier de l'utilisateur contient déjà un événement récurrent « Train »). `settings.calIgnore` (défaut `["Train"]`) : titres exacts (sans tenir compte de la casse) ignorés à l'import des rendez-vous. Test : test_lot14.js.
+
+Mise à jour 0.13.2 : champ `alarm` (null ou 0/5/10/15/30/60 minutes avant) sur les activités et les ponctuels, éditable par un select « Rappel dans Calendrier (à l’export) » ; l'export .ics ajoute un `VALARM` (`TRIGGER:-PT<n>M`, `PT0S` si à l'heure) à chaque événement. Défaut : aucun rappel. Champ additif, pas de changement de version des données. Test : test_lot14.js.
