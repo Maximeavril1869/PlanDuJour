@@ -6,10 +6,10 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.17.1**, déployée sur GitHub Pages.
+- Version **0.17.2**, déployée sur GitHub Pages.
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - À faire : lot 5 bis (chrono sur les sous-tâches du jour).
-- Correction demandée, en cours d'analyse : l'export vers Calendrier renvoie aussi ce qui vient du calendrier (voir 2 novembre, session de reprise).
+- Corrigé en 0.17.2 : les rendez-vous importés du calendrier ne sont plus réexportés. Reste ouvert : un code unique par événement pour la mise à jour réciproque (voir 2 novembre, session de reprise).
 
 ## 2 novembre 2026
 
@@ -17,9 +17,14 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Dépôt cloné, `STATUS.md`, `CONVENTIONS.md` et `README.md` relus. Versions `index.html` et `sw.js` cohérentes (0.17.1).
 - Constats : les fichiers `test_lot*.js` cités dans la documentation ne sont pas dans le dépôt ; la ligne 3 de `STATUS.md` est dupliquée et le tableau des lots s'arrête au lot 4.
 - Création de `CARNET.md` (ce fichier) et de `ARCHITECTURE.md`.
-- Correction demandée : les rendez-vous importés du calendrier sont réexportés vers le calendrier, et ce que l'app exporte peut être réimporté. Analyse en cours, questions posées avant de coder.
+- Correction demandée : les rendez-vous importés du calendrier sont réexportés vers le calendrier, et ce que l'app exporte peut être réimporté (deux sens du même problème).
+- Décisions de l'utilisateur : case « Vient de mon calendrier » validée ; l'export ira dans un nouveau calendrier dédié « Plan du jour » (à créer sur l'iPhone) que le raccourci d'import ne lira pas ; questions sur les retours de test et le nettoyage de `STATUS.md` abandonnées.
+- **0.17.2** : champ `fromCal` sur les blocs ponctuels, posé à l'import, exclu de l'export, case dans l'éditeur du bloc. Vérifié en navigateur automatisé : import marqué, marque conservée après rechargement, export sans les rendez-vous importés, case cochée puis décochée.
+- Question en cours : un code unique par événement pour retrouver un rendez-vous malgré un changement d'heure ou de nom (dépend de ce que le raccourci iOS peut lire).
 
 ### Commits du jour
+- **0.17.2** : rendez-vous importés marqués et jamais réexportés (voir ci-dessus).
+- `f1715cf` Documentation : carnet de bord et architecture du projet.
 - `94d6e2b` **0.14.0** : présence au travail (chrono parallèle, pauses, départ conseillé).
 - `26dd854` **0.14.1** : Récap en semaine réelle ou semaine type.
 - `0f417d1` **0.15.0** : tâches habituelles (modèles de blocs ponctuels).

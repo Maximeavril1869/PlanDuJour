@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.17.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.17.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -653,7 +653,7 @@ function cleanPonctuel(p) {
     id: typeof p.id === 'string' ? p.id : newId(), name: p.name.trim().slice(0, 40), mode: mode, entry: p.entry === 'end' ? 'end' : 'duration',
     start: mode === 'free' ? null : p.start, duration: mode === 'free' ? 1 : Math.min(p.duration, 1440 - p.start),
     confirm: mode !== 'free' && p.confirm === true,
-    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null, alarm: cleanAlarm(p.alarm), parallel: p.parallel === true, noCal: p.noCal === true,
+    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null, alarm: cleanAlarm(p.alarm), parallel: p.parallel === true, noCal: p.noCal === true, fromCal: p.fromCal === true,
     from: isDateKey(p.from) ? p.from : null          // jour d'origine d'un bloc reporté
   };
 }
@@ -766,7 +766,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, noCal: a.noCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
-    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, parallel: p.parallel === true, noCal: p.noCal === true, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
+    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, parallel: p.parallel === true, noCal: p.noCal === true, fromCal: p.fromCal === true, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
   });
   const timed = [];
   items.forEach((it) => {
@@ -975,7 +975,7 @@ function actToRaw(a) {
   const entry = !free && a.entry === 'end' && a.start + a.duration < 1440 ? 'end' : 'duration';
   return {
     id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true, carry: a.carry === true,
-    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '', parallel: a.parallel === true, noCal: a.noCal === true, alarm: a.alarm === null || a.alarm === undefined ? '' : String(a.alarm),
+    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '', parallel: a.parallel === true, noCal: a.noCal === true, fromCal: a.fromCal === true, alarm: a.alarm === null || a.alarm === undefined ? '' : String(a.alarm),
     start: free || a.start === null ? '' : formatTime(a.start),
     second: free ? '30' : (entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration))
   };
@@ -1093,6 +1093,9 @@ function actRowHtml(r, opts) {
     html += '<label class="field wide chk"><input type="checkbox" data-a="noCal"' + (r.noCal ? ' checked' : '') + '> Ne pas exporter vers Calendrier (déjà dans mon calendrier)</label>';
     html += '<label class="field wide chk"><input type="checkbox" data-a="parallel"' + (r.parallel ? ' checked' : '') + '> On peut faire autre chose pendant (pas d’alerte de chevauchement : trajet, par exemple)</label>';
   }
+  if (opts.flags && !opts.days) {                    // bloc ponctuel seulement : l'origine du rendez-vous
+    html += '<label class="field wide chk"><input type="checkbox" data-a="fromCal"' + (r.fromCal ? ' checked' : '') + '> Vient de mon calendrier (jamais réexporté vers Calendrier)</label>';
+  }
   if (opts.days) {
     html += '<div class="field wide"><span class="lbl">Sous-activités (chronométrables dans le bloc)</span><div class="childs">' + (r.children || []).map(childRowHtml).join('') + '</div>' +
       '<button type="button" class="btn small" data-action="add-child">+ Sous-activité</button></div>';
@@ -1130,7 +1133,7 @@ function readActRaw(row) {
     start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value, confirm: $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked,
     days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)),
     children: $$('.child-row', row).map((c) => ({ id: c.dataset.cid, name: $('[data-c=name]', c).value })),
-    cat: $('[data-a=cat]', row).value, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), alarm: $('[data-a=alarm]', row).value
+    cat: $('[data-a=cat]', row).value, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), fromCal: !!($('[data-a=fromCal]', row) && $('[data-a=fromCal]', row).checked), alarm: $('[data-a=alarm]', row).value
   };
 }
 // Lit et valide une ligne d'activité ; retourne l'activité ou null (champs invalides marqués).
@@ -1163,7 +1166,7 @@ function readActRow(row, errors) {
     if (!n) flag(inp, 'Nom de la sous-activité manquant', errors); else children.push({ id: c.dataset.cid || newId(), name: n.slice(0, 40) });
   });
   if (errors.length > before) return null;
-  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), alarm: $('[data-a=alarm]', row).value === '' ? null : Number($('[data-a=alarm]', row).value), days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
+  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), fromCal: !!($('[data-a=fromCal]', row) && $('[data-a=fromCal]', row).checked), alarm: $('[data-a=alarm]', row).value === '' ? null : Number($('[data-a=alarm]', row).value), days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
     confirm: mode !== 'free' && $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked };
 }
 
@@ -1836,7 +1839,7 @@ function calendarEvents(daysMap, settings, from, to, mode) {
   for (let k = from; k <= to; k = addDays(k, 1)) {
     const b = buildDay(settings, daysMap[k] || emptyDay(), isoWeekday(k), null, k < today, k);
     b.placed.forEach((it) => {
-      if (it.noCal) return;
+      if (it.noCal || it.fromCal) return;          // trajets exclus, et rendez-vous venus du calendrier
       const cat = catName(it.cat);
       if (mode === 'real') {
         if (it.segs.length) {
@@ -1891,7 +1894,7 @@ function importCalendarEvents(events) {
   events.forEach((ev) => {
     const day = daysData.days[ev.date] || (daysData.days[ev.date] = emptyDay());
     if (day.ponctuels.some((p) => p.name === ev.title && p.start === ev.start && p.duration === ev.end - ev.start)) { skipped++; return; }   // déjà importé
-    const p = cleanPonctuel({ id: newId(), name: ev.title, mode: 'fixed', entry: 'end', start: ev.start, duration: ev.end - ev.start, confirm: false, carry: false, cat: null, from: null });
+    const p = cleanPonctuel({ id: newId(), name: ev.title, mode: 'fixed', entry: 'end', start: ev.start, duration: ev.end - ev.start, confirm: false, carry: false, cat: null, from: null, fromCal: true });   // marqué : jamais réexporté
     if (p) { day.ponctuels.push(p); added++; } else skipped++;
   });
   if (added) persistDays();
@@ -2157,7 +2160,7 @@ function openPanel(key) {
   const today = dayNow() !== null;
   $('#bp-title').textContent = it ? it.name : 'Nouveau bloc ponctuel';
   $('#bp-edit').innerHTML = isP
-    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm, carry: it.carry, cat: it.cat, alarm: it.alarm, parallel: it.parallel, noCal: it.noCal } :
+    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm, carry: it.carry, cat: it.cat, alarm: it.alarm, parallel: it.parallel, noCal: it.noCal, fromCal: it.fromCal } :
       { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60, confirm: false, carry: false }), { days: false, del: false, flags: true })
     : '';
   if (!it && (current.templates || []).length) {
@@ -2218,7 +2221,7 @@ function savePanel() {
   const day = ensureDay();
   let key = panelKey;
   if (isP && edited) {
-    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, alarm: edited.alarm, parallel: edited.parallel, noCal: edited.noCal, from: it ? it.from : null };
+    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, alarm: edited.alarm, parallel: edited.parallel, noCal: edited.noCal, fromCal: edited.fromCal, from: it ? it.from : null };
     if (!it) { day.ponctuels.push(p); key = 'p:' + p.id; }
     else { const i = day.ponctuels.findIndex((x) => 'p:' + x.id === panelKey); if (i >= 0) day.ponctuels[i] = p; }
   }

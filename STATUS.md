@@ -172,3 +172,6 @@ En haut des Stats et dans la barre du jour : uniquement le temps de présence (n
 
 ## 0.17.1 — Récap : plus de carte « Sans heure » en semaine réelle — livré, à valider sur appareil
 La carte « Sans heure » reste dans la semaine type (rappel de ce qui est prévu sans heure) mais disparaît de la semaine réelle, où seuls les temps réellement chronométrés apparaissent.
+
+## 0.17.2 — Calendrier : les rendez-vous importés ne sont plus réexportés — livré, à valider sur appareil
+Les rendez-vous importés depuis le calendrier sont marqués « Vient de mon calendrier » et ne partent plus jamais à l'export. La case existe dans l'éditeur d'un bloc ponctuel, pour marquer à la main ceux importés avant cette version. Usage prévu : exporter dans un calendrier dédié « Plan du jour » (choisi à l'ajout) que le raccourci d'import ne lit pas. Point ouvert : un code unique par événement pour la mise à jour réciproque (voir CARNET.md).

@@ -233,3 +233,6 @@ Mise à jour 0.16.1 : `renderStats` passe l'heure courante à `workReport` pour 
 Mise à jour 0.17.0 : `workReport` = présence nette seulement (`presenceNet`), comme une badgeuse. Les catégories « travail » ne servent plus qu'à l'affichage des Stats par catégorie. La présence ouverte d'un jour passé n'est pas comptée (`unclosed`). Remplace la règle « présence + travail hors présence » de la section 27. Tests : test_lot15.js, test_lot23.js, test_lot11.js, test_lot13.js adaptés.
 
 Mise à jour 0.17.1 : le Récap n'affiche la carte « Sans heure » qu'en semaine type. Test : test_lot23.js.
+
+## 30. Origine calendrier (0.17.2)
+Champ additif `fromCal` sur les blocs ponctuels (`false` par défaut, pas de changement de version des jours). `importCalendarEvents` le met à `true`. `calendarEvents` écarte les blocs `noCal` **et** `fromCal` : ce qui vient du calendrier n'y retourne jamais. Case « Vient de mon calendrier » dans l'éditeur du bloc ponctuel (pas dans les activités de Réglages). Sens inverse (ce que l'app exporte, réimporté par le raccourci) : traité par l'usage d'un calendrier dédié que le raccourci ne lit pas, pas par le code. Mise à jour réciproque par identifiant : à décider.

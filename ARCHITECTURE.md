@@ -131,8 +131,8 @@ flowchart TD
 | Flux | Sens | Format | Détail |
 |---|---|---|---|
 | Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » |
-| Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-<date>-<clé>`) | Jours suivants seulement ; activités `noCal` exclues ; rappels `VALARM` |
-| Import de rendez-vous | Calendrier → app | texte `AAAA-MM-JJ HH:MM HH:MM Titre` (raccourci iOS, presse-papiers) ou `.ics` | Crée des blocs ponctuels à heure fixe ; titres de `calIgnore` ignorés ; doublon = même titre, début, durée |
+| Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-<date>-<clé>`) | Jours suivants seulement ; blocs `noCal` et `fromCal` exclus ; rappels `VALARM` ; à ajouter dans un calendrier dédié « Plan du jour » |
+| Import de rendez-vous | Calendrier → app | texte `AAAA-MM-JJ HH:MM HH:MM Titre` (raccourci iOS, presse-papiers) ou `.ics` | Crée des blocs ponctuels à heure fixe marqués `fromCal` ; titres de `calIgnore` ignorés ; doublon = même titre, début, durée |
 
 Aucune donnée n'est envoyée à un serveur : GitHub ne reçoit que le code.
 
