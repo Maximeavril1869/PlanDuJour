@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.15.4** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.15.5** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -157,3 +157,6 @@ Chaque tâche habituelle est repliée au départ (nom, catégorie et durée dans
 
 ## 0.15.4 — tri des catégories et des activités dans Réglages — livré, à valider sur appareil
 Catégories triées de A à Z. Activités groupées par catégorie (un titre par catégorie, « Sans catégorie » en dernier) puis triées par nom. Comme pour les tâches habituelles, le tri se fait à l'ouverture et à l'enregistrement, pas pendant la saisie.
+
+## 0.15.5 — un bloc par sous-activité dans la frise — livré, à valider sur appareil
+Une activité à sous-activités n'est plus affichée comme une seule plage du premier au dernier chrono : chaque temps chronométré a son propre créneau (« Concentration · Dossier A »). Les alertes de chevauchement et le temps disponible se calculent sur ces créneaux, donc plus de fausse alerte quand une autre tâche a eu lieu entre deux sous-activités.

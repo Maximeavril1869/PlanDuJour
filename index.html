@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.15.4';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.15.5';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -808,7 +808,14 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   });
 
   // Temps disponible entre deux blocs (du lever au premier bloc, puis jusqu'au coucher).
-  const byStart = timed.slice().sort((a, b) => a.start - b.start || a.end - b.end);
+  // Créneaux réels : un bloc à sous-activités compte un créneau par temps chronométré (pas une plage continue du premier au dernier).
+  const spans = [];
+  timed.forEach((it) => {
+    if (it.segs.length && !it.real.missed) it.segs.forEach((g) => { const open = g.end === null; spans.push({ owner: it, seg: g, open: open, key: it.key, name: it.name, parallel: it.parallel, start: g.start, end: open ? Math.max(g.start + 1, nowMin !== null ? nowMin : g.start + 1) : g.end }); });
+    else spans.push({ owner: it, seg: null, open: false, key: it.key, name: it.name, parallel: it.parallel, start: it.start, end: it.end });
+  });
+  const byStart = spans.sort((a, b) => a.start - b.start || a.end - b.end);
+  out.spans = byStart;
   let prevEnd = prof.wake !== null ? prof.wake : (byStart.length ? byStart[0].start : 0), prev = null;
   byStart.forEach((it) => {
     if (it.start > prevEnd) out.gaps.push({ from: prevEnd, to: it.start, minutes: it.start - prevEnd, last: false });
@@ -824,7 +831,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     }
   }
   out.gaps.forEach((g) => { out.largestGap = Math.max(out.largestGap, g.minutes); });
-  out.placed = byStart;
+  out.placed = timed.slice().sort((a, b) => a.start - b.start || a.end - b.end);
 
   // Revue du jour : blocs « à reporter » non faits, ou faits avec des sous-tâches non cochées. Les blocs déjà traités sont listés à part.
   // (state : absent pour un bloc sans heure non lancé et pour un raté ; 'planned' | 'running' | 'started' | 'done' sinon.)
@@ -1577,7 +1584,10 @@ function renderDay() {
 
   // Timeline
   const t = build.profile;
-  const items = build.placed.map((b) => Object.assign({}, b));
+  const items = build.spans.map((sp) => {
+    const o = sp.owner, c = sp.seg ? o.children.find((x) => x.id === sp.seg.cid) : null;
+    return Object.assign({}, o, { start: sp.start, end: sp.end, state: sp.seg ? (sp.open ? 'running' : 'done') : o.state, shift: sp.seg ? 0 : o.shift, subs: sp.seg ? [] : o.subs, label: o.name + (c ? ' · ' + c.name : '') });
+  });
   let lo = Math.min.apply(null, (t.wake !== null ? [t.wake] : []).concat(items.map((b) => b.start)));
   let hi = Math.max.apply(null, (t.bedtime !== null ? [t.bedtime] : []).concat(items.map((b) => b.end)));
   if (!isFinite(lo)) lo = 360;          // journée vide sans lever : repères par défaut
@@ -1605,7 +1615,7 @@ function renderDay() {
     if (b.from) note += ' · reporté de ' + fromLabel(b.from);
     html += '<button type="button" class="blk b-' + b.mode + (b.state === 'done' ? ' b-done' : '') + (b.state === 'running' ? ' b-running' : '') + (h < 40 ? ' short' : '') +
       '" data-action="open-block" data-key="' + esc(b.key) + '" style="top:' + y(b.start) + 'px;height:' + h + 'px;left:calc(' + b.col * w + '% + 1px);width:calc(' + w + '% - 3px)">' +
-      '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.name) + '</span><span class="bt">' + (b.mode === 'free' && b.state !== 'done' ? formatTime(b.start) : formatTime(b.start) + '–' + formatTime(b.end) + ' (' + formatDuration(b.end - b.start) + ')') + esc(note) + '</span></button>';
+      '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.label) + '</span><span class="bt">' + (b.mode === 'free' && b.state !== 'done' ? formatTime(b.start) : formatTime(b.start) + '–' + formatTime(b.end) + ' (' + formatDuration(b.end - b.start) + ')') + esc(note) + '</span></button>';
   });
   html += '</div></div>';
   $('#day-timeline').innerHTML = html;
