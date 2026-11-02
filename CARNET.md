@@ -6,16 +6,25 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.23.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.23.1**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
-- Catégories en arbre (0.23.0) : un seul parent, jusqu'à 8 niveaux, chemin « A › B » affiché. Prochain lot : 0.24.0, Stats en arbre avec un total par niveau.
+- Catégories en arbre (0.23.0) : un seul parent, jusqu'à 8 niveaux, chemin « A › B » affiché.
+- Statuts Travail / Perso / Hors (0.23.1) : portés par la racine, hérités par les sous-catégories ; Réglages en trois menus de statut contenant un menu par catégorie, imbriqués. Prochain lot : **0.24.0**, Stats en arbre repliable avec un total à chaque niveau et les totaux Travail / Perso / Hors.
+- Avant la 1.0 : 0.24.0, rappel de sauvegarde, validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
-- En suspens : lot 5 bis (chrono sur chaque sous-tâche libre du jour). Les sous-activités cochables couvrent le besoin ; abandon à confirmer avec l'utilisateur.
-- Non décidé : retirer du suivi git les `.pyc` de `tests/__pycache__/` et ajouter un `.gitignore` (question posée, pas de réponse). D'ici là, lancer les tests avec `PYTHONDONTWRITEBYTECODE=1`.
+- Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
+- Tests : 146 vérifications (7 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 2 novembre 2026
+
+### Session de la 0.23.1 (statuts et menus imbriqués)
+- Reprise : dépôt cloné à `194b330`, documents relus, 110 vérifications OK (Chrome du système, Playwright n'ayant pas pu télécharger le sien ; rien ajouté au dépôt).
+- Constats : docs en retard sur les décisions (STATUS annonçait encore des racines Pro / Perso / Trajets imposées et la disparition de la case Travail ; lot 5 bis « en suspens » ; CONVENTIONS avait le §37 avant le §36 ; carnet disait « .pyc non décidé » alors que c'était fait). Corrigés. La sauvegarde (export / import JSON) existait déjà.
+- Décisions de l'utilisateur : les trajets sont **hors** catégorie pro / perso ; héritage confirmé et **aucun mélange possible** (la case ne se choisit que sur la racine) ; une activité sans catégorie est **hors** ; arbre **entièrement imbriqué** ; visuel avec couleurs ; une ligne modifiée reste en place jusqu'à l'enregistrement ; 0.23.1 pour Réglages puis 0.24.0 pour les Stats ; rappel de sauvegarde et liste de contrôles appareil acceptés (à faire) ; pas de synchro automatique (aucun serveur) : export / import par iCloud Drive ou AirDrop.
+- **0.23.1** : `kind` (`work` / `perso` / `hors`) avec `catKind`, `fixKinds`, `normCats` ; ancien `work` gardé synchronisé ; lecture des anciens réglages (case cochée = travail, sinon perso, « Trajets » de départ = hors) ; Réglages en trois menus de statut contenant des menus imbriqués (`catNodeHtml`, `catGroupsHtml`, `refreshCatTree`) ; pastilles et traits de couleur ; Stats « Par catégorie » : « · travail » / « · hors ». `tests/test_statuts.py` (36 vérifications), contrôle négatif fait (13 échecs avec l'héritage cassé), `test_arborescence.py` adapté ; captures vérifiées sur écran d'iPhone (390 px, clair et sombre) ; 146 vérifications OK.
+- Questions ouvertes : coût en taps pour éditer une catégorie (menu puis ligne) ; validation sur appareil des versions 0.20.0 à 0.23.1 (l'iPad n'a pas été touché) ; rappel de sauvegarde et liste de contrôles appareil à livrer.
 
 ### Session de la 0.23.0 (catégories en arbre)
 - Décisions : licence « Tous droits réservés » ajoutée à tous les dépôts publics (pas de dépôt privé payant : le site Pages reste public de toute façon) ; lot 5 bis abandonné ; canaux de réception = sous-activités de « Traitement des dossiers » ; `.pyc` retirés du suivi, `.gitignore` ajouté ; le message « dépôt déplacé » vient seulement de la casse de l'adresse (le dépôt n'a pas été renommé).

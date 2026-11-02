@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.23.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.23.1**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -128,8 +128,8 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 ## Lot 5 : sous-activités chronométrées (0.13.1) — livré, à valider sur appareil
 Fini quand : sous-activités créées en Réglages, chrono par sous-activité dans le bloc, temps à la main sur un autre jour, Stats avec détail. Test : test_lot10.js.
 
-## Lot 5 bis : chrono sur les sous-tâches libres du jour — en suspens
-Remplacé en pratique par les sous-activités cochables (0.22.0). L'abandon est à confirmer avec l'utilisateur.
+## Lot 5 bis : chrono sur les sous-tâches libres du jour — abandonné
+Décision de l'utilisateur (2 novembre 2026) : remplacé par les sous-activités cochables (0.22.0).
 
 
 ## Lot 6 : catégories et suivi du temps de travail (0.13.1) — livré, à valider sur appareil
@@ -207,8 +207,13 @@ Fini quand : dans « Sans heure » et dans le panneau d'un bloc, chaque sous-act
 Fini quand : dans Réglages > Catégories, chaque catégorie se range « Dans » une autre (jusqu'à 8 niveaux, un seul parent) ; les listes, « Sans heure » et les Stats affichent le chemin « Pro › RH » ; supprimer une catégorie remonte ses enfants ; les données invalides sont réparées. Tests : `tests/test_arborescence.py` (13 vérifications) ; 110 au total.
 Écart avec le plan initial : on réutilise les catégories comme nœuds de l'arbre (pas de table séparée) ; pas de racines Pro / Perso / Trajets imposées ni de migration automatique ; l'utilisateur crée son arbre.
 
-## Prochains lots décidés : arborescence à plusieurs niveaux (0.24.0 reste à faire)
-Décisions du 2 novembre 2026 : arbre à plusieurs niveaux, **table unique à parent unique** (la chaîne d'ancêtres se retrouve en remontant ; jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur modulable avec une limite de sécurité (8) ; niveau 1 : Pro / Perso / Trajets (noms modifiables) ; le temps est enregistré au niveau le plus fin (activité ou sous-activité), les Stats donnent un total à chaque niveau ; la case « Travail » actuelle disparaît, la migration range chaque catégorie existante sous Pro ou Perso d'après cette case ; un seul axe sous l'activité (pas de total transversal par mission). Affichage de « Sans heure » par groupe avec son chemin : « à voir ».
-- 0.23.0 : modèle de données, migration, Réglages (éditeur d'arbre, choix du groupe d'une activité).
-- 0.24.0 : Stats en arbre repliable, un total à chaque niveau.
+## 0.23.1 — Statuts Travail / Perso / Hors et arbre en menus imbriqués — livré, à valider sur appareil
+Fini quand : dans Réglages > « Catégories et travail », (1) trois menus **Travail · n**, **Perso · n**, **Hors · n**, fermés au départ, chacun avec une pastille de couleur ; (2) chaque catégorie est un menu qui contient son éditeur (nom, « Dans », statut, ✕) et ses sous-catégories, jusqu'à 8 niveaux, avec un trait de couleur par statut ; (3) le **statut** se choisit sur la catégorie de niveau supérieur seulement : les sous-catégories l'héritent (case grisée « Statut (hérité) »), donc aucun mélange possible ; (4) « Hors » = ni travail ni perso (trajets) et sert aussi aux activités sans catégorie ; (5) une ligne modifiée reste en place jusqu'à l'enregistrement, puis se range ; (6) « + Catégorie » crée une racine Perso et ouvre le menu ; supprimer une catégorie laisse ses sous-catégories un niveau plus haut. La case « Travail » est remplacée par ce statut (une ancienne case cochée donne Travail, décochée donne Perso, la catégorie de départ « Trajets » donne Hors). Les Stats « Par catégorie » étiquettent « · travail » et « · hors ». Tests : `tests/test_statuts.py` (36 vérifications) ; au total 146 vérifications passent.
+À valider sur l'iPhone : lisibilité de l'arbre à plusieurs niveaux, coût en taps pour éditer une catégorie (menu, puis ligne), couleurs en mode clair et sombre.
 
+## Prochains lots décidés (arborescence, 2 novembre 2026)
+Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
+- 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
+- 0.23.1 : statuts et menus imbriqués dans Réglages. Livré.
+- **0.24.0 : Stats en arbre repliable, un total à chaque niveau, plus les totaux calculés Travail / Perso / Hors. À faire.**
+- Avant la 1.0 : rappel de sauvegarde (« dernière sauvegarde il y a N jours »), liste de contrôles sur appareil (iPhone puis iPad).

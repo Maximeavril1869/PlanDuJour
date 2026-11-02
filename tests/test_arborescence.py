@@ -25,6 +25,11 @@ def page_with(browser, cats, acts=None):
     return pg
 
 
+def open_cats(pg):
+    """Déplie tous les menus de l'arbre des catégories (ils sont fermés au départ depuis la 0.23.1)."""
+    pg.evaluate("() => document.querySelectorAll('#cats-list details').forEach((d) => { d.open = true; })")
+
+
 def stored_cats(pg):
     return {c['id']: c for c in pg.evaluate("() => JSON.parse(localStorage.getItem('plandujour.reglages')).categories")}
 
@@ -51,16 +56,20 @@ def test_edition(browser):
     pg = page_with(browser, cats_tree(3))
     pg.click('#tab-settings')
     pg.click('details[data-fid=card-cats] > summary')
+    open_cats(pg)
     pg.select_option('#cats-list .cat-row[data-id=c2] select[data-k=parent]', 'c0')
     pg.click('#save-btn')
     check('changer le parent s’enregistre', stored_cats(pg)['c2'].get('parent') == 'c0', stored_cats(pg))
+    open_cats(pg)
     pg.click('[data-action=add-cat]')
-    last = pg.locator('#cats-list .cat-row').last
+    new_id = pg.evaluate("() => [...document.querySelectorAll('#cats-list .cat-row')].find((r) => r.querySelector('[data-k=name]').value === '').dataset.id")
+    last = pg.locator('#cats-list .cat-row[data-id="%s"]' % new_id)
     last.locator('[data-k=name]').fill('Nouvelle branche')
     last.locator('[data-k=parent]').select_option('c1')
     pg.click('#save-btn')
     new = [c for c in stored_cats(pg).values() if c['name'] == 'Nouvelle branche']
     check('une nouvelle catégorie peut être rangée sous une autre', len(new) == 1 and new[0]['parent'] == 'c1', new)
+    open_cats(pg)
     pg.click('#cats-list .cat-row[data-id=c1] [data-action=del-cat]')
     pg.click('#save-btn')
     cs = stored_cats(pg)

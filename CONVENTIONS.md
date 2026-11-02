@@ -273,16 +273,6 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - « + Ajouter » (activité ou tâche habituelle) ouvre le groupe « Sans catégorie » pour que la nouvelle ligne soit visible. Supprimer la dernière tâche habituelle d'un groupe supprime le groupe. Une erreur de saisie ouvre le groupe, comme la ligne et la carte (`flag`).
 - Test : `tests/test_regroupements.py`.
 
-## 37. Catégories en arbre (0.23.0)
-
-- Une catégorie a au plus **un parent** (`parent`, id ou `null`) : la chaîne d'ancêtres se retrouve en remontant, et un temps n'est jamais compté deux fois. Pas de multi-parents. Champ additif : pas de changement de `DATA_VERSION` ; une ancienne catégorie sans `parent` reste au niveau supérieur.
-- Profondeur modulable, plafonnée à `MAX_DEPTH` = 8 niveaux ; 60 catégories au plus (`MAX_CATS`). `fixParents` (appelée par `cleanCats`, `catsFromForm` et l'enregistrement) remet au niveau supérieur tout parent inexistant, soi-même, boucle ou dépassement de profondeur.
-- Réglages > Catégories : chaque ligne a une liste « Dans » (niveau supérieur ou une autre catégorie ; jamais elle-même, ses descendantes, ni un parent qui ferait dépasser 8 niveaux). Supprimer une catégorie remonte ses enfants d'un niveau.
-- Affichage : le chemin « A › B › C » (`catPath`) sert de nom dans les listes de catégories, les groupes de « Sans heure » et de Réglages, les résumés de tâches habituelles et la ligne « Par catégorie » des Stats. Catégories triées par chemin (`sortCats`).
-- Les activités et tâches gardent une seule catégorie (`cat`) : le temps est donc compté au niveau le plus fin. Les totaux par niveau arrivent en 0.24.0 (Stats en arbre).
-- La case « Travail » reste un repère par catégorie ; la migration vers des racines Pro / Perso n'est pas faite automatiquement (l'utilisateur construit son arbre).
-- Test : `tests/test_arborescence.py`.
-
 ## 36. Sous-activités cochables (0.22.0)
 
 - Chaque jour, une sous-activité peut être cochée « faite » : `day.kidsDone[clé du bloc][idSousActivité] = true` (champ additif, pas de changement de `DAYS_VERSION`). `sanitizeDays` ne garde que les valeurs `true` ; `buildDay` expose `it.kd`. La case est propre à chaque jour, alors que les sous-activités elles-mêmes sont permanentes (§24).
@@ -291,3 +281,23 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Les sous-tâches libres du jour (§14) ne changent pas. Le lot 5 bis est en suspens (§24).
 - Test : `tests/test_cochables.py`.
 
+## 37. Catégories en arbre (0.23.0)
+
+- Une catégorie a au plus **un parent** (`parent`, id ou `null`) : la chaîne d'ancêtres se retrouve en remontant, et un temps n'est jamais compté deux fois. Pas de multi-parents. Champ additif : pas de changement de `DATA_VERSION` ; une ancienne catégorie sans `parent` reste au niveau supérieur.
+- Profondeur modulable, plafonnée à `MAX_DEPTH` = 8 niveaux ; 60 catégories au plus (`MAX_CATS`). `fixParents` (appelée par `cleanCats`, `catsFromForm` et l'enregistrement) remet au niveau supérieur tout parent inexistant, soi-même, boucle ou dépassement de profondeur.
+- Réglages > Catégories : chaque ligne a une liste « Dans » (niveau supérieur ou une autre catégorie ; jamais elle-même, ses descendantes, ni un parent qui ferait dépasser 8 niveaux). Supprimer une catégorie remonte ses enfants d'un niveau.
+- Affichage : le chemin « A › B › C » (`catPath`) sert de nom dans les listes de catégories, les groupes de « Sans heure » et de Réglages, les résumés de tâches habituelles et la ligne « Par catégorie » des Stats. Catégories triées par chemin (`sortCats`).
+- Les activités et tâches gardent une seule catégorie (`cat`) : le temps est donc compté au niveau le plus fin. Les totaux par niveau arrivent en 0.24.0 (Stats en arbre).
+- Le statut Travail / Perso / Hors (ex-case « Travail ») est décrit au §38 ; pas de racines imposées (l'utilisateur construit son arbre).
+- Test : `tests/test_arborescence.py`.
+
+## 38. Statuts des catégories et arbre en menus imbriqués (0.23.1)
+
+- Un statut `kind` : `work` (Travail), `perso` ou `hors` (ni l'un ni l'autre, par exemple les trajets). Il se choisit **sur la catégorie de niveau supérieur** ; chaque sous-catégorie prend celui de sa racine (`catKind`, `fixKinds`, `normCats`) : aucun mélange possible, et un déplacement sous un autre parent change le statut. Le champ `work` (booléen, ancien) reste synchronisé (`kind === 'work'`) pour les anciens exports et les Stats. Champ additif : pas de changement de `DATA_VERSION`.
+- Lecture d'un ancien réglage sans `kind` : case Travail cochée = `work`, sinon `perso` ; la catégorie de départ `cat-trajets` devient `hors`. Une catégorie absente (activité ou bloc sans catégorie) compte comme `hors`.
+- Réglages > « Catégories et travail » : trois menus `details.grp` (`data-status`) Travail, Perso, Hors, toujours présents (même vides), fermés au départ, titre « Nom · nombre de catégories ». Dedans, un menu `details.catnode` par catégorie : titre « Nom · nombre de descendantes », corps = éditeur (`.cat-row`) puis sous-catégories imbriquées (`catNodeHtml`, `catGroupsHtml`). État dans `openRows` (`grp-kind-<statut>`, `catnode-<id>`), jamais conservé après fermeture (§32).
+- Une ligne modifiée (« Dans », statut) **reste en place jusqu'à l'enregistrement**, puis le formulaire est redessiné et la range (comme au §35). En attendant, `refreshCatTree` met à jour le statut hérité affiché (liste grisée pour une sous-catégorie, modifiable pour une racine), les titres, les compteurs et la couleur du menu.
+- « + Catégorie » crée une racine `perso` dans le menu Perso (ouvert, curseur sur le nom). Supprimer une catégorie laisse ses sous-catégories dans le menu parent, un niveau plus haut (leurs « Dans » et statuts sont recalculés).
+- Couleurs : `--k-work`, `--k-perso`, `--k-hors` (clair et sombre) ; pastille dans le titre et trait vertical par niveau. L'attribut s'appelle `data-status` (et non `data-kind`, déjà utilisé par les champs de saisie).
+- Stats « Par catégorie » : étiquette « · travail » ou « · hors » (rien pour Perso ni pour « Sans catégorie »). Les totaux Travail / Perso / Hors et l'arbre des Stats arrivent en 0.24.0.
+- Test : `tests/test_statuts.py` ; `test_arborescence.py` ouvre les menus avant de saisir.

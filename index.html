@@ -102,6 +102,20 @@ details.grp > summary { list-style: none; cursor: pointer; display: flex; align-
 details.grp > summary::-webkit-details-marker { display: none; }
 details.grp > summary::after { content: "▾"; margin-left: auto; padding: 0 8px; font-size: 18px; }
 details.grp[open] > summary::after { content: "▴"; }
+/* Statuts des catégories (0.23.1) : pastille et trait de couleur par statut (Travail, Perso, Hors) ; un menu par catégorie, imbriqué */
+:root { --k-work: #2563eb; --k-perso: #c2410c; --k-hors: #6b7280; }
+@media (prefers-color-scheme: dark) { :root { --k-work: #7aa7ff; --k-perso: #f59e6c; --k-hors: #a3acb9; } }
+details.grp[data-status] > summary::before, details.catnode > summary::before { content: ""; flex: none; width: 10px; height: 10px; margin-right: 9px; border-radius: 50%; background: var(--k-hors); }
+details.grp[data-status=work] > summary::before, details.catnode[data-status=work] > summary::before { background: var(--k-work); }
+details.grp[data-status=perso] > summary::before, details.catnode[data-status=perso] > summary::before { background: var(--k-perso); }
+details.catnode { margin-top: 2px; }
+details.catnode > summary { list-style: none; cursor: pointer; display: flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 600; }
+details.catnode > summary::-webkit-details-marker { display: none; }
+details.catnode > summary::after { content: "▾"; margin-left: auto; padding: 0 8px; font-size: 18px; color: var(--muted); }
+details.catnode[open] > summary::after { content: "▴"; }
+.catbody { margin-left: 4px; padding-left: 8px; border-left: 3px solid var(--k-hors); }
+details.catnode[data-status=work] > .catbody { border-left-color: var(--k-work); }
+details.catnode[data-status=perso] > .catbody { border-left-color: var(--k-perso); }
 .tpl-row .chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
 .tpl-row .err { margin-bottom: 6px; }
 #bp-edit .act-row { border-top: 0; padding-top: 0; }
@@ -181,9 +195,10 @@ button { font: inherit; }
 .workbar.over { background: var(--warn-bg); color: var(--warn-ink); }
 .cat-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .cat-row input[type=text] { flex: 1; min-width: 140px; }
-.cat-row .chk { display: flex; align-items: center; gap: 6px; }
 .cat-row .catparent { display: flex; align-items: center; gap: 6px; flex-basis: 100%; }
 .cat-row .catparent select { flex: 1; min-width: 0; }
+.cat-row .catkind { display: flex; align-items: center; gap: 6px; flex-basis: 100%; }
+.cat-row .catkind select { flex: 1; min-width: 0; }
 .cat-row .err { flex-basis: 100%; }
 .kidbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .kidrow { display: inline-flex; align-items: center; gap: 2px; }
@@ -314,7 +329,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.23.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.23.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -352,8 +367,8 @@ function parseIntStrict(text) {
 function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 
 // ==== 3. VALEURS PAR DÉFAUT ====
-const DEFAULT_CATS = [{ id: 'cat-travail', name: 'Travail', work: true }, { id: 'cat-trajets', name: 'Trajets', work: false },
-  { id: 'cat-musique', name: 'Musique', work: false }, { id: 'cat-maison', name: 'Maison', work: false }];
+const DEFAULT_CATS = [{ id: 'cat-travail', name: 'Travail', work: true, kind: 'work' }, { id: 'cat-trajets', name: 'Trajets', work: false, kind: 'hors' },
+  { id: 'cat-musique', name: 'Musique', work: false, kind: 'perso' }, { id: 'cat-maison', name: 'Maison', work: false, kind: 'perso' }];
 const DEFAULT_ACT_CAT = { 'act-trajet-aller': 'cat-trajets', 'act-trajet-retour': 'cat-trajets', 'act-cours-sax': 'cat-musique', 'act-orchestre': 'cat-musique',
   'act-sax': 'cat-musique', 'act-menage': 'cat-maison', 'act-concentration': 'cat-travail' };
 const DEFAULT_PARALLEL = ['act-trajet-aller', 'act-trajet-retour'];   // on peut travailler pendant un trajet : pas d'alerte de chevauchement
@@ -383,13 +398,33 @@ function fixParents(cats) {     // parent inexistant, boucle ou profondeur dépa
   return cats;
 }
 const sortCats = (cats) => cats.map((c) => ({ c: c, p: catPath(cats, c.id) })).sort((a, b) => a.p.localeCompare(b.p, 'fr', { sensitivity: 'base' })).map((x) => x.c);
+// Statut des catégories (0.23.1) : « work » (travail), « perso » ou « hors » (ni l'un ni l'autre, par exemple les trajets).
+// Il se choisit sur la catégorie de niveau supérieur ; tous ses descendants le reprennent : aucun mélange possible. Une activité sans catégorie est « hors ».
+const KINDS = { work: 'Travail', perso: 'Perso', hors: 'Hors' }, KIND_ORDER = ['work', 'perso', 'hors'];
+const KIND_LONG = { work: 'Travail', perso: 'Perso', hors: 'Hors (ni travail ni perso)' };
+const cleanKind = (v) => (KIND_ORDER.includes(v) ? v : null);
+function catRoot(cats, id) {
+  let cur = cats.find((c) => c.id === id), n = 0;
+  while (cur && cur.parent && n++ <= MAX_DEPTH) { const p = cats.find((c) => c.id === cur.parent); if (!p) break; cur = p; }
+  return cur;
+}
+function catKind(cats, id) { const r = catRoot(cats, id); return r ? (cleanKind(r.kind) || (r.work === true ? 'work' : 'perso')) : 'hors'; }
+function fixKinds(cats) {       // chaque catégorie prend le statut de sa racine ; l'ancien champ `work` reste synchronisé (anciens exports, Stats)
+  const eff = cats.map((c) => catKind(cats, c.id));
+  cats.forEach((c, i) => { c.kind = eff[i]; c.work = c.kind === 'work'; });
+  return cats;
+}
+const normCats = (cats) => sortCats(fixKinds(fixParents(cats)));
 function cleanCats(list) {
   const out = [];
   (Array.isArray(list) ? list : []).forEach((c) => {
     if (!c || typeof c.name !== 'string' || !c.name.trim() || out.length >= MAX_CATS) return;
-    out.push({ id: typeof c.id === 'string' && !out.some((o) => o.id === c.id) ? c.id : newId(), name: c.name.trim().slice(0, 30), work: c.work === true, parent: typeof c.parent === 'string' ? c.parent : null });
+    const id = typeof c.id === 'string' && !out.some((o) => o.id === c.id) ? c.id : newId();
+    // ancien réglage sans statut : « travail » si la case était cochée, sinon perso ; la catégorie de départ « Trajets » devient « hors »
+    const kind = cleanKind(c.kind) || (c.kind === undefined && c.work !== true && id === 'cat-trajets' ? 'hors' : null);
+    out.push({ id: id, name: c.name.trim().slice(0, 30), work: c.work === true, kind: kind, parent: typeof c.parent === 'string' ? c.parent : null });
   });
-  return sortCats(fixParents(out));
+  return normCats(out);
 }
 function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel, toCal, alarm) {
   return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: mode === 'free' ? 1 : duration, confirm: confirm === true,
@@ -952,7 +987,7 @@ function statsFor(daysMap, settings, from, to) {
     if (kids.length && rest > 0) kids.push({ name: 'Sans détail', minutes: rest });
     return { name: n, minutes: totals[n], children: kids };
   }).sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
-  const cats = Object.keys(ctot).map((id) => { const c = catList.find((x) => x.id === id); return { id: id, name: c ? catPath(catList, c.id) : 'Sans catégorie', work: !!(c && c.work), minutes: ctot[id] }; })
+  const cats = Object.keys(ctot).map((id) => { const c = catList.find((x) => x.id === id); return { id: id, name: c ? catPath(catList, c.id) : 'Sans catégorie', work: !!(c && c.work), kind: c ? c.kind : null, minutes: ctot[id] }; })
     .sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
   return { rows: rows, cats: cats, total: rows.reduce((t, r) => t + r.minutes, 0), daysUsed: Object.keys(dates).length };
 }
@@ -1068,8 +1103,8 @@ function catBuckets(list, cats, catOf, nameOf, doSort) {
   });
   return buckets.sort((a, b) => a.rank - b.rank);
 }
-function grpHtml(fid, name, count, isOpen, bodyHtml) {
-  return '<details class="grp" data-fid="' + esc(fid) + '" data-gname="' + esc(name) + '"' + (isOpen ? ' open' : '') + '><summary>' + esc(name) + ' · ' + count + '</summary><div class="grpbody">' + bodyHtml + '</div></details>';
+function grpHtml(fid, name, count, isOpen, bodyHtml, attrs) {
+  return '<details class="grp" data-fid="' + esc(fid) + '" data-gname="' + esc(name) + '"' + (attrs || '') + (isOpen ? ' open' : '') + '><summary>' + esc(name) + ' · ' + count + '</summary><div class="grpbody">' + bodyHtml + '</div></details>';
 }
 function setGroupCount(grp, count) { const s = $('summary', grp); if (s) s.textContent = grp.dataset.gname + ' · ' + count; }
 function foldStart(id, summaryHtml) {
@@ -1077,9 +1112,9 @@ function foldStart(id, summaryHtml) {
 }
 
 function catOptionsHtml(cats, sel) {
-  return '<option value="">Aucune</option>' + cats.map((c) => '<option value="' + esc(c.id) + '"' + (sel === c.id ? ' selected' : '') + '>' + esc(catPath(cats, c.id)) + (c.work ? ' (travail)' : '') + '</option>').join('');
+  return '<option value="">Aucune</option>' + cats.map((c) => '<option value="' + esc(c.id) + '"' + (sel === c.id ? ' selected' : '') + '>' + esc(catPath(cats, c.id)) + (c.kind === 'work' ? ' (travail)' : c.kind === 'hors' ? ' (hors)' : '') + '</option>').join('');
 }
-function catsFromForm() { return sortCats(fixParents($$('#cats-list .cat-row').map((r) => ({ id: r.dataset.id, name: $('[data-k=name]', r).value.trim(), work: $('[data-k=work]', r).checked, parent: $('[data-k=parent]', r).value || null })))); }
+function catsFromForm() { return normCats($$('#cats-list .cat-row').map((r) => ({ id: r.dataset.id, name: $('[data-k=name]', r).value.trim(), kind: $('[data-k=kind]', r).value, parent: $('[data-k=parent]', r).value || null }))); }
 // « Dans » : parents possibles d'une catégorie = toutes sauf elle-même, ses descendantes, et celles qui feraient dépasser la profondeur maximale.
 function parentOptionsHtml(cats, selfId, sel) {
   const h = catHeight(cats, selfId);
@@ -1092,6 +1127,7 @@ function syncCatOptions() {
   $$('#tpls-list select[data-t=cat]').forEach((sel) => { const v = sel.value; sel.innerHTML = catOptionsHtml(cats, v); sel.value = cats.some((c) => c.id === v) ? v : ''; });
   $$('#acts-list select[data-a=cat]').forEach((sel) => { const v = sel.value; sel.innerHTML = catOptionsHtml(cats, v); sel.value = cats.some((c) => c.id === v) ? v : ''; });
   $$('#cats-list .cat-row').forEach((r) => { const sel = $('[data-k=parent]', r), v = sel.value; sel.innerHTML = parentOptionsHtml(cats, r.dataset.id, v); sel.value = cats.some((c) => c.id === v && c.id !== r.dataset.id) && sel.querySelector('option[value="' + v + '"]') ? v : ''; });
+  refreshCatTree(catsFromForm());   // les « Dans » viennent d'être recalculés : on relit le formulaire pour le statut hérité et les compteurs
 }
 function tplSummaryHtml(t, cats) {
   const cat = (cats || []).find((c) => c.id === t.cat);
@@ -1125,8 +1161,36 @@ function tplRowHtml(t, cats) {
 function catRowHtml(c, cats) {
   return '<div class="cat-row" data-id="' + esc(c.id) + '"><input type="text" maxlength="30" data-k="name" placeholder="Nom de la catégorie" value="' + esc(c.name) + '">' +
     '<label class="catparent"><span class="lbl">Dans</span><select data-k="parent" aria-label="Rangée dans">' + parentOptionsHtml(cats || [], c.id, c.parent) + '</select></label>' +
-    '<label class="chk"><input type="checkbox" data-k="work"' + (c.work ? ' checked' : '') + '> Travail</label>' +
+    '<label class="catkind"><span class="lbl">' + (c.parent ? 'Statut (hérité)' : 'Statut') + '</span><select data-k="kind" aria-label="Statut"' + (c.parent ? ' disabled' : '') + '>' +
+      KIND_ORDER.map((k) => '<option value="' + k + '"' + ((c.kind || 'perso') === k ? ' selected' : '') + '>' + KIND_LONG[k] + '</option>').join('') + '</select></label>' +
     '<button type="button" class="icon-btn" data-action="del-cat" aria-label="Supprimer la catégorie">✕</button><span class="err" hidden></span></div>';
+}
+// Arbre des catégories dans Réglages (0.23.1) : trois menus de statut (Travail, Perso, Hors), puis un menu par catégorie qui contient son éditeur et ses sous-catégories.
+// Tout est fermé au départ ; l'état vit dans `openRows`. Une ligne modifiée reste en place jusqu'à l'enregistrement, puis se range.
+function catNodeHtml(cats, c) {
+  const fid = 'catnode-' + c.id, kids = cats.filter((k) => k.parent === c.id), n = catSubCount(cats, c.id);
+  return '<details class="catnode" data-fid="' + esc(fid) + '" data-status="' + c.kind + '"' + (openRows.has(fid) ? ' open' : '') + '><summary>' + esc(c.name || 'Nouvelle catégorie') + (n ? ' · ' + n : '') + '</summary>' +
+    '<div class="catbody">' + catRowHtml(c, cats) + kids.map((k) => catNodeHtml(cats, k)).join('') + '</div></details>';
+}
+function catSubCount(cats, id) { return cats.filter((k) => k.parent === id).reduce((t, k) => t + 1 + catSubCount(cats, k.id), 0); }
+function catGroupsHtml(cats) {
+  return KIND_ORDER.map((k) => grpHtml('grp-kind-' + k, KINDS[k], cats.filter((c) => c.kind === k).length, openRows.has('grp-kind-' + k),
+    cats.filter((c) => !c.parent && c.kind === k).map((c) => catNodeHtml(cats, c)).join(''), ' data-status="' + k + '"')).join('');
+}
+// Met à jour, sans déplacer de ligne : statut hérité des sous-catégories, titres et compteurs des menus.
+function refreshCatTree(cats) {
+  $$('#cats-list .cat-row').forEach((r) => {
+    const c = cats.find((x) => x.id === r.dataset.id), sel = $('[data-k=kind]', r);
+    if (!c) return;
+    sel.value = c.kind; sel.disabled = !!c.parent;
+    $('.catkind .lbl', r).textContent = c.parent ? 'Statut (hérité)' : 'Statut';
+  });
+  $$('#cats-list details.catnode').forEach((node) => {
+    const row = $(':scope > .catbody > .cat-row', node), c = row && cats.find((x) => x.id === row.dataset.id), n = $$('.cat-row', node).length - 1;
+    $('summary', node).textContent = (c && c.name ? c.name : 'Nouvelle catégorie') + (n ? ' · ' + n : '');
+    if (c) node.dataset.status = c.kind;
+  });
+  $$('#cats-list details.grp').forEach((g) => setGroupCount(g, $$('.cat-row', g).length));
 }
 function childRowHtml(c) {
   return '<div class="child-row" data-cid="' + esc(c.id) + '"><input type="text" maxlength="40" data-c="name" placeholder="Nom de la sous-activité" value="' + esc(c.name) + '">' +
@@ -1336,8 +1400,8 @@ function renderForm(s) {
       '<button type="button" class="btn" data-action="add-prof">+ Ajouter un profil</button></details>' +
     leaveCardHtml(s) +
     '<details class="card fold" data-fid="card-cats"' + (foldClosed.has('card-cats') ? '' : ' open') + '><summary><h2>Catégories et travail</h2></summary>' +
-      '<p class="help">Une catégorie regroupe des activités dans les Stats. Range une catégorie « Dans » une autre pour faire des niveaux (jusqu’à 8) : les groupes s’affichent avec leur chemin, par exemple « Pro › RH ». Coche « Travail » sur celles qui comptent comme temps de travail : le suivi compare ce temps à la cible du lundi au vendredi (hors congé). Une activité (ou un bloc ponctuel) prend sa catégorie dans son éditeur.</p>' +
-      '<div id="cats-list">' + s.categories.map((c) => catRowHtml(c, s.categories)).join('') + '</div>' +
+      '<p class="help">Une catégorie regroupe des activités dans les Stats. Range une catégorie « Dans » une autre pour faire des niveaux (jusqu’à 8) : chaque catégorie est un menu qui contient ses sous-catégories. Le <strong>statut</strong> (Travail, Perso ou Hors) se choisit sur la catégorie de niveau supérieur ; ses sous-catégories le reprennent. « Hors » = ni travail ni perso (les trajets, par exemple), comme une activité sans catégorie. Une modification se range au bon endroit à l’enregistrement. Le temps de travail suivi vient de la présence, pas du statut. Une activité (ou un bloc ponctuel) prend sa catégorie dans son éditeur.</p>' +
+      '<div id="cats-list">' + catGroupsHtml(s.categories) + '</div>' +
       '<button type="button" class="btn" data-action="add-cat">+ Catégorie</button>' +
       '<div class="rowgrid" style="margin-top:12px"><label class="field"><span class="lbl">Travail par jour, lundi–vendredi (h:min)</span><input ' + TIME_ATTRS + ' data-kind="time" data-w="target" value="' + esc(formatTime(s.workTarget)) + '"><span class="err" hidden></span></label></div></details>' +
     '<details class="card fold" data-fid="card-acts"' + (foldClosed.has('card-acts') ? '' : ' open') + '><summary><h2>Activités</h2></summary>' +
@@ -1445,7 +1509,7 @@ function renderStats() {
   }
   if (st.cats.length) {
     const cmax = st.cats[0].minutes;
-    html += '<div class="card"><h2>Par catégorie</h2><ul class="rows">' + st.cats.map((c) => '<li class="strow"><div class="stline"><span>' + esc(c.name) + (c.work ? ' <span class="v">· travail</span>' : '') + '</span><strong>' + formatDuration(c.minutes) + '</strong></div>' +
+    html += '<div class="card"><h2>Par catégorie</h2><ul class="rows">' + st.cats.map((c) => '<li class="strow"><div class="stline"><span>' + esc(c.name) + (c.kind === 'work' ? ' <span class="v">· travail</span>' : c.kind === 'hors' ? ' <span class="v">· hors</span>' : '') + '</span><strong>' + formatDuration(c.minutes) + '</strong></div>' +
       '<div class="bar"><span style="width:' + Math.max(2, Math.round(c.minutes / cmax * 100)) + '%"></span></div></li>').join('') + '</ul></div>';
   }
   if (!st.rows.length) {
@@ -1771,7 +1835,7 @@ function readForm() {
   s.categories = [];
   $$('#cats-list .cat-row', form).forEach((row) => {
     const inp = $('[data-k=name]', row), n = inp.value.trim();
-    if (!n) flag(inp, 'Nom de la catégorie manquant', errors); else s.categories.push({ id: row.dataset.id || newId(), name: n.slice(0, 30), work: $('[data-k=work]', row).checked, parent: $('[data-k=parent]', row).value || null });
+    if (!n) flag(inp, 'Nom de la catégorie manquant', errors); else s.categories.push({ id: row.dataset.id || newId(), name: n.slice(0, 30), kind: $('[data-k=kind]', row).value, parent: $('[data-k=parent]', row).value || null });
   });
   s.templates = [];
   $$('#tpls-list .tpl-row', form).forEach((row) => {
@@ -1781,7 +1845,7 @@ function readForm() {
     s.templates.push({ id: row.dataset.id || newId(), name: nm.value.trim().slice(0, 40), cat: $('[data-t=cat]', row).value || null, mode: mode, duration: dv !== null && dv >= 1 && dv <= 1440 ? dv : 30,
       confirm: $('[data-t=confirm]', row).checked, carry: $('[data-t=carry]', row).checked, parallel: $('[data-t=parallel]', row).checked, toCal: $('[data-t=toCal]', row).checked, alarm: $('[data-t=alarm]', row).value === '' ? null : Number($('[data-t=alarm]', row).value) });
   });
-  s.categories = sortCats(fixParents(s.categories));
+  s.categories = normCats(s.categories);
   const wt = $('[data-w=target]', form), wtv = parseTime(wt.value);
   if (wtv === null || wtv < 1) { flag(wt, 'Durée invalide (ex. 07:42)', errors); s.workTarget = WORK_TARGET; } else s.workTarget = wtv;
   s.activities.forEach((a) => { if (a.cat && !s.categories.some((c) => c.id === a.cat)) a.cat = null; });
@@ -2588,14 +2652,18 @@ function bindEvents() {
       if (grp) { const n = $$('.tpl-row', grp).length; if (n) setGroupCount(grp, n); else grp.remove(); }
       setDirty(true);
     } else if (action === 'add-cat') {
-      $('#cats-list').insertAdjacentHTML('beforeend', catRowHtml({ id: newId(), name: '', work: false, parent: null }, catsFromForm()));
-      $$('#cats-list [data-k=name]').slice(-1)[0].focus();
+      const nc = { id: newId(), name: '', work: false, kind: 'perso', parent: null }, grp = $('#cats-list details.grp[data-fid="grp-kind-perso"]');
+      openRows.add('grp-kind-perso'); openRows.add('catnode-' + nc.id);      // la nouvelle catégorie est au niveau supérieur, en « Perso » : on ouvre le menu pour la voir
+      grp.open = true;
+      $('.grpbody', grp).insertAdjacentHTML('beforeend', catNodeHtml(catsFromForm(), nc));
+      $('[data-k=name]', $('#cats-list .cat-row[data-id="' + nc.id + '"]')).focus();
       syncCatOptions();
       setDirty(true);
     } else if (action === 'del-cat') {
       const gone = btn.closest('.cat-row'), up = $('[data-k=parent]', gone).value;
       $$('#cats-list .cat-row').forEach((r) => { const p = $('[data-k=parent]', r); if (r !== gone && p.value === gone.dataset.id) p.innerHTML = '<option value="' + esc(up) + '" selected></option>'; });
-      gone.remove();
+      const node = gone.closest('details.catnode');
+      if (node) node.replaceWith(...$$(':scope > .catbody > details.catnode', node)); else gone.remove();   // les sous-catégories restent en place, un niveau plus haut
       syncCatOptions();
       setDirty(true);
     } else if (action === 'add-child') {
@@ -2686,7 +2754,7 @@ function init() {
   setInterval(() => {
     if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && document.activeElement.id !== 'day-search' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
-  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats };   // point d'accès pour les tests
+  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });
