@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.17.1** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.21.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -193,4 +193,8 @@ Décision de l'utilisateur : l'app devient l'outil principal ; on n'exporte vers
 
 ## 0.20.0 — Export par case à cocher, import retiré — livré, à valider sur appareil
 Décision de l'utilisateur : on n'importe plus, on exporte seulement, avec une case à cocher. Case « Exporter vers Calendrier » (`toCal`, décochée par défaut) sur les activités, les tâches habituelles et les blocs ponctuels ; le rappel devient facultatif. Retirés : import (zone de collage, bouton, raccourci), « Titres à ignorer », `fromCal`, `calKey`, `noCal`. À valider : l'ajout du `.ics` dans Calendrier après un export d'un seul bloc coché. Tests : 48 vérifications (`test_calendrier` 16, `test_pliage` 10, `test_reinitialisation` 22).
+
+## 0.21.0 — Regroupements par catégorie en menus repliables — livré, à valider sur appareil
+Fini quand : (1) sur la page du jour, la carte « Sans heure » contient un menu par catégorie (titre « Travail · 3 »), tous **fermés au départ**, dans l'ordre des catégories de Réglages (A à Z, « Sans catégorie » en dernier), les tâches triées par nom ; l'état déplié est gardé tant que l'app reste ouverte ; (2) dans Réglages, les catégories de « Activités » et de « Tâches habituelles » sont des menus repliables, fermés au départ ; (3) « + Ajouter » ouvre « Sans catégorie » et montre la nouvelle ligne ; une erreur de saisie ouvre le menu concerné. Demande de l'utilisateur, décision « fermé pour libérer la vision globale ». Tests : `tests/test_regroupements.py` (26 vérifications) ; au total 74 vérifications passent (16 + 10 + 22 + 26).
+À valider : le coût en taps sur la page du jour (carte, puis catégorie) ; le changement de catégorie d'une ligne ne la déplace qu'à l'enregistrement (voir CONVENTIONS §35).
 

@@ -92,11 +92,16 @@ input[aria-invalid=true] { border-color: var(--err); }
 .act-row .del { position: absolute; right: 0; top: 30px; }
 .act-row[data-mode=free] .timed { display: none; }
 .tpl-row { border-top: 1px solid var(--line); padding: 10px 0 4px; position: relative; }
-.tpl-row:first-child, .tplgroup + .tpl-row, .tplgroup + .act-row { border-top: 0; }
+.tpl-row:first-child { border-top: 0; }
 .tpl-row .wide { grid-column: 1 / -1; }
 .tpl-row .del { position: absolute; right: 0; top: 2px; }
 .tpl-row .rowfold > summary { padding-right: 52px; }
-.tplgroup { margin: 14px 0 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+/* Regroupement par catégorie : menu repliable (page Jour « Sans heure », Réglages Activités et Tâches habituelles) */
+details.grp { margin-top: 6px; }
+details.grp > summary { list-style: none; cursor: pointer; display: flex; align-items: center; min-height: 44px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+details.grp > summary::-webkit-details-marker { display: none; }
+details.grp > summary::after { content: "▾"; margin-left: auto; padding: 0 8px; font-size: 18px; }
+details.grp[open] > summary::after { content: "▴"; }
 .tpl-row .chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
 .tpl-row .err { margin-bottom: 6px; }
 #bp-edit .act-row { border-top: 0; padding-top: 0; }
@@ -302,7 +307,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.20.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.21.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1013,6 +1018,25 @@ function updateSummary(row) {
   if (row.classList.contains('tpl-row')) { sum.innerHTML = tplSummaryHtml({ name: $('[data-t=name]', row).value, cat: $('[data-t=cat]', row).value, mode: $('[data-t=mode]', row).value, duration: $('[data-t=duration]', row).value }, catsFromForm()); return; }
   sum.innerHTML = row.classList.contains('prof-row') ? profSummaryHtml(readProfRaw(row)) : actSummaryHtml(readActRaw(row));
 }
+// Regroupement par catégorie (0.21.0). Ordre : celui des catégories de Réglages, « Sans catégorie » en dernier ; `doSort` trie aussi par nom.
+// Chaque groupe est un menu repliable (`details.grp`), fermé au départ : l'état vit dans `openRows` (Réglages) ou `sansCatOpen` (page Jour).
+function catBuckets(list, cats, catOf, nameOf, doSort) {
+  const rank = (x) => { const i = cats.findIndex((c) => c.id === catOf(x)); return i < 0 ? 1e6 : i; };
+  const items = list.slice();
+  if (doSort) items.sort((a, b) => rank(a) - rank(b) || nameOf(a).localeCompare(nameOf(b), 'fr', { sensitivity: 'base' }));
+  const buckets = [];
+  items.forEach((x) => {
+    const r = rank(x), id = r === 1e6 ? 'none' : cats[r].id;
+    let b = buckets.find((k) => k.id === id);
+    if (!b) { b = { id: id, name: r === 1e6 ? 'Sans catégorie' : (cats[r].name || 'Sans nom'), rank: r, items: [] }; buckets.push(b); }
+    b.items.push(x);
+  });
+  return buckets.sort((a, b) => a.rank - b.rank);
+}
+function grpHtml(fid, name, count, isOpen, bodyHtml) {
+  return '<details class="grp" data-fid="' + esc(fid) + '" data-gname="' + esc(name) + '"' + (isOpen ? ' open' : '') + '><summary>' + esc(name) + ' · ' + count + '</summary><div class="grpbody">' + bodyHtml + '</div></details>';
+}
+function setGroupCount(grp, count) { const s = $('summary', grp); if (s) s.textContent = grp.dataset.gname + ' · ' + count; }
 function foldStart(id, summaryHtml) {
   return '<details class="rowfold wide" data-fid="' + esc(id) + '"' + (openRows.has(id) ? ' open' : '') + '><summary>' + summaryHtml + '</summary><div class="rowgrid">';
 }
@@ -1035,27 +1059,12 @@ function tplSummaryHtml(t, cats) {
 // Activités : groupées par catégorie (ordre des catégories, « sans catégorie » en dernier) ; `doSort` trie aussi par nom (à l'ouverture et à l'enregistrement seulement).
 function actsListHtml(raws, opts, doSort) {
   const cats = opts.cats || current.categories;
-  const rank = (r) => { const i = cats.findIndex((c) => c.id === r.cat); return i < 0 ? 1e6 : i; };
-  const list = raws.slice();
-  if (doSort) list.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
-  let html = '', last = null;
-  list.forEach((r) => {
-    const k = rank(r);
-    if (k !== last) { html += '<h3 class="tplgroup">' + esc(cats[k] ? cats[k].name : 'Sans catégorie') + '</h3>'; last = k; }
-    html += actRowHtml(r, opts);
-  });
-  return html;
+  return catBuckets(raws, cats, (r) => r.cat, (r) => r.name, doSort).map((b) =>
+    grpHtml('grp-acts-' + b.id, b.name, b.items.length, openRows.has('grp-acts-' + b.id), b.items.map((r) => actRowHtml(r, opts)).join(''))).join('');
 }
 function tplListHtml(list, cats) {
-  const rank = (t) => { const i = cats.findIndex((c) => c.id === t.cat); return i < 0 ? 1e6 : i; };
-  const sorted = list.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
-  let html = '', last = null;
-  sorted.forEach((t) => {
-    const r = rank(t);
-    if (r !== last) { const c = cats[r]; html += '<h3 class="tplgroup">' + esc(c ? c.name : 'Sans catégorie') + '</h3>'; last = r; }
-    html += tplRowHtml(t, cats);
-  });
-  return html;
+  return catBuckets(list, cats, (t) => t.cat, (t) => t.name, true).map((b) =>
+    grpHtml('grp-tpl-' + b.id, b.name, b.items.length, openRows.has('grp-tpl-' + b.id), b.items.map((t) => tplRowHtml(t, cats)).join(''))).join('');
 }
 function tplRowHtml(t, cats) {
   const alarm = t.alarm === null || t.alarm === undefined ? '' : String(t.alarm);
@@ -1582,11 +1591,14 @@ function renderDay() {
   head += pickHtml(build) + reviewHtml(build, dateKey(new Date()));
   if (build.pending.length || build.reopen.length) {
     const sansList = build.pending.concat(build.reopen);
-    head += '<details class="card fold" data-fid="card-sansheure"' + (sansOpen ? ' open' : '') + '><summary><h2>Sans heure · ' + sansList.length + '</h2></summary><ul class="rows">' + sansList.map((it) =>
+    const sansLi = (it) =>
       '<li><span>' + esc(it.name) + ' <span class="v">' + (it.state === 'done' ? '· ' + formatDuration(it.segs.reduce((t, g) => t + (g.end !== null ? g.end - g.start : 0), 0)) + ' faites' : '') + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
       (it.children.length ? (dayNow() !== null ? '<div class="kidbtns">' + it.children.map((c) => '<button type="button" class="btn small" data-action="child-go" data-key="' + esc(it.key) + '" data-cid="' + esc(c.id) + '">▶ ' + esc(c.name) + '</button>').join('') + '</div>' : '<small class="kids">' + it.children.map((c) => esc(c.name)).join(' · ') + '</small>') : '') + '</span><span>' +
       (dayNow() !== null && !it.children.length ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
-      '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul></details>';
+      '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>';
+    head += '<details class="card fold" data-fid="card-sansheure"' + (sansOpen ? ' open' : '') + '><summary><h2>Sans heure · ' + sansList.length + '</h2></summary>' +
+      catBuckets(sansList, current.categories || [], (it) => it.cat, (it) => it.name, true).map((g) =>
+        grpHtml('sans-' + g.id, g.name, g.items.length, sansCatOpen.has('sans-' + g.id), '<ul class="rows">' + g.items.map(sansLi).join('') + '</ul>')).join('') + '</details>';
   }
   if (build.warnings.length) head += '<div class="banner warn"><strong>À vérifier</strong><ul>' + build.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
   if (build.missed.length) {
@@ -1738,6 +1750,7 @@ let dirty = false;
 let daysData = emptyDays();   // heures réelles et blocs ponctuels, par date
 let presOpen = false;          // carte « Présence au travail » dépliée (mémoire seulement ; repliée au départ)
 let sansOpen = false;          // carte « Sans heure » de la page du jour dépliée (mémoire seulement ; repliée au départ)
+const sansCatOpen = new Set(); // catégories dépliées dans « Sans heure » (mémoire seulement ; toutes repliées au départ)
 let selectedDate = null;      // « AAAA-MM-JJ » du jour affiché
 let panelKey = null;          // clé du bloc ouvert dans le panneau ; null = nouveau bloc ponctuel
 let panelOpen = false;
@@ -2340,6 +2353,7 @@ function bindDayEvents() {
   panel.addEventListener('toggle', (e) => {
     const f = e.target.dataset && e.target.dataset.fid;
     if (f === 'card-pres') presOpen = e.target.open; else if (f === 'card-sansheure') sansOpen = e.target.open;
+    else if (f && f.indexOf('sans-') === 0) { if (e.target.open) sansCatOpen.add(f); else sansCatOpen.delete(f); }
   }, true);
   panel.addEventListener('change', (e) => {
     if (e.target.dataset && e.target.dataset.pres && ['start', 'end'].includes(e.target.dataset.pres)) { presenceEdit(e.target.dataset.pres, e.target.value); return; }
@@ -2467,6 +2481,7 @@ function bindEvents() {
       const raws = $$('#acts-list .act-row').map(readActRaw);
       const nid = newId();
       openRows.add(nid);
+      openRows.add('grp-acts-none');                      // la nouvelle activité est sans catégorie : son groupe s'ouvre pour qu'on la voie
       raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '', parallel: false, toCal: false, alarm: '' });
       $('#acts-list').innerHTML = actsListHtml(raws, actOpts(), false);
       rerenderProfiles();
@@ -2487,12 +2502,18 @@ function bindEvents() {
       names[names.length - 1].focus();
       setDirty(true);
     } else if (action === 'add-tpl') {
-      const ntid = newId(); openRows.add(ntid);
-      $('#tpls-list').insertAdjacentHTML('beforeend', tplRowHtml({ id: ntid, name: '', cat: null, mode: 'fixed', duration: 30, confirm: false, carry: false, parallel: false, toCal: false, alarm: null }, catsFromForm()));
-      $$('#tpls-list [data-t=name]').slice(-1)[0].focus();
+      const ntid = newId(); openRows.add(ntid); openRows.add('grp-tpl-none');
+      let grp = $('#tpls-list details.grp[data-fid="grp-tpl-none"]');
+      if (!grp) { $('#tpls-list').insertAdjacentHTML('beforeend', grpHtml('grp-tpl-none', 'Sans catégorie', 0, true, '')); grp = $('#tpls-list details.grp[data-fid="grp-tpl-none"]'); }
+      grp.open = true;
+      $('.grpbody', grp).insertAdjacentHTML('beforeend', tplRowHtml({ id: ntid, name: '', cat: null, mode: 'fixed', duration: 30, confirm: false, carry: false, parallel: false, toCal: false, alarm: null }, catsFromForm()));
+      setGroupCount(grp, $$('.tpl-row', grp).length);
+      $$('[data-t=name]', grp).slice(-1)[0].focus();
       setDirty(true);
     } else if (action === 'del-tpl') {
-      btn.closest('.tpl-row').remove();
+      const row = btn.closest('.tpl-row'), grp = row.closest('details.grp');
+      row.remove();
+      if (grp) { const n = $$('.tpl-row', grp).length; if (n) setGroupCount(grp, n); else grp.remove(); }
       setDirty(true);
     } else if (action === 'add-cat') {
       $('#cats-list').insertAdjacentHTML('beforeend', catRowHtml({ id: newId(), name: '', work: false }));

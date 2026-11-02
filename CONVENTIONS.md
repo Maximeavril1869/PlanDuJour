@@ -263,3 +263,13 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Chaque activité, tâche habituelle et bloc ponctuel porte `toCal` (booléen, **décoché par défaut**). `calendarEvents` n'exporte que si `toCal === true`. Le rappel (`alarm`) est facultatif et indépendant : un bloc coché sans rappel est exporté sans alarme.
 - `noCal` (case inversée « Ne pas exporter ») est remplacé par `toCal` ; aucune migration (données réinitialisées avant le passage).
 
+## 35. Regroupements par catégorie en menus repliables (0.21.0)
+
+- Les regroupements par catégorie sont des menus repliables `details.grp` (`catBuckets` calcule les groupes, `grpHtml` les écrit). Ils remplacent les titres fixes `h3.tplgroup` de Réglages.
+- Trois endroits : page du jour, carte « Sans heure » (`data-fid="sans-<idCatégorie>"`, état dans `sansCatOpen`) ; Réglages, carte « Activités » (`grp-acts-<id>`) et carte « Tâches habituelles » (`grp-tpl-<id>`), état dans `openRows`. `<id>` vaut `none` pour « Sans catégorie ». Les autres cartes n'ont pas de sous-groupes : rien à changer.
+- **Tout est fermé au départ** (décision de l'utilisateur : « pour libérer la vision globale »), sans exception pour une catégorie unique. L'état déplié vit en mémoire seulement, comme au §32. Le titre d'un groupe est « Nom · nombre ».
+- Ordre : celui des catégories de Réglages (A à Z), « Sans catégorie » en dernier ; dans un groupe, tri par nom. Dans Réglages, le tri par nom se fait à l'ouverture et à l'enregistrement seulement (règle de la 0.15.4) ; un groupe réunit toutes les lignes de la même catégorie même hors tri.
+- Une ligne dont on change la catégorie reste dans son groupe jusqu'à l'enregistrement ; les compteurs suivent l'ajout et la suppression d'une tâche habituelle, pas ce changement de catégorie.
+- « + Ajouter » (activité ou tâche habituelle) ouvre le groupe « Sans catégorie » pour que la nouvelle ligne soit visible. Supprimer la dernière tâche habituelle d'un groupe supprime le groupe. Une erreur de saisie ouvre le groupe, comme la ligne et la carte (`flag`).
+- Test : `tests/test_regroupements.py`.
+

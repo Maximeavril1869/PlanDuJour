@@ -6,12 +6,22 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.20.0**, poussée sur GitHub Pages (à valider sur appareil). Données réinitialisées par l'utilisateur : base saine.
-- Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier).
+- Version **0.21.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
+- Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
-- À faire : lot 5 bis (chrono sur les sous-tâches du jour).
+- À faire : lot 5 bis (chrono sur chaque sous-tâche du jour, avec apparition dans les Stats). **Pas encore spécifié** : trois questions ouvertes (voir « 2 novembre 2026 », session de la 0.21.0).
+- Non décidé : retirer du suivi git les `.pyc` de `tests/__pycache__/` et ajouter un `.gitignore` (question posée, pas de réponse). D'ici là, lancer les tests avec `PYTHONDONTWRITEBYTECODE=1`.
 
 ## 2 novembre 2026
+
+### Session de la 0.21.0 (regroupements repliables)
+- Reprise : dépôt cloné à `2d78de2` (0.20.0), tests relus et relancés (48 vérifications OK).
+- Constats : ligne 3 de `STATUS.md` périmée (0.17.1) et dupliquée, corrigée ; `README.md` des tests citait un fichier inexistant (`test_calendrier (export).py`) et l'import supprimé en 0.20.0, corrigé ; `.pyc` suivis par git dans `tests/__pycache__/` (le dépôt les modifie à chaque lancement de test).
+- Retours de l'utilisateur : « tout cocher / tout décocher » refusé (aucun intérêt avec les cases) ; l'iPad n'a pas été réinitialisé ; le lot 5 bis est voulu : un chrono par sous-tâche, apparaissant dans les Stats. Constat vérifié dans le code : les **sous-activités** (Réglages, `segs` avec `cid`) sont chronométrées et dans les Stats, pas les **sous-tâches** du jour (`subtasks`, sans champ de temps).
+- Demande prioritaire, avant le lot 5 bis : catégories en menus déroulants dans « Sans heure » (page du jour) et dans tous les regroupements de Réglages. Décisions : tout fermé au départ (« pour libérer la vision globale »), seuls Activités et Tâches habituelles ont des regroupements dans Réglages, ordre de Réglages dans « Sans heure ».
+- **0.21.0** : `catBuckets` / `grpHtml` (menus `details.grp`), `sansCatOpen`, ouverture de « Sans catégorie » à l'ajout, suppression du groupe vide, compteurs, ouverture sur erreur de saisie. `tests/test_regroupements.py` (26 vérifications) ; contrôle négatif fait (le test échoue sur l'ancien code) ; captures vérifiées sur écran d'iPhone (390 px). Au total 74 vérifications OK.
+- Questions ouvertes pour le lot 5 bis : (a) sur quel bloc chronométrer des sous-tâches, et un bloc peut-il avoir sous-activités et sous-tâches ? (b) Stats : cumuler par libellé identique d'un jour à l'autre, ou seulement le détail du jour ? (c) cocher une sous-tâche arrête-t-il son chrono ? Valeurs proposées par défaut : chrono seulement aujourd'hui (saisie à la main les autres jours), un seul chrono à la fois, le temps passé reste sur le jour d'origine lors d'un report.
 
 ### Session de reprise (après 0.17.1)
 - Dépôt cloné, `STATUS.md`, `CONVENTIONS.md` et `README.md` relus. Versions `index.html` et `sw.js` cohérentes (0.17.1).
@@ -26,6 +36,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - À faire par l'utilisateur : modifier le raccourci (calendrier, date de création `yyyyMMddHHmmss`, notes) et vérifier sur l'iPhone que la date de création est renseignée et stable.
 
 ### Commits du jour
+- **0.21.0** : regroupements par catégorie en menus repliables (voir la session ci-dessus).
 - **0.20.0** : décisions de l'utilisateur après la 0.19.1 : « on n'importe plus, on exporte juste », case à cocher plutôt que filtre par rappel, réinitialisation faite donc base saine. Import retiré, `noCal` remplacé par `toCal`, tests réécrits (48 vérifications).
 - **0.19.1** : l'utilisateur décide de se servir de l'app comme outil principal et de n'exporter que les tâches pour lesquelles il veut un rappel. L'export ne garde que les blocs avec « Rappel dans Calendrier ». Tests : 69 vérifications (37 + 10 + 22) passées. Questions calendrier précédentes (message après export, Notes de l'aperçu, titres ignorés, trains en double, correction du raccourci) : suspendues, l'import n'étant plus au centre.
 - `48a12bd` **0.19.0** : réinitialisation à la place de « Rétablir les valeurs de départ ». Décisions de l'utilisateur : les deux modes (tout / jours seulement), réglages **vierges**, **pas de copie de sécurité**, confirmation (interprétée comme renforcée : taper EFFACER). `tests/test_reinitialisation.py`, 22 vérifications ; les trois fichiers de tests (65 vérifications) passent.

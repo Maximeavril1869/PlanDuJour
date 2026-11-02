@@ -9,10 +9,10 @@ Depuis la racine du dépôt (Python 3 requis) :
 ```
 pip install playwright
 playwright install chromium
-python3 tests/test_calendrier (export).py
+PYTHONDONTWRITEBYTECODE=1 python3 tests/test_calendrier.py
 ```
 
-Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le nombre d'échecs.
+Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le nombre d'échecs. `PYTHONDONTWRITEBYTECODE=1` évite de modifier les fichiers `.pyc` que git suit dans `tests/__pycache__/`.
 
 ## Contenu
 
@@ -20,7 +20,8 @@ Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le
 |---|---|
 | `test_reinitialisation.py` | Réinitialisation : confirmation par mot, réglages vierges, effacement des jours et des copies, rechargement, ajout d'un bloc dans l'app vierge |
 | `test_pliage.py` | Cartes repliables fermées au départ (Réglages, page du jour : Présence, Sans heure, Revue du jour), dépliage au tap et conservation de l'état |
-| `test_calendrier (export).py` | Démarrage sans erreur, export vers Calendrier (codes, exclusions), lecture des lignes et des `.ics`, import (mise à jour par code, par date de création, doublons, calendrier (export) dédié), conservation du lien dans l'éditeur |
+| `test_regroupements.py` | Catégories en menus repliables fermés au départ : « Sans heure » (ordre, compteur, tri, état conservé) et Réglages (Activités, Tâches habituelles : ajout, suppression, ouverture sur erreur de saisie) |
+| `test_calendrier.py` | Démarrage sans erreur, export vers Calendrier par case à cocher (`toCal`, codes, rappel facultatif, `.ics`), valeurs par défaut, case conservée après rechargement |
 
 ## Règles
 
