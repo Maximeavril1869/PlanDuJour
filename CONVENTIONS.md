@@ -273,6 +273,16 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - « + Ajouter » (activité ou tâche habituelle) ouvre le groupe « Sans catégorie » pour que la nouvelle ligne soit visible. Supprimer la dernière tâche habituelle d'un groupe supprime le groupe. Une erreur de saisie ouvre le groupe, comme la ligne et la carte (`flag`).
 - Test : `tests/test_regroupements.py`.
 
+## 37. Catégories en arbre (0.23.0)
+
+- Une catégorie a au plus **un parent** (`parent`, id ou `null`) : la chaîne d'ancêtres se retrouve en remontant, et un temps n'est jamais compté deux fois. Pas de multi-parents. Champ additif : pas de changement de `DATA_VERSION` ; une ancienne catégorie sans `parent` reste au niveau supérieur.
+- Profondeur modulable, plafonnée à `MAX_DEPTH` = 8 niveaux ; 60 catégories au plus (`MAX_CATS`). `fixParents` (appelée par `cleanCats`, `catsFromForm` et l'enregistrement) remet au niveau supérieur tout parent inexistant, soi-même, boucle ou dépassement de profondeur.
+- Réglages > Catégories : chaque ligne a une liste « Dans » (niveau supérieur ou une autre catégorie ; jamais elle-même, ses descendantes, ni un parent qui ferait dépasser 8 niveaux). Supprimer une catégorie remonte ses enfants d'un niveau.
+- Affichage : le chemin « A › B › C » (`catPath`) sert de nom dans les listes de catégories, les groupes de « Sans heure » et de Réglages, les résumés de tâches habituelles et la ligne « Par catégorie » des Stats. Catégories triées par chemin (`sortCats`).
+- Les activités et tâches gardent une seule catégorie (`cat`) : le temps est donc compté au niveau le plus fin. Les totaux par niveau arrivent en 0.24.0 (Stats en arbre).
+- La case « Travail » reste un repère par catégorie ; la migration vers des racines Pro / Perso n'est pas faite automatiquement (l'utilisateur construit son arbre).
+- Test : `tests/test_arborescence.py`.
+
 ## 36. Sous-activités cochables (0.22.0)
 
 - Chaque jour, une sous-activité peut être cochée « faite » : `day.kidsDone[clé du bloc][idSousActivité] = true` (champ additif, pas de changement de `DAYS_VERSION`). `sanitizeDays` ne garde que les valeurs `true` ; `buildDay` expose `it.kd`. La case est propre à chaque jour, alors que les sous-activités elles-mêmes sont permanentes (§24).

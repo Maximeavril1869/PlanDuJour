@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.22.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.23.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -203,7 +203,11 @@ Fini quand : (1) sur la page du jour, la carte « Sans heure » contient un menu
 Fini quand : dans « Sans heure » et dans le panneau d'un bloc, chaque sous-activité a une case « fait » propre au jour ; arrêter son chrono (ou passer à une autre sous-activité) ou saisir un temps à la main la coche d'office ; on peut la cocher ou la décocher à la main (décocher garde le temps) ; la progression « n/m » s'affiche dans « Sans heure » ; un jour passé affiche aussi les cases, sans chrono. Demande de l'utilisateur : des tâches quotidiennes à cocher **et** chronométrer. Tests : `tests/test_cochables.py` (23 vérifications) ; au total 97 vérifications passent (16 + 10 + 22 + 26 + 23).
 À valider : la coche d'office à la saisie manuelle d'un temps (choix fait pour économiser des taps) ; le lot 5 bis est en suspens.
 
-## Prochains lots décidés : arborescence à plusieurs niveaux
+## 0.23.0 — Catégories en arbre — livré, à valider sur appareil
+Fini quand : dans Réglages > Catégories, chaque catégorie se range « Dans » une autre (jusqu'à 8 niveaux, un seul parent) ; les listes, « Sans heure » et les Stats affichent le chemin « Pro › RH » ; supprimer une catégorie remonte ses enfants ; les données invalides sont réparées. Tests : `tests/test_arborescence.py` (13 vérifications) ; 110 au total.
+Écart avec le plan initial : on réutilise les catégories comme nœuds de l'arbre (pas de table séparée) ; pas de racines Pro / Perso / Trajets imposées ni de migration automatique ; l'utilisateur crée son arbre.
+
+## Prochains lots décidés : arborescence à plusieurs niveaux (0.24.0 reste à faire)
 Décisions du 2 novembre 2026 : arbre à plusieurs niveaux, **table unique à parent unique** (la chaîne d'ancêtres se retrouve en remontant ; jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur modulable avec une limite de sécurité (8) ; niveau 1 : Pro / Perso / Trajets (noms modifiables) ; le temps est enregistré au niveau le plus fin (activité ou sous-activité), les Stats donnent un total à chaque niveau ; la case « Travail » actuelle disparaît, la migration range chaque catégorie existante sous Pro ou Perso d'après cette case ; un seul axe sous l'activité (pas de total transversal par mission). Affichage de « Sans heure » par groupe avec son chemin : « à voir ».
 - 0.23.0 : modèle de données, migration, Réglages (éditeur d'arbre, choix du groupe d'une activité).
 - 0.24.0 : Stats en arbre repliable, un total à chaque niveau.

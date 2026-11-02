@@ -182,6 +182,8 @@ button { font: inherit; }
 .cat-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .cat-row input[type=text] { flex: 1; min-width: 140px; }
 .cat-row .chk { display: flex; align-items: center; gap: 6px; }
+.cat-row .catparent { display: flex; align-items: center; gap: 6px; flex-basis: 100%; }
+.cat-row .catparent select { flex: 1; min-width: 0; }
 .cat-row .err { flex-basis: 100%; }
 .kidbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .kidrow { display: inline-flex; align-items: center; gap: 2px; }
@@ -312,7 +314,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.22.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.23.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -359,13 +361,35 @@ const ALARMS = [0, 5, 10, 15, 30, 60];   // rappels exportés vers Calendrier : 
 const cleanAlarm = (v) => (Number.isInteger(v) && ALARMS.includes(v) ? v : null);
 const WORK_TARGET = 462;   // 7 h 42 par jour, du lundi au vendredi
 const byName = (a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });   // tri alphabétique, accents et casse ignorés
+// Arborescence des catégories (0.23.0) : chaque catégorie a au plus un parent (`parent`, id ou null) ; profondeur limitée à MAX_DEPTH niveaux.
+const MAX_CATS = 60, MAX_DEPTH = 8, PATH_SEP = ' › ';
+function catDepth(cats, id) {   // nombre d'ancêtres + 1 (1 = niveau supérieur) ; 99 si la chaîne boucle
+  let d = 1, cur = cats.find((c) => c.id === id);
+  while (cur && cur.parent) { d++; if (d > MAX_DEPTH + 1) return 99; cur = cats.find((c) => c.id === cur.parent); }
+  return d;
+}
+function catHeight(cats, id) {  // nombre de niveaux sous la catégorie (0 = feuille)
+  const kids = cats.filter((c) => c.parent === id && c.id !== id);
+  return kids.length ? 1 + Math.max.apply(null, kids.map((k) => catHeight(cats, k.id))) : 0;
+}
+function catPath(cats, id) {
+  const names = []; let cur = cats.find((c) => c.id === id), n = 0;
+  while (cur && n++ <= MAX_DEPTH) { names.unshift(cur.name || 'Sans nom'); cur = cur.parent ? cats.find((c) => c.id === cur.parent) : null; }
+  return names.join(PATH_SEP);
+}
+function fixParents(cats) {     // parent inexistant, boucle ou profondeur dépassée : la catégorie passe au niveau supérieur
+  cats.forEach((c) => { if (!c.parent || c.parent === c.id || !cats.some((o) => o.id === c.parent)) c.parent = null; });
+  cats.forEach((c) => { if (catDepth(cats, c.id) > MAX_DEPTH) c.parent = null; });
+  return cats;
+}
+const sortCats = (cats) => cats.map((c) => ({ c: c, p: catPath(cats, c.id) })).sort((a, b) => a.p.localeCompare(b.p, 'fr', { sensitivity: 'base' })).map((x) => x.c);
 function cleanCats(list) {
   const out = [];
   (Array.isArray(list) ? list : []).forEach((c) => {
-    if (!c || typeof c.name !== 'string' || !c.name.trim() || out.length >= 12) return;
-    out.push({ id: typeof c.id === 'string' && !out.some((o) => o.id === c.id) ? c.id : newId(), name: c.name.trim().slice(0, 30), work: c.work === true });
+    if (!c || typeof c.name !== 'string' || !c.name.trim() || out.length >= MAX_CATS) return;
+    out.push({ id: typeof c.id === 'string' && !out.some((o) => o.id === c.id) ? c.id : newId(), name: c.name.trim().slice(0, 30), work: c.work === true, parent: typeof c.parent === 'string' ? c.parent : null });
   });
-  return out.sort(byName);
+  return sortCats(fixParents(out));
 }
 function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel, toCal, alarm) {
   return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: mode === 'free' ? 1 : duration, confirm: confirm === true,
@@ -928,7 +952,7 @@ function statsFor(daysMap, settings, from, to) {
     if (kids.length && rest > 0) kids.push({ name: 'Sans détail', minutes: rest });
     return { name: n, minutes: totals[n], children: kids };
   }).sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
-  const cats = Object.keys(ctot).map((id) => { const c = catList.find((x) => x.id === id); return { id: id, name: c ? c.name : 'Sans catégorie', work: !!(c && c.work), minutes: ctot[id] }; })
+  const cats = Object.keys(ctot).map((id) => { const c = catList.find((x) => x.id === id); return { id: id, name: c ? catPath(catList, c.id) : 'Sans catégorie', work: !!(c && c.work), minutes: ctot[id] }; })
     .sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
   return { rows: rows, cats: cats, total: rows.reduce((t, r) => t + r.minutes, 0), daysUsed: Object.keys(dates).length };
 }
@@ -1039,7 +1063,7 @@ function catBuckets(list, cats, catOf, nameOf, doSort) {
   items.forEach((x) => {
     const r = rank(x), id = r === 1e6 ? 'none' : cats[r].id;
     let b = buckets.find((k) => k.id === id);
-    if (!b) { b = { id: id, name: r === 1e6 ? 'Sans catégorie' : (cats[r].name || 'Sans nom'), rank: r, items: [] }; buckets.push(b); }
+    if (!b) { b = { id: id, name: r === 1e6 ? 'Sans catégorie' : catPath(cats, cats[r].id), rank: r, items: [] }; buckets.push(b); }
     b.items.push(x);
   });
   return buckets.sort((a, b) => a.rank - b.rank);
@@ -1053,18 +1077,25 @@ function foldStart(id, summaryHtml) {
 }
 
 function catOptionsHtml(cats, sel) {
-  return '<option value="">Aucune</option>' + cats.map((c) => '<option value="' + esc(c.id) + '"' + (sel === c.id ? ' selected' : '') + '>' + esc(c.name || 'Sans nom') + (c.work ? ' (travail)' : '') + '</option>').join('');
+  return '<option value="">Aucune</option>' + cats.map((c) => '<option value="' + esc(c.id) + '"' + (sel === c.id ? ' selected' : '') + '>' + esc(catPath(cats, c.id)) + (c.work ? ' (travail)' : '') + '</option>').join('');
 }
-function catsFromForm() { return $$('#cats-list .cat-row').map((r) => ({ id: r.dataset.id, name: $('[data-k=name]', r).value.trim(), work: $('[data-k=work]', r).checked })); }
+function catsFromForm() { return sortCats(fixParents($$('#cats-list .cat-row').map((r) => ({ id: r.dataset.id, name: $('[data-k=name]', r).value.trim(), work: $('[data-k=work]', r).checked, parent: $('[data-k=parent]', r).value || null })))); }
+// « Dans » : parents possibles d'une catégorie = toutes sauf elle-même, ses descendantes, et celles qui feraient dépasser la profondeur maximale.
+function parentOptionsHtml(cats, selfId, sel) {
+  const h = catHeight(cats, selfId);
+  const ok = (c) => { if (c.id === selfId) return false; for (let cur = c, n = 0; cur && n <= MAX_DEPTH + 1; n++, cur = cats.find((o) => o.id === cur.parent)) if (cur.parent === selfId) return false; return catDepth(cats, c.id) + 1 + h <= MAX_DEPTH; };
+  return '<option value="">Niveau supérieur</option>' + cats.filter(ok).map((c) => '<option value="' + esc(c.id) + '"' + (sel === c.id ? ' selected' : '') + '>' + esc(catPath(cats, c.id)) + '</option>').join('');
+}
 function actOpts() { return { days: true, del: true, fold: true, cats: $('#cats-list') ? catsFromForm() : current.categories }; }
 function syncCatOptions() {
   const cats = catsFromForm();
   $$('#tpls-list select[data-t=cat]').forEach((sel) => { const v = sel.value; sel.innerHTML = catOptionsHtml(cats, v); sel.value = cats.some((c) => c.id === v) ? v : ''; });
   $$('#acts-list select[data-a=cat]').forEach((sel) => { const v = sel.value; sel.innerHTML = catOptionsHtml(cats, v); sel.value = cats.some((c) => c.id === v) ? v : ''; });
+  $$('#cats-list .cat-row').forEach((r) => { const sel = $('[data-k=parent]', r), v = sel.value; sel.innerHTML = parentOptionsHtml(cats, r.dataset.id, v); sel.value = cats.some((c) => c.id === v && c.id !== r.dataset.id) && sel.querySelector('option[value="' + v + '"]') ? v : ''; });
 }
 function tplSummaryHtml(t, cats) {
   const cat = (cats || []).find((c) => c.id === t.cat);
-  return '<span class="sumtxt"><strong>' + esc((t.name || '').trim() || 'Nouvelle tâche') + '</strong><small>' + esc((cat ? cat.name + ' · ' : '') + (t.mode === 'free' ? 'sans heure' : formatDuration(Math.max(1, Number(t.duration) || 0)))) + '</small></span>';
+  return '<span class="sumtxt"><strong>' + esc((t.name || '').trim() || 'Nouvelle tâche') + '</strong><small>' + esc((cat ? catPath(cats, cat.id) + ' · ' : '') + (t.mode === 'free' ? 'sans heure' : formatDuration(Math.max(1, Number(t.duration) || 0)))) + '</small></span>';
 }
 // Tâches habituelles triées par catégorie (ordre des catégories, « sans catégorie » en dernier) puis par nom ; un titre par catégorie.
 // Activités : groupées par catégorie (ordre des catégories, « sans catégorie » en dernier) ; `doSort` trie aussi par nom (à l'ouverture et à l'enregistrement seulement).
@@ -1091,8 +1122,9 @@ function tplRowHtml(t, cats) {
     '<label class="field wide chk"><input type="checkbox" data-t="toCal"' + (t.toCal ? ' checked' : '') + '> Exporter vers Calendrier</label>' +
     '</div></details><button type="button" class="icon-btn del" data-action="del-tpl" aria-label="Supprimer ce modèle">✕</button><span class="err wide" hidden></span></div>';
 }
-function catRowHtml(c) {
+function catRowHtml(c, cats) {
   return '<div class="cat-row" data-id="' + esc(c.id) + '"><input type="text" maxlength="30" data-k="name" placeholder="Nom de la catégorie" value="' + esc(c.name) + '">' +
+    '<label class="catparent"><span class="lbl">Dans</span><select data-k="parent" aria-label="Rangée dans">' + parentOptionsHtml(cats || [], c.id, c.parent) + '</select></label>' +
     '<label class="chk"><input type="checkbox" data-k="work"' + (c.work ? ' checked' : '') + '> Travail</label>' +
     '<button type="button" class="icon-btn" data-action="del-cat" aria-label="Supprimer la catégorie">✕</button><span class="err" hidden></span></div>';
 }
@@ -1304,8 +1336,8 @@ function renderForm(s) {
       '<button type="button" class="btn" data-action="add-prof">+ Ajouter un profil</button></details>' +
     leaveCardHtml(s) +
     '<details class="card fold" data-fid="card-cats"' + (foldClosed.has('card-cats') ? '' : ' open') + '><summary><h2>Catégories et travail</h2></summary>' +
-      '<p class="help">Une catégorie regroupe des activités dans les Stats. Coche « Travail » sur celles qui comptent comme temps de travail : le suivi compare ce temps à la cible du lundi au vendredi (hors congé). Une activité (ou un bloc ponctuel) prend sa catégorie dans son éditeur.</p>' +
-      '<div id="cats-list">' + s.categories.map(catRowHtml).join('') + '</div>' +
+      '<p class="help">Une catégorie regroupe des activités dans les Stats. Range une catégorie « Dans » une autre pour faire des niveaux (jusqu’à 8) : les groupes s’affichent avec leur chemin, par exemple « Pro › RH ». Coche « Travail » sur celles qui comptent comme temps de travail : le suivi compare ce temps à la cible du lundi au vendredi (hors congé). Une activité (ou un bloc ponctuel) prend sa catégorie dans son éditeur.</p>' +
+      '<div id="cats-list">' + s.categories.map((c) => catRowHtml(c, s.categories)).join('') + '</div>' +
       '<button type="button" class="btn" data-action="add-cat">+ Catégorie</button>' +
       '<div class="rowgrid" style="margin-top:12px"><label class="field"><span class="lbl">Travail par jour, lundi–vendredi (h:min)</span><input ' + TIME_ATTRS + ' data-kind="time" data-w="target" value="' + esc(formatTime(s.workTarget)) + '"><span class="err" hidden></span></label></div></details>' +
     '<details class="card fold" data-fid="card-acts"' + (foldClosed.has('card-acts') ? '' : ' open') + '><summary><h2>Activités</h2></summary>' +
@@ -1739,7 +1771,7 @@ function readForm() {
   s.categories = [];
   $$('#cats-list .cat-row', form).forEach((row) => {
     const inp = $('[data-k=name]', row), n = inp.value.trim();
-    if (!n) flag(inp, 'Nom de la catégorie manquant', errors); else s.categories.push({ id: row.dataset.id || newId(), name: n.slice(0, 30), work: $('[data-k=work]', row).checked });
+    if (!n) flag(inp, 'Nom de la catégorie manquant', errors); else s.categories.push({ id: row.dataset.id || newId(), name: n.slice(0, 30), work: $('[data-k=work]', row).checked, parent: $('[data-k=parent]', row).value || null });
   });
   s.templates = [];
   $$('#tpls-list .tpl-row', form).forEach((row) => {
@@ -1749,7 +1781,7 @@ function readForm() {
     s.templates.push({ id: row.dataset.id || newId(), name: nm.value.trim().slice(0, 40), cat: $('[data-t=cat]', row).value || null, mode: mode, duration: dv !== null && dv >= 1 && dv <= 1440 ? dv : 30,
       confirm: $('[data-t=confirm]', row).checked, carry: $('[data-t=carry]', row).checked, parallel: $('[data-t=parallel]', row).checked, toCal: $('[data-t=toCal]', row).checked, alarm: $('[data-t=alarm]', row).value === '' ? null : Number($('[data-t=alarm]', row).value) });
   });
-  s.categories.sort(byName);
+  s.categories = sortCats(fixParents(s.categories));
   const wt = $('[data-w=target]', form), wtv = parseTime(wt.value);
   if (wtv === null || wtv < 1) { flag(wt, 'Durée invalide (ex. 07:42)', errors); s.workTarget = WORK_TARGET; } else s.workTarget = wtv;
   s.activities.forEach((a) => { if (a.cat && !s.categories.some((c) => c.id === a.cat)) a.cat = null; });
@@ -2556,12 +2588,14 @@ function bindEvents() {
       if (grp) { const n = $$('.tpl-row', grp).length; if (n) setGroupCount(grp, n); else grp.remove(); }
       setDirty(true);
     } else if (action === 'add-cat') {
-      $('#cats-list').insertAdjacentHTML('beforeend', catRowHtml({ id: newId(), name: '', work: false }));
+      $('#cats-list').insertAdjacentHTML('beforeend', catRowHtml({ id: newId(), name: '', work: false, parent: null }, catsFromForm()));
       $$('#cats-list [data-k=name]').slice(-1)[0].focus();
       syncCatOptions();
       setDirty(true);
     } else if (action === 'del-cat') {
-      btn.closest('.cat-row').remove();
+      const gone = btn.closest('.cat-row'), up = $('[data-k=parent]', gone).value;
+      $$('#cats-list .cat-row').forEach((r) => { const p = $('[data-k=parent]', r); if (r !== gone && p.value === gone.dataset.id) p.innerHTML = '<option value="' + esc(up) + '" selected></option>'; });
+      gone.remove();
       syncCatOptions();
       setDirty(true);
     } else if (action === 'add-child') {
@@ -2652,7 +2686,7 @@ function init() {
   setInterval(() => {
     if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && document.activeElement.id !== 'day-search' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
-  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
+  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });

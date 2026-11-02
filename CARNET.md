@@ -6,16 +6,20 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.22.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.23.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
-- Prochains lots décidés : 0.23.0 arborescence à plusieurs niveaux (table unique à parent unique, profondeur modulable, plafond de sécurité 8, niveau 1 Pro / Perso / Trajets), 0.24.0 Stats en arbre avec un total par niveau (voir STATUS.md).
+- Catégories en arbre (0.23.0) : un seul parent, jusqu'à 8 niveaux, chemin « A › B » affiché. Prochain lot : 0.24.0, Stats en arbre avec un total par niveau.
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - En suspens : lot 5 bis (chrono sur chaque sous-tâche libre du jour). Les sous-activités cochables couvrent le besoin ; abandon à confirmer avec l'utilisateur.
 - Non décidé : retirer du suivi git les `.pyc` de `tests/__pycache__/` et ajouter un `.gitignore` (question posée, pas de réponse). D'ici là, lancer les tests avec `PYTHONDONTWRITEBYTECODE=1`.
 
 ## 2 novembre 2026
+
+### Session de la 0.23.0 (catégories en arbre)
+- Décisions : licence « Tous droits réservés » ajoutée à tous les dépôts publics (pas de dépôt privé payant : le site Pages reste public de toute façon) ; lot 5 bis abandonné ; canaux de réception = sous-activités de « Traitement des dossiers » ; `.pyc` retirés du suivi, `.gitignore` ajouté ; le message « dépôt déplacé » vient seulement de la casse de l'adresse (le dépôt n'a pas été renommé).
+- **0.23.0** : `parent` sur les catégories (`catPath`, `fixParents`, `sortCats`, `parentOptionsHtml`), liste « Dans » dans Réglages, chemin affiché partout. Simplification par rapport au plan : les catégories servent de nœuds, pas de table séparée, pas de racines imposées. `tests/test_arborescence.py` (13 vérifications), contrôle négatif fait ; 110 vérifications OK.
 
 ### Session de la 0.22.0 (sous-activités cochables)
 - Besoin exprimé : des tâches quotidiennes à la fois cochées et chronométrées. Confusion levée entre sous-activité (permanente, chronométrée, dans les Stats) et sous-tâche libre (propre au jour, sans temps).
