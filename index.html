@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.17.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.17.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1344,7 +1344,7 @@ function renderRecap(s, status) {
   entries.sort((x, y) => x.at - y.at);
   html += '<div class="card"><h2>' + (real ? esc(fmtDateLabel(recapDate)) : DAY_NAMES[recapDay] + ' (semaine type)') + ' <span class="v">· profil ' + esc(b.profile.name) + '</span></h2><ul class="tl">' + entries.map((e) => e.html).join('') + '</ul>' +
     (b.placed.length ? '' : '<p class="help">Aucune activité ce jour-là.</p>') + '</div>';
-  if (b.pending.length) {
+  if (b.pending.length && !real) {            // semaine réelle : seuls les temps réellement faits comptent, la carte n'a pas d'intérêt
     html += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + b.pending.map((it) =>
       '<li><span>' + esc(it.name) + (it.children.length ? '<small class="kids">' + esc(it.children.map((c) => c.name).join(' · ')) + '</small>' : '') + '</span></li>').join('') + '</ul></div>';
   }

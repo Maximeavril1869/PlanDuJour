@@ -231,3 +231,5 @@ Mise à jour 0.15.5 : `buildDay` produit `out.spans` (un créneau par temps chro
 Mise à jour 0.16.1 : `renderStats` passe l'heure courante à `workReport` pour compter la présence ouverte d'aujourd'hui ; `workReport` renvoie `presence` (total et par jour). La présence n'a plus de carte à part dans les Stats : elle fait partie du « Travail ». `statsFor` ne calcule plus de présence. Test : test_lot23.js.
 
 Mise à jour 0.17.0 : `workReport` = présence nette seulement (`presenceNet`), comme une badgeuse. Les catégories « travail » ne servent plus qu'à l'affichage des Stats par catégorie. La présence ouverte d'un jour passé n'est pas comptée (`unclosed`). Remplace la règle « présence + travail hors présence » de la section 27. Tests : test_lot15.js, test_lot23.js, test_lot11.js, test_lot13.js adaptés.
+
+Mise à jour 0.17.1 : le Récap n'affiche la carte « Sans heure » qu'en semaine type. Test : test_lot23.js.
