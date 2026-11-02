@@ -301,7 +301,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.15.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.15.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -758,7 +758,7 @@ function resolveProfile(settings, weekday, profileId, date) {
 
 function buildDay(settings, dayData, weekday, nowMin, past, date) {
   const prof = resolveProfile(settings, weekday, dayData.profile, date);
-  const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], relax: null, review: [], reviewed: [] };
+  const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], reopen: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
     if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, noCal: a.noCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
@@ -801,6 +801,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     it.shift = it.plannedStart !== null && r.start === null && start > it.plannedStart ? start - it.plannedStart : 0;
     cursor = Math.max(cursor, end);
     if (state === 'running') out.running = it;
+    if (state === 'done' && it.mode === 'free' && it.children.length) out.reopen.push(it);   // sans heure à sous-activités : reste proposé pour enchaîner la suivante
     if (it.confirm && state === 'planned' && (past === true || (nowMin !== null && end <= nowMin))) out.toConfirm.push(it);
   });
 
@@ -1524,9 +1525,9 @@ function renderDay() {
     head += '<div class="childbtns">' + rr.children.map((c) => { const on = ropen && ropen.cid === c.id; return '<button type="button" class="btn small ' + (on ? 'danger' : '') + '" data-action="child-go" data-key="' + esc(rr.key) + '" data-cid="' + esc(c.id) + '">' + (on ? '■ ' : '▶ ') + esc(c.name) + '</button>'; }).join('') + '</div>';
   }
   head += pickHtml(build) + reviewHtml(build, dateKey(new Date()));
-  if (build.pending.length) {
-    head += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + build.pending.map((it) =>
-      '<li><span>' + esc(it.name) + ' <span class="v">' + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
+  if (build.pending.length || build.reopen.length) {
+    head += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + build.pending.concat(build.reopen).map((it) =>
+      '<li><span>' + esc(it.name) + ' <span class="v">' + (it.state === 'done' ? '· ' + formatDuration(it.segs.reduce((t, g) => t + (g.end !== null ? g.end - g.start : 0), 0)) + ' faites' : '') + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
       (it.children.length ? (dayNow() !== null ? '<div class="kidbtns">' + it.children.map((c) => '<button type="button" class="btn small" data-action="child-go" data-key="' + esc(it.key) + '" data-cid="' + esc(c.id) + '">▶ ' + esc(c.name) + '</button>').join('') + '</div>' : '<small class="kids">' + it.children.map((c) => esc(c.name)).join(' · ') + '</small>') : '') + '</span><span>' +
       (dayNow() !== null && !it.children.length ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
       '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul></div>';

@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.15.1** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.15.2** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -148,3 +148,6 @@ Réglages > « Tâches habituelles » : modèles (nom, catégorie, heure, durée
 
 ## 0.15.1 — recherche d'une tâche et « à confirmer » dans les modèles — livré, à valider sur appareil
 Champ « Rechercher une tâche » en haut de l'onglet Jour : liste toutes les occurrences (jours enregistrés passés, aujourd'hui et 60 jours à venir) avec heure et état (fait, raté, reporté, prévu, non fait) ; « Ouvrir » affiche le jour. Les modèles de tâches ont maintenant l'option « à confirmer ».
+
+## 0.15.2 — correctif : activité sans heure à sous-activités — livré, à valider sur appareil
+Une fois une sous-activité terminée, l'activité passait en « faite » et sa liste de sous-activités disparaissait de l'onglet Jour (les temps restaient enregistrés). Elle reste maintenant dans la carte « Sans heure », avec le temps déjà fait, pour enchaîner la suivante.
