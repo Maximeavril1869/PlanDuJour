@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.16.1** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.17.0** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -166,3 +166,6 @@ Récap : un créneau par temps chronométré (« Concentration · Dossier A »),
 
 ## 0.16.1 — correctif : la présence compte dans le « Travail » des Stats — livré, à valider sur appareil
 Le décompte « Travail sur 7 h 42 » des Stats ignorait la présence encore ouverte (aujourd'hui). Elle est maintenant comptée en direct, avec le détail « présence / activités de travail hors présence » dans la carte Travail (et par jour en vue semaine). La carte séparée « Présence au travail » est supprimée.
+
+## 0.17.0 — le temps de travail = la présence (badgeuse) — livré, à valider sur appareil
+En haut des Stats et dans la barre du jour : uniquement le temps de présence (net des pauses, en direct pour aujourd'hui) face aux 7 h 42, avec l'écart. Plus aucun ajout des activités ni des tâches. Un jour passé dont le départ n'a pas été saisi est compté 0 et marqué « départ non saisi ». Le reste des Stats (par catégorie, par activité) est inchangé.
