@@ -92,7 +92,7 @@ input[aria-invalid=true] { border-color: var(--err); }
 .act-row .del { position: absolute; right: 0; top: 30px; }
 .act-row[data-mode=free] .timed { display: none; }
 .tpl-row { border-top: 1px solid var(--line); padding: 10px 0 4px; position: relative; }
-.tpl-row:first-child { border-top: 0; }
+.tpl-row:first-child, .tplgroup + .tpl-row, .tplgroup + .act-row { border-top: 0; }
 .tpl-row .wide { grid-column: 1 / -1; }
 .tpl-row .del { position: absolute; right: 0; top: 2px; }
 .tpl-row .rowfold > summary { padding-right: 52px; }
@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.15.3';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.15.4';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -350,13 +350,14 @@ const DEFAULT_CAL_IGNORE = ['Train'];                                  // titres
 const ALARMS = [0, 5, 10, 15, 30, 60];   // rappels exportés vers Calendrier : minutes avant le début (0 = à l'heure)
 const cleanAlarm = (v) => (Number.isInteger(v) && ALARMS.includes(v) ? v : null);
 const WORK_TARGET = 462;   // 7 h 42 par jour, du lundi au vendredi
+const byName = (a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });   // tri alphabétique, accents et casse ignorés
 function cleanCats(list) {
   const out = [];
   (Array.isArray(list) ? list : []).forEach((c) => {
     if (!c || typeof c.name !== 'string' || !c.name.trim() || out.length >= 12) return;
     out.push({ id: typeof c.id === 'string' && !out.some((o) => o.id === c.id) ? c.id : newId(), name: c.name.trim().slice(0, 30), work: c.work === true });
   });
-  return out;
+  return out.sort(byName);
 }
 function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel, noCal, alarm) {
   return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: mode === 'free' ? 1 : duration, confirm: confirm === true,
@@ -1008,6 +1009,20 @@ function tplSummaryHtml(t, cats) {
   return '<span class="sumtxt"><strong>' + esc((t.name || '').trim() || 'Nouvelle tâche') + '</strong><small>' + esc((cat ? cat.name + ' · ' : '') + (t.mode === 'free' ? 'sans heure' : formatDuration(Math.max(1, Number(t.duration) || 0)))) + '</small></span>';
 }
 // Tâches habituelles triées par catégorie (ordre des catégories, « sans catégorie » en dernier) puis par nom ; un titre par catégorie.
+// Activités : groupées par catégorie (ordre des catégories, « sans catégorie » en dernier) ; `doSort` trie aussi par nom (à l'ouverture et à l'enregistrement seulement).
+function actsListHtml(raws, opts, doSort) {
+  const cats = opts.cats || current.categories;
+  const rank = (r) => { const i = cats.findIndex((c) => c.id === r.cat); return i < 0 ? 1e6 : i; };
+  const list = raws.slice();
+  if (doSort) list.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+  let html = '', last = null;
+  list.forEach((r) => {
+    const k = rank(r);
+    if (k !== last) { html += '<h3 class="tplgroup">' + esc(cats[k] ? cats[k].name : 'Sans catégorie') + '</h3>'; last = k; }
+    html += actRowHtml(r, opts);
+  });
+  return html;
+}
 function tplListHtml(list, cats) {
   const rank = (t) => { const i = cats.findIndex((c) => c.id === t.cat); return i < 0 ? 1e6 : i; };
   const sorted = list.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
@@ -1253,7 +1268,7 @@ function renderForm(s) {
     '<details class="card fold" data-fid="card-acts"' + (foldClosed.has('card-acts') ? '' : ' open') + '><summary><h2>Activités</h2></summary>' +
       '<p class="help">Tout ce qui revient chaque semaine. <strong>Heure fixe</strong> : ne bouge jamais (train, cours). ' +
       '<strong>Heure prévue</strong> : glisse si ce qui précède déborde. <strong>Sans heure</strong> : tu la lances quand tu veux, avec le chrono.</p>' +
-      '<div id="acts-list">' + s.activities.map((a) => actRowHtml(actToRaw(a), { days: true, del: true, fold: true, cats: s.categories })).join('') + '</div>' +
+      '<div id="acts-list">' + actsListHtml(s.activities.map(actToRaw), { days: true, del: true, fold: true, cats: s.categories }, true) + '</div>' +
       '<button type="button" class="btn" data-action="add-act">+ Ajouter une activité</button></details>' +
     '<details class="card fold" data-fid="card-tpl"' + (foldClosed.has('card-tpl') ? '' : ' open') + '><summary><h2>Tâches habituelles</h2></summary>' +
       '<p class="help">Tes tâches du quotidien. Elles apparaissent dans le menu « Modèle » quand tu crées un bloc ponctuel, avec leur catégorie, leur durée et leurs options déjà remplies.</p>' +
@@ -1676,6 +1691,7 @@ function readForm() {
     s.templates.push({ id: row.dataset.id || newId(), name: nm.value.trim().slice(0, 40), cat: $('[data-t=cat]', row).value || null, mode: mode, duration: dv !== null && dv >= 1 && dv <= 1440 ? dv : 30,
       confirm: $('[data-t=confirm]', row).checked, carry: $('[data-t=carry]', row).checked, parallel: $('[data-t=parallel]', row).checked, noCal: $('[data-t=noCal]', row).checked, alarm: $('[data-t=alarm]', row).value === '' ? null : Number($('[data-t=alarm]', row).value) });
   });
+  s.categories.sort(byName);
   const wt = $('[data-w=target]', form), wtv = parseTime(wt.value);
   if (wtv === null || wtv < 1) { flag(wt, 'Durée invalide (ex. 07:42)', errors); s.workTarget = WORK_TARGET; } else s.workTarget = wtv;
   s.calIgnore = $('[data-w=calIgnore]', form).value.split(',').map((x) => x.trim().slice(0, 40)).filter(Boolean).slice(0, 20);
@@ -2423,7 +2439,7 @@ function bindEvents() {
       const nid = newId();
       openRows.add(nid);
       raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '', parallel: false, noCal: false, alarm: '' });
-      $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, actOpts())).join('');
+      $('#acts-list').innerHTML = actsListHtml(raws, actOpts(), false);
       rerenderProfiles();
       const names = $$('#acts-list [data-a=name]');
       names[names.length - 1].focus();
@@ -2431,7 +2447,7 @@ function bindEvents() {
     } else if (action === 'del-act') {
       const row = btn.closest('.act-row');
       const raws = $$('#acts-list .act-row').map(readActRaw).filter((r) => r.id !== row.dataset.id);
-      $('#acts-list').innerHTML = raws.map((r) => actRowHtml(r, actOpts())).join('');
+      $('#acts-list').innerHTML = actsListHtml(raws, actOpts(), false);
       rerenderProfiles();
       setDirty(true);
     } else if (action === 'add-prof') {

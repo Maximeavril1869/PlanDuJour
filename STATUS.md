@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.15.3** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.15.4** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -154,3 +154,6 @@ Une fois une sous-activité terminée, l'activité passait en « faite » et sa 
 
 ## 0.15.3 — tâches habituelles repliables et triées — livré, à valider sur appareil
 Chaque tâche habituelle est repliée au départ (nom, catégorie et durée dans le résumé) ; la liste est triée par catégorie (ordre des catégories, « sans catégorie » en dernier) puis par nom, avec un titre par catégorie. Le tri s'applique à l'ouverture et à l'enregistrement, pas pendant la saisie.
+
+## 0.15.4 — tri des catégories et des activités dans Réglages — livré, à valider sur appareil
+Catégories triées de A à Z. Activités groupées par catégorie (un titre par catégorie, « Sans catégorie » en dernier) puis triées par nom. Comme pour les tâches habituelles, le tri se fait à l'ouverture et à l'enregistrement, pas pendant la saisie.
