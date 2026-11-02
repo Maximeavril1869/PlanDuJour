@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.13.3** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.14.0** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -139,3 +139,6 @@ Fini quand : catégories créées en Réglages et affectées aux activités et b
 ## Lot 7 : calendrier (0.13.1) — livré, à valider sur appareil
 Fini quand : export .ics ajouté à Calendrier depuis la feuille de partage ; raccourci iOS « Plan du jour RDV » configuré ; import des RDV par le presse-papiers. Test : test_lot14.js.
 À valider : l'option « Calendrier » dans la feuille de partage de l'iPhone ; le raccourci (à créer par l'utilisateur).
+
+## Lot 8 : présence au travail (0.14.0) — livré, à valider sur appareil
+Carte « Présence au travail » dans l'onglet Jour : boutons « Je suis arrivé », « Pause », « Reprise », « Je pars », saisie manuelle de l'arrivée, du départ et des pauses, heure de départ conseillée (pour atteindre 7 h 42). La présence est un chrono à part, en parallèle des activités. À valider : le calcul (présence + travail hors présence, sans double comptage) et la pause.

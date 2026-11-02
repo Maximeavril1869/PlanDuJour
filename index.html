@@ -294,7 +294,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.13.3';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.14.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -426,7 +426,32 @@ function defaultSettings() {
     ]
   };
 }
-function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {} }; }
+function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {}, presence: null }; }
+// Présence au travail : un chrono à part, qui tourne en parallèle des activités. { start, end|null, pauses:[{start,end|null}] }
+function cleanPresence(p) {
+  if (!p || typeof p !== 'object' || !isMinute(p.start)) return null;
+  const pauses = [];
+  (Array.isArray(p.pauses) ? p.pauses : []).forEach((g) => {
+    if (!g || !isMinute(g.start)) return;
+    const e = isMinute(g.end) && g.end > g.start ? g.end : null;
+    if (pauses.length < 10) pauses.push({ start: g.start, end: e });
+  });
+  return { start: p.start, end: isMinute(p.end) && p.end > p.start ? p.end : null, pauses: pauses };
+}
+// Fenêtre [début, fin] de la présence ; `now` (minutes) sert à la présence encore ouverte, sinon elle est ignorée.
+function presenceWindow(p, now) {
+  if (!p || !isMinute(p.start)) return null;
+  const e = p.end !== null ? p.end : (now === null || now === undefined ? null : now);
+  return e !== null && e > p.start ? [p.start, e] : null;
+}
+// Minutes de présence nettes (pauses retirées).
+function presenceNet(p, now) {
+  const w = presenceWindow(p, now);
+  if (!w) return 0;
+  let m = w[1] - w[0];
+  p.pauses.forEach((g) => { const a = Math.max(g.start, w[0]), b = Math.min(g.end !== null ? g.end : w[1], w[1]); if (b > a) m -= b - a; });
+  return Math.max(0, m);
+}
 function emptyDays() { return { version: DAYS_VERSION, days: {} }; }
 
 // ==== 4. STOCKAGE ====
@@ -640,6 +665,7 @@ function sanitizeDays(raw) {
       if (d.segs && typeof d.segs === 'object') Object.keys(d.segs).forEach((key) => { const l = cleanSegs(d.segs[key]); if (l.length) day.segs[key] = l; });
       if (d.subtasks && typeof d.subtasks === 'object') Object.keys(d.subtasks).forEach((key) => { const l = cleanSubtasks(d.subtasks[key]); if (l.length) day.subtasks[key] = l; });
       if (typeof d.profile === 'string') day.profile = d.profile;
+      day.presence = cleanPresence(d.presence);
       if (d.review && typeof d.review === 'object') Object.keys(d.review).forEach((key) => { const r = cleanReview(d.review[key]); if (r) day.review[key] = r; });
     }
     out.days[k] = day;
@@ -799,12 +825,12 @@ function timeEntries(daysMap, settings, from, to) {
     Object.keys(d.real).concat(Object.keys(segs).filter((x) => !(x in d.real))).forEach((key) => {
       const name = nm[key] || 'Activité supprimée', cat = ct[key] || null;
       if (segs[key] && segs[key].length) {
-        segs[key].forEach((g) => { if (g.end !== null) out.push({ date: k, key: key, name: name, cat: cat, child: childNames[g.cid] || 'Sous-activité supprimée', minutes: g.end - g.start }); });
+        segs[key].forEach((g) => { if (g.end !== null) out.push({ date: k, key: key, name: name, cat: cat, child: childNames[g.cid] || 'Sous-activité supprimée', minutes: g.end - g.start, start: g.start, end: g.end }); });
         return;
       }
       const r = d.real[key];
       if (!r || r.missed || r.start === null || r.end === null) return;
-      out.push({ date: k, key: key, name: name, cat: cat, child: null, minutes: r.end - r.start });
+      out.push({ date: k, key: key, name: name, cat: cat, child: null, minutes: r.end - r.start, start: r.start, end: r.end });
     });
   });
   return out;
@@ -832,10 +858,18 @@ function statsFor(daysMap, settings, from, to) {
   return { rows: rows, cats: cats, total: rows.reduce((t, r) => t + r.minutes, 0), daysUsed: Object.keys(dates).length };
 }
 // Suivi du temps de travail : minutes travaillées (catégories marquées « travail ») jour par jour, face à la cible (lundi–vendredi, hors congé).
-function workReport(daysMap, settings, from, to, today) {
+function workReport(daysMap, settings, from, to, today, nowMin) {
   const wcats = (settings.categories || []).filter((c) => c.work).map((c) => c.id);
   const per = {};
-  timeEntries(daysMap, settings, from, to).forEach((e) => { if (e.cat && wcats.includes(e.cat)) per[e.date] = (per[e.date] || 0) + e.minutes; });
+  // Présence au travail + activités « travail » faites hors de la présence (aucun double comptage).
+  const wins = {}, live = nowMin === undefined ? null : nowMin;
+  Object.keys(daysMap).forEach((k) => { if (k < from || k > to) return; const w = presenceWindow(daysMap[k].presence, k === today ? live : null); if (w) wins[k] = w; });
+  timeEntries(daysMap, settings, from, to).forEach((e) => {
+    if (!e.cat || !wcats.includes(e.cat)) return;
+    const w = wins[e.date];
+    per[e.date] = (per[e.date] || 0) + e.minutes - (w ? Math.max(0, Math.min(e.end, w[1]) - Math.max(e.start, w[0])) : 0);
+  });
+  Object.keys(wins).forEach((k) => { per[k] = (per[k] || 0) + presenceNet(daysMap[k].presence, k === today ? live : null); });
   const days = [];
   let total = 0, target = 0, targetSoFar = 0, weekendMinutes = 0, weekendDays = 0;
   for (let k = from; k <= to; k = addDays(k, 1)) {
@@ -847,7 +881,7 @@ function workReport(daysMap, settings, from, to, today) {
     if (k <= today) targetSoFar += t;
     if (wd > 5 && m > 0) { weekendMinutes += m; weekendDays++; }
   }
-  return { enabled: wcats.length > 0, days: days, total: total, target: target, targetSoFar: targetSoFar, balance: total - targetSoFar, weekendMinutes: weekendMinutes, weekendDays: weekendDays };
+  return { enabled: wcats.length > 0 || Object.keys(wins).length > 0, days: days, total: total, target: target, targetSoFar: targetSoFar, balance: total - targetSoFar, weekendMinutes: weekendMinutes, weekendDays: weekendDays };
 }
 function statsRange(mode, anchor) {
   if (mode === 'day') return { from: anchor, to: anchor };
@@ -1327,6 +1361,36 @@ function pickHtml(build) {
     (reviewError ? '<span class="err">' + esc(reviewError) + '</span>' : '') + '</div>';
 }
 
+function presenceHtml(wd1) {
+  const day = daysData.days[selectedDate] || emptyDay(), p = day.presence, now = dayNow();
+  const open = p && p.end === null, openPause = p ? p.pauses.find((g) => g.end === null) : null;
+  let status;
+  if (!p) status = now !== null ? 'Pas encore arrivé.' : 'Aucune présence saisie ce jour-là.';
+  else if (open && now === null) status = 'Arrivée ' + formatTime(p.start) + ', départ non renseigné (non compté).';
+  else status = formatTime(p.start) + '–' + (p.end !== null ? formatTime(p.end) : 'en cours') + ' · net ' + formatDuration(presenceNet(p, now)) +
+    (p.pauses.length ? ' (pauses ' + formatDuration(p.pauses.reduce((t, g) => t + Math.max(0, (g.end !== null ? g.end : (now !== null ? now : g.start)) - g.start), 0)) + ')' : '');
+  let advice = '';
+  if (now !== null && open && wd1.target > 0) {
+    const rest = wd1.target - wd1.minutes;
+    advice = rest > 0 ? '<p class="hours-help" style="margin:4px 0 0">Départ conseillé : <strong>' + formatTime(Math.min(1439, now + rest)) + '</strong>' + (openPause ? ' (si tu reprends maintenant)' : '') + ' pour atteindre ' + formatDuration(wd1.target) + '.</p>'
+      : '<p class="hours-help" style="margin:4px 0 0">Les ' + formatDuration(wd1.target) + ' sont atteintes.</p>';
+  }
+  let btns = '';
+  if (now !== null) {
+    if (!p || !open) btns = '<button type="button" class="btn small primary" data-action="pres-in">' + (p ? 'Rouvrir la présence' : 'Je suis arrivé') + '</button>';
+    else btns = (openPause ? '<button type="button" class="btn small primary" data-action="pres-resume">Reprise</button>' : '<button type="button" class="btn small" data-action="pres-pause">Pause</button>') +
+      ' <button type="button" class="btn small primary" data-action="pres-out">Je pars</button>';
+  }
+  const pauses = p && p.pauses.length ? '<ul class="rows">' + p.pauses.map((g, i) => '<li><span>Pause ' + formatTime(g.start) + '–' + (g.end !== null ? formatTime(g.end) : 'en cours') + '</span><span><button type="button" class="btn small" data-action="pres-delpause" data-i="' + i + '">Supprimer</button></span></li>').join('') + '</ul>' : '';
+  return '<details class="card fold" data-fid="card-pres"' + (presOpen ? ' open' : '') + '><summary><h2>Présence au travail</h2></summary>' +
+    '<p class="hours-help" style="margin:0 0 6px">' + esc(status) + '</p>' + (btns ? '<div class="btnrow">' + btns + '</div>' : '') + advice + pauses +
+    '<div class="rowgrid"><label class="field"><span class="lbl">Arrivée</span><input ' + TIME_ATTRS + ' data-pres="start" value="' + (p ? formatTime(p.start) : '') + '"></label>' +
+    '<label class="field"><span class="lbl">Départ</span><input ' + TIME_ATTRS + ' data-pres="end" value="' + (p && p.end !== null ? formatTime(p.end) : '') + '"></label></div>' +
+    '<div class="rowgrid"><label class="field"><span class="lbl">Pause : début</span><input ' + TIME_ATTRS + ' data-pres="pstart"></label>' +
+    '<label class="field"><span class="lbl">Pause : fin</span><input ' + TIME_ATTRS + ' data-pres="pend"></label></div>' +
+    '<button type="button" class="btn small" data-action="pres-addpause">Ajouter la pause</button>' +
+    '<p class="hours-help">La présence compte comme du travail, en parallèle de tes activités (rien n’est compté deux fois).</p></details>';
+}
 function renderDay() {
   const build = buildSelected();
   let head = '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
@@ -1342,9 +1406,10 @@ function renderDay() {
     (build.profile.note && !dayProf ? '<p class="hours-help">' + esc(build.profile.note) + '</p>' : '');
   if (loadStatus === 'empty') head += '<div class="banner info">Tu utilises les valeurs de départ : enregistre tes réglages dans l’onglet Réglages.</div>';
 
-  const wd1 = workReport(daysData.days, current, selectedDate, selectedDate, selectedDate).days[0], wrk = workReport(daysData.days, current, selectedDate, selectedDate, selectedDate);
+  const wrk = workReport(daysData.days, current, selectedDate, selectedDate, selectedDate, dayNow()), wd1 = wrk.days[0];
+  head += presenceHtml(wd1);
   if (wrk.enabled && (wd1.target > 0 || wd1.minutes > 0)) {
-    head += '<div class="workbar' + (wd1.target && wd1.minutes > wd1.target ? ' over' : '') + '"><span>Travail du jour<small>temps terminés seulement</small></span><strong>' + formatDuration(wd1.minutes) +
+    head += '<div class="workbar' + (wd1.target && wd1.minutes > wd1.target ? ' over' : '') + '"><span>Travail du jour<small>' + (dayNow() !== null && (daysData.days[selectedDate] || {}).presence && !daysData.days[selectedDate].presence.end ? 'présence en cours incluse' : 'temps terminés seulement') + '</small></span><strong>' + formatDuration(wd1.minutes) +
       (wd1.target ? ' / ' + formatDuration(wd1.target) : '') + '</strong></div>' +
       (wd1.target ? '<p class="hours-help" style="margin:0 0 6px">' + (wd1.minutes >= wd1.target ? 'Cible atteinte (' + signed(wd1.minutes - wd1.target) + ').' : 'Il reste ' + formatDuration(wd1.target - wd1.minutes) + '.') + '</p>' : '<p class="hours-help" style="margin:0 0 6px">Jour sans cible : tout est du hors-horaires.</p>');
   }
@@ -1508,6 +1573,7 @@ let current = null;     // réglages enregistrés (ou valeurs de départ)
 let loadStatus = 'empty';
 let dirty = false;
 let daysData = emptyDays();   // heures réelles et blocs ponctuels, par date
+let presOpen = true;           // carte « Présence au travail » dépliée (mémoire seulement)
 let selectedDate = null;      // « AAAA-MM-JJ » du jour affiché
 let panelKey = null;          // clé du bloc ouvert dans le panneau ; null = nouveau bloc ponctuel
 let panelOpen = false;
@@ -1522,6 +1588,43 @@ function setDirty(value) {
 function ensureDay() {
   if (!daysData.days[selectedDate]) daysData.days[selectedDate] = emptyDay();
   return daysData.days[selectedDate];
+}
+function presenceAction(a, data) {
+  const now = dayNow(), day = ensureDay();
+  if (a === 'pres-in' && now !== null) {
+    if (!day.presence) day.presence = { start: now, end: null, pauses: [] }; else day.presence.end = null;
+  } else if (a === 'pres-pause' && now !== null && day.presence && day.presence.end === null && !day.presence.pauses.some((g) => g.end === null)) {
+    day.presence.pauses.push({ start: now, end: null });
+  } else if (a === 'pres-resume' && now !== null && day.presence) {
+    day.presence.pauses.forEach((g) => { if (g.end === null) g.end = Math.min(1439, Math.max(now, g.start + 1)); });
+  } else if (a === 'pres-out' && now !== null && day.presence && day.presence.end === null) {
+    const p = day.presence;
+    p.pauses.forEach((g) => { if (g.end === null) g.end = Math.min(1439, Math.max(now, g.start + 1)); });
+    p.end = Math.min(1439, Math.max(now, p.start + 1));
+  } else if (a === 'pres-delpause' && day.presence) {
+    day.presence.pauses.splice(Number(data.i), 1);
+  } else if (a === 'pres-addpause') {
+    const s0 = parseTime($('[data-pres=pstart]').value), e0 = parseTime($('[data-pres=pend]').value);
+    if (!day.presence) { showToast('Renseigne d’abord l’arrivée', 'err'); return; }
+    if (s0 === null || e0 === null || e0 <= s0) { showToast('Pause : début et fin valides (fin après début)', 'err'); return; }
+    day.presence.pauses.push({ start: s0, end: e0 });
+  } else return;
+  persistDays(); renderDay();
+}
+function presenceEdit(which, text) {
+  const day = ensureDay(), p = day.presence, t = text.trim() === '' ? undefined : parseTime(text);
+  if (t === null) { showToast('Heure invalide (HH:MM)', 'err'); renderDay(); return; }
+  if (which === 'start') {
+    if (t === undefined) day.presence = null;
+    else if (p) { if (p.end !== null && p.end <= t) { showToast('L’arrivée doit être avant le départ', 'err'); renderDay(); return; } p.start = t; }
+    else day.presence = { start: t, end: null, pauses: [] };
+  } else {
+    if (t === undefined) { if (p) p.end = null; }
+    else if (!p) { showToast('Renseigne d’abord l’arrivée', 'err'); renderDay(); return; }
+    else if (t <= p.start) { showToast('Le départ doit être après l’arrivée', 'err'); renderDay(); return; }
+    else { p.end = t; p.pauses.forEach((g) => { if (g.end === null) g.end = Math.min(p.end, Math.max(g.start + 1, p.end)); }); }
+  }
+  persistDays(); renderDay();
 }
 function persistDays() {
   if (!saveDays(daysData)) showToast('Enregistrement impossible sur cet appareil', 'err');
@@ -1989,6 +2092,7 @@ function bindDayEvents() {
       else if (a === 'start') startNow(act.dataset.key);
       else if (a === 'child-go') toggleChild(act.dataset.key, act.dataset.cid);
       else if (a === 'stop') stopNow(act.dataset.key);
+      else if (a.indexOf('pres-') === 0) presenceAction(a, act.dataset);
       else if (a === 'confirm-done') {
         const it = buildSelected().toConfirm.find((x) => x.key === act.dataset.key);
         if (it) { ensureDay().real[it.key] = { start: it.start, end: it.end }; persistDays(); renderDay(); }
@@ -2059,7 +2163,9 @@ function bindDayEvents() {
   panel.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.matches && e.target.matches('#sub-label, #sub-action')) { e.preventDefault(); addSub(); }
   });
+  panel.addEventListener('toggle', (e) => { if (e.target.dataset && e.target.dataset.fid === 'card-pres') presOpen = e.target.open; }, true);
   panel.addEventListener('change', (e) => {
+    if (e.target.dataset && e.target.dataset.pres && ['start', 'end'].includes(e.target.dataset.pres)) { presenceEdit(e.target.dataset.pres, e.target.value); return; }
     if (e.target.id === 'day-profile') {
       const day = ensureDay();
       day.profile = e.target.value || null;
@@ -2269,9 +2375,9 @@ function init() {
   switchTab('day');
   // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
-    if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && dayNow() !== null) renderDay();
+    if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
-  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, parseCalendarText: parseCalendarText, workReport: workReport, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
+  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, parseCalendarText: parseCalendarText, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });
