@@ -301,7 +301,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.15.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.15.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -637,7 +637,7 @@ function cleanTemplates(list, cats) {
       cat: typeof t.cat === 'string' && t.cat && (!cats || cats.some((c) => c.id === t.cat)) ? t.cat : null,
       mode: MODES[t.mode] ? t.mode : 'fixed',
       duration: Number.isInteger(t.duration) && t.duration >= 1 && t.duration <= 1440 ? t.duration : 30,
-      carry: t.carry === true, parallel: t.parallel === true, noCal: t.noCal === true, alarm: cleanAlarm(t.alarm)
+      confirm: t.mode !== 'free' && t.confirm === true, carry: t.carry === true, parallel: t.parallel === true, noCal: t.noCal === true, alarm: cleanAlarm(t.alarm)
     });
   });
   return out;
@@ -1008,6 +1008,7 @@ function tplRowHtml(t, cats) {
     '<label class="field wide"><span class="lbl">Heure</span><select data-t="mode">' + Object.keys(MODES).map((m) => '<option value="' + m + '"' + (t.mode === m ? ' selected' : '') + '>' + MODES[m] + '</option>').join('') + '</select></label>' +
     '<label class="field"><span class="lbl">Durée (minutes)</span><input ' + INT_ATTRS + ' data-t="duration" value="' + t.duration + '"></label>' +
     '<label class="field"><span class="lbl">Rappel (export)</span><select data-t="alarm"><option value="">Aucun</option>' + ALARMS.map((m) => '<option value="' + m + '"' + (alarm === String(m) ? ' selected' : '') + '>' + (m === 0 ? 'À l’heure' : (m === 60 ? '1 h avant' : m + ' min avant')) + '</option>').join('') + '</select></label>' +
+    '<label class="field wide chk"><input type="checkbox" data-t="confirm"' + (t.confirm ? ' checked' : '') + '> À confirmer (« Fait / Raté » proposé après l’heure)</label>' +
     '<label class="field wide chk"><input type="checkbox" data-t="carry"' + (t.carry ? ' checked' : '') + '> À reporter</label>' +
     '<label class="field wide chk"><input type="checkbox" data-t="parallel"' + (t.parallel ? ' checked' : '') + '> On peut faire autre chose pendant</label>' +
     '<label class="field wide chk"><input type="checkbox" data-t="noCal"' + (t.noCal ? ' checked' : '') + '> Ne pas exporter vers Calendrier</label>' +
@@ -1417,6 +1418,42 @@ function pickHtml(build) {
     (reviewError ? '<span class="err">' + esc(reviewError) + '</span>' : '') + '</div>';
 }
 
+// ---- Recherche d'une tâche par son nom : toutes les occurrences (jours enregistrés, aujourd'hui et les 60 jours suivants) ----
+let searchQ = '';
+const SEARCH_AHEAD = 60, SEARCH_MAX = 80;
+const foldText = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function searchTasks(query) {
+  const q = foldText(query.trim()), today = dateKey(new Date()), out = [];
+  if (q.length < 2) return null;
+  const dates = Object.keys(daysData.days).filter((k) => k < today);
+  for (let i = 0; i <= SEARCH_AHEAD; i++) dates.push(addDays(today, i));
+  Array.from(new Set(dates)).sort().forEach((k) => {
+    const b = buildDay(current, daysData.days[k] || emptyDay(), isoWeekday(k), null, k < today, k);
+    b.placed.concat(b.pending, b.missed).forEach((it) => {
+      if (!foldText(it.name).includes(q)) return;
+      let status;
+      if (it.real.missed) status = 'raté';
+      else if (it.review && it.review.status === 'carried') status = 'reporté' + (it.review.to ? ' au ' + fromLabel(it.review.to) : '');
+      else if (it.review) status = 'abandonné';
+      else if (it.state === 'done') status = 'fait';
+      else if (it.state === 'running' || it.state === 'started') status = 'en cours';
+      else status = k < today ? 'non fait' : 'prévu';
+      const when = it.mode === 'free' && it.real.start === null ? 'sans heure' : (it.start === undefined ? '' : formatTime(it.start) + '–' + formatTime(it.end));
+      out.push({ date: k, name: it.name, when: when, status: status, future: k >= today });
+    });
+  });
+  const up = out.filter((r) => r.future), past = out.filter((r) => !r.future).reverse();
+  return up.concat(past);
+}
+function searchResultsHtml() {
+  const res = searchTasks(searchQ);
+  if (res === null) return searchQ.trim() ? '<p class="hours-help">Tape au moins 2 lettres.</p>' : '';
+  if (!res.length) return '<p class="hours-help">Aucune tâche trouvée.</p>';
+  const shown = res.slice(0, SEARCH_MAX);
+  return '<div class="card"><h2>' + plural(res.length, 'résultat', 'résultats') + (res.length > SEARCH_MAX ? ' (' + SEARCH_MAX + ' affichés)' : '') + '</h2><ul class="rows">' + shown.map((r) =>
+    '<li><span>' + esc(r.name) + ' <span class="v">· ' + esc(fromLabel(r.date)) + ' · ' + esc(r.when) + '</span><small>' + esc(r.status) + '</small></span><span>' +
+    '<button type="button" class="btn small" data-search-go="' + r.date + '">Ouvrir</button></span></li>').join('') + '</ul></div>';
+}
 function presenceHtml(wd1) {
   const day = daysData.days[selectedDate] || emptyDay(), p = day.presence, now = dayNow();
   const open = p && p.end === null, openPause = p ? p.pauses.find((g) => g.end === null) : null;
@@ -1449,7 +1486,8 @@ function presenceHtml(wd1) {
 }
 function renderDay() {
   const build = buildSelected();
-  let head = '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
+  let head = '<input type="search" id="day-search" placeholder="Rechercher une tâche…" autocomplete="off" value="' + esc(searchQ) + '" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:transparent;color:inherit"><div id="day-search-res">' + (searchQ ? searchResultsHtml() : '') + '</div>' +
+    '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
     '<div class="daylabel">' + esc(fmtDateLabel(selectedDate)) + '</div>' +
     '<button type="button" class="icon-btn" data-day-nav="1" aria-label="Jour suivant">›</button></div>' +
     '<div class="daytools"><button type="button" class="btn" data-day-nav="today">Aujourd’hui</button>' +
@@ -1617,7 +1655,7 @@ function readForm() {
     if (!nm.value.trim()) flag(nm, 'Nom manquant', errors);
     if (mode !== 'free' && (dv === null || dv < 1 || dv > 1440)) flag(du, 'Durée entre 1 et 1440 minutes', errors);
     s.templates.push({ id: row.dataset.id || newId(), name: nm.value.trim().slice(0, 40), cat: $('[data-t=cat]', row).value || null, mode: mode, duration: dv !== null && dv >= 1 && dv <= 1440 ? dv : 30,
-      carry: $('[data-t=carry]', row).checked, parallel: $('[data-t=parallel]', row).checked, noCal: $('[data-t=noCal]', row).checked, alarm: $('[data-t=alarm]', row).value === '' ? null : Number($('[data-t=alarm]', row).value) });
+      confirm: $('[data-t=confirm]', row).checked, carry: $('[data-t=carry]', row).checked, parallel: $('[data-t=parallel]', row).checked, noCal: $('[data-t=noCal]', row).checked, alarm: $('[data-t=alarm]', row).value === '' ? null : Number($('[data-t=alarm]', row).value) });
   });
   const wt = $('[data-w=target]', form), wtv = parseTime(wt.value);
   if (wtv === null || wtv < 1) { flag(wt, 'Durée invalide (ex. 07:42)', errors); s.workTarget = WORK_TARGET; } else s.workTarget = wtv;
@@ -2152,6 +2190,8 @@ function bindDayEvents() {
       renderDay();
       return;
     }
+    const go = e.target.closest('[data-search-go]');
+    if (go) { closePick(); reviewOpen = null; selectedDate = go.dataset.searchGo; searchQ = ''; closePanel(); renderDay(); window.scrollTo(0, 0); return; }
     const act = e.target.closest('[data-action]');
     if (act) {
       const a = act.dataset.action;
@@ -2231,6 +2271,9 @@ function bindDayEvents() {
   panel.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.matches && e.target.matches('#sub-label, #sub-action')) { e.preventDefault(); addSub(); }
   });
+  panel.addEventListener('input', (e) => {
+    if (e.target.id === 'day-search') { searchQ = e.target.value; $('#day-search-res').innerHTML = searchResultsHtml(); }
+  });
   panel.addEventListener('toggle', (e) => { if (e.target.dataset && e.target.dataset.fid === 'card-pres') presOpen = e.target.open; }, true);
   panel.addEventListener('change', (e) => {
     if (e.target.dataset && e.target.dataset.pres && ['start', 'end'].includes(e.target.dataset.pres)) { presenceEdit(e.target.dataset.pres, e.target.value); return; }
@@ -2252,7 +2295,7 @@ function bindDayEvents() {
         $('[data-a=name]', row).value = t.name; $('[data-a=cat]', row).value = t.cat || '';
         $('[data-a=mode]', row).value = t.mode; $('[data-a=entry]', row).value = 'duration';
         $('[data-a=second]', row).value = String(t.mode === 'free' ? 30 : t.duration);
-        $('[data-a=carry]', row).checked = t.carry; $('[data-a=alarm]', row).value = t.alarm === null ? '' : String(t.alarm);
+        $('[data-a=confirm]', row).checked = t.confirm === true && t.mode !== 'free'; $('[data-a=carry]', row).checked = t.carry; $('[data-a=alarm]', row).value = t.alarm === null ? '' : String(t.alarm);
         if ($('[data-a=parallel]', row)) $('[data-a=parallel]', row).checked = t.parallel;
         if ($('[data-a=noCal]', row)) $('[data-a=noCal]', row).checked = t.noCal;
         convertSecond(row, 'duration'); updateRowUi(row);
@@ -2380,7 +2423,7 @@ function bindEvents() {
       names[names.length - 1].focus();
       setDirty(true);
     } else if (action === 'add-tpl') {
-      $('#tpls-list').insertAdjacentHTML('beforeend', tplRowHtml({ id: newId(), name: '', cat: null, mode: 'fixed', duration: 30, carry: false, parallel: false, noCal: false, alarm: null }, catsFromForm()));
+      $('#tpls-list').insertAdjacentHTML('beforeend', tplRowHtml({ id: newId(), name: '', cat: null, mode: 'fixed', duration: 30, confirm: false, carry: false, parallel: false, noCal: false, alarm: null }, catsFromForm()));
       $$('#tpls-list [data-t=name]').slice(-1)[0].focus();
       setDirty(true);
     } else if (action === 'del-tpl') {
@@ -2469,7 +2512,7 @@ function init() {
   switchTab('day');
   // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
-    if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
+    if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && document.activeElement.id !== 'day-search' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
   window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, parseCalendarText: parseCalendarText, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);

@@ -214,3 +214,5 @@ Mise à jour 0.14.1 : le Récap a deux modes. « Semaine réelle » (défaut) : 
 
 ## 28. Tâches habituelles (0.15.0)
 `settings.templates = [{id,name,cat|null,mode,duration,carry,parallel,noCal,alarm|null}]` (30 max, additif, pas de changement de version ; `cleanTemplates`). Utilisés seulement à la création d'un bloc ponctuel (menu `#bp-tpl`, absent s'il n'y a aucun modèle) : copie des valeurs dans le formulaire, aucune liaison ensuite. Une catégorie supprimée vide la catégorie du modèle. Les ponctuels portent maintenant `parallel` et `noCal` (cases dans l'éditeur du bloc). Test : test_lot17.js.
+
+Mise à jour 0.15.1 : recherche de tâche (`searchTasks`, onglet Jour) sans accent ni casse, 2 lettres minimum, 80 résultats affichés au plus, à venir d'abord puis passé récent d'abord ; les jours passés sans données enregistrées ne sont pas listés (seuls les jours enregistrés comptent). Les modèles portent `confirm`. Test : test_lot18.js.

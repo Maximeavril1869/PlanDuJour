@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.15.0** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.15.1** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -145,3 +145,6 @@ Carte « Présence au travail » dans l'onglet Jour : boutons « Je suis arrivé
 
 ## Lot 9 : tâches habituelles (0.15.0) — livré, à valider sur appareil
 Réglages > « Tâches habituelles » : modèles (nom, catégorie, heure, durée, à reporter, parallèle, ne pas exporter, rappel). Menu « Modèle » en haut du formulaire de création d'un bloc ponctuel : choisir un modèle préremplit les champs, tout reste modifiable. Les blocs ponctuels ont désormais aussi « en parallèle » et « ne pas exporter ».
+
+## 0.15.1 — recherche d'une tâche et « à confirmer » dans les modèles — livré, à valider sur appareil
+Champ « Rechercher une tâche » en haut de l'onglet Jour : liste toutes les occurrences (jours enregistrés passés, aujourd'hui et 60 jours à venir) avec heure et état (fait, raté, reporté, prévu, non fait) ; « Ouvrir » affiche le jour. Les modèles de tâches ont maintenant l'option « à confirmer ».
