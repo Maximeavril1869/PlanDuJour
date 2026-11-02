@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.21.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.22.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -128,7 +128,8 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 ## Lot 5 : sous-activités chronométrées (0.13.1) — livré, à valider sur appareil
 Fini quand : sous-activités créées en Réglages, chrono par sous-activité dans le bloc, temps à la main sur un autre jour, Stats avec détail. Test : test_lot10.js.
 
-## Lot 5 bis : chrono sur les sous-tâches du jour — à faire
+## Lot 5 bis : chrono sur les sous-tâches libres du jour — en suspens
+Remplacé en pratique par les sous-activités cochables (0.22.0). L'abandon est à confirmer avec l'utilisateur.
 
 
 ## Lot 6 : catégories et suivi du temps de travail (0.13.1) — livré, à valider sur appareil
@@ -197,4 +198,13 @@ Décision de l'utilisateur : on n'importe plus, on exporte seulement, avec une c
 ## 0.21.0 — Regroupements par catégorie en menus repliables — livré, à valider sur appareil
 Fini quand : (1) sur la page du jour, la carte « Sans heure » contient un menu par catégorie (titre « Travail · 3 »), tous **fermés au départ**, dans l'ordre des catégories de Réglages (A à Z, « Sans catégorie » en dernier), les tâches triées par nom ; l'état déplié est gardé tant que l'app reste ouverte ; (2) dans Réglages, les catégories de « Activités » et de « Tâches habituelles » sont des menus repliables, fermés au départ ; (3) « + Ajouter » ouvre « Sans catégorie » et montre la nouvelle ligne ; une erreur de saisie ouvre le menu concerné. Demande de l'utilisateur, décision « fermé pour libérer la vision globale ». Tests : `tests/test_regroupements.py` (26 vérifications) ; au total 74 vérifications passent (16 + 10 + 22 + 26).
 À valider : le coût en taps sur la page du jour (carte, puis catégorie) ; le changement de catégorie d'une ligne ne la déplace qu'à l'enregistrement (voir CONVENTIONS §35).
+
+## 0.22.0 — Sous-activités cochables — livré, à valider sur appareil
+Fini quand : dans « Sans heure » et dans le panneau d'un bloc, chaque sous-activité a une case « fait » propre au jour ; arrêter son chrono (ou passer à une autre sous-activité) ou saisir un temps à la main la coche d'office ; on peut la cocher ou la décocher à la main (décocher garde le temps) ; la progression « n/m » s'affiche dans « Sans heure » ; un jour passé affiche aussi les cases, sans chrono. Demande de l'utilisateur : des tâches quotidiennes à cocher **et** chronométrer. Tests : `tests/test_cochables.py` (23 vérifications) ; au total 97 vérifications passent (16 + 10 + 22 + 26 + 23).
+À valider : la coche d'office à la saisie manuelle d'un temps (choix fait pour économiser des taps) ; le lot 5 bis est en suspens.
+
+## Prochains lots décidés : arborescence à plusieurs niveaux
+Décisions du 2 novembre 2026 : arbre à plusieurs niveaux, **table unique à parent unique** (la chaîne d'ancêtres se retrouve en remontant ; jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur modulable avec une limite de sécurité (8) ; niveau 1 : Pro / Perso / Trajets (noms modifiables) ; le temps est enregistré au niveau le plus fin (activité ou sous-activité), les Stats donnent un total à chaque niveau ; la case « Travail » actuelle disparaît, la migration range chaque catégorie existante sous Pro ou Perso d'après cette case ; un seul axe sous l'activité (pas de total transversal par mission). Affichage de « Sans heure » par groupe avec son chemin : « à voir ».
+- 0.23.0 : modèle de données, migration, Réglages (éditeur d'arbre, choix du groupe d'une activité).
+- 0.24.0 : Stats en arbre repliable, un total à chaque niveau.
 

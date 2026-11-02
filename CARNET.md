@@ -6,14 +6,23 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.21.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.22.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
+- Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
+- Prochains lots décidés : 0.23.0 arborescence à plusieurs niveaux (table unique à parent unique, profondeur modulable, plafond de sécurité 8, niveau 1 Pro / Perso / Trajets), 0.24.0 Stats en arbre avec un total par niveau (voir STATUS.md).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
-- À faire : lot 5 bis (chrono sur chaque sous-tâche du jour, avec apparition dans les Stats). **Pas encore spécifié** : trois questions ouvertes (voir « 2 novembre 2026 », session de la 0.21.0).
+- En suspens : lot 5 bis (chrono sur chaque sous-tâche libre du jour). Les sous-activités cochables couvrent le besoin ; abandon à confirmer avec l'utilisateur.
 - Non décidé : retirer du suivi git les `.pyc` de `tests/__pycache__/` et ajouter un `.gitignore` (question posée, pas de réponse). D'ici là, lancer les tests avec `PYTHONDONTWRITEBYTECODE=1`.
 
 ## 2 novembre 2026
+
+### Session de la 0.22.0 (sous-activités cochables)
+- Besoin exprimé : des tâches quotidiennes à la fois cochées et chronométrées. Confusion levée entre sous-activité (permanente, chronométrée, dans les Stats) et sous-tâche libre (propre au jour, sans temps).
+- **0.22.0** : champ additif `kidsDone` par jour ; `markKidDone` appelé par `closeRunning`, `stopNow` et `addSeg` ; `kidsProgress` / `kidRowHtml` ; cases dans « Sans heure » et dans le panneau du bloc ; jours passés avec cases sans chrono. `tests/test_cochables.py` (23 vérifications), contrôle négatif fait ; au total 97 vérifications OK.
+- Décisions de conception pour la suite : arborescence à plusieurs niveaux, table unique à parent unique (pas de multi-parents : double comptage), profondeur modulable (plafond 8), temps compté au niveau le plus fin avec totaux à chaque niveau, trajets en groupe distinct pour délimiter les blocs flottants.
+- Choix volontaire : le détail de l'organisation réelle de l'utilisateur n'est pas consigné ici (dépôt public).
+- Questions ouvertes : abandon du lot 5 bis ; `.gitignore` pour les `.pyc` ; message « dépôt déplacé » au push ; validation sur appareil de l'export et des versions 0.21.0 et 0.22.0.
 
 ### Session de la 0.21.0 (regroupements repliables)
 - Reprise : dépôt cloné à `2d78de2` (0.20.0), tests relus et relancés (48 vérifications OK).

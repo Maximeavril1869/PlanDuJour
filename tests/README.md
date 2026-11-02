@@ -21,6 +21,7 @@ Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le
 | `test_reinitialisation.py` | Réinitialisation : confirmation par mot, réglages vierges, effacement des jours et des copies, rechargement, ajout d'un bloc dans l'app vierge |
 | `test_pliage.py` | Cartes repliables fermées au départ (Réglages, page du jour : Présence, Sans heure, Revue du jour), dépliage au tap et conservation de l'état |
 | `test_regroupements.py` | Catégories en menus repliables fermés au départ : « Sans heure » (ordre, compteur, tri, état conservé) et Réglages (Activités, Tâches habituelles : ajout, suppression, ouverture sur erreur de saisie) |
+| `test_cochables.py` | Sous-activités cochables : cases à la main, coche d'office à l'arrêt du chrono et à la saisie d'un temps, panneau du bloc, jour passé, lecture de données invalides |
 | `test_calendrier.py` | Démarrage sans erreur, export vers Calendrier par case à cocher (`toCal`, codes, rappel facultatif, `.ics`), valeurs par défaut, case conservée après rechargement |
 
 ## Règles

@@ -177,7 +177,7 @@ Une activité ou un bloc « sans heure » n'a plus de durée prévue : le champ 
 - Un seul chrono à la fois : `closeRunning` arrête tout bloc et tout segment en cours avant d'en démarrer un autre. Chrono seulement aujourd'hui ; les autres jours se saisissent à la main (select + début + fin).
 - Stats : le total d'une activité compte la somme des segments terminés ; détail par sous-activité, « Sans détail » pour le temps sans sous-activité, « Sous-activité supprimée » si l'id n'existe plus.
 - Le bouton « ▶ Démarrer » d'une activité sans heure qui a des sous-activités ouvre le panneau (choix de la sous-activité).
-- Lot 5 bis (à faire) : chrono sur les sous-tâches du jour (checklist actuelle).
+- Lot 5 bis (en suspens depuis la 0.22.0, abandon à confirmer) : chrono sur les sous-tâches libres du jour (checklist actuelle). Les sous-activités cochables (§36) couvrent le besoin des tâches quotidiennes.
 
 Mise à jour 0.11.1 : au premier affichage, les cartes Profils, Congés et Activités de Réglages sont repliées (les lignes l'étaient déjà). L'état de pliage reste en mémoire pendant la session.
 
@@ -272,4 +272,12 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Une ligne dont on change la catégorie reste dans son groupe jusqu'à l'enregistrement ; les compteurs suivent l'ajout et la suppression d'une tâche habituelle, pas ce changement de catégorie.
 - « + Ajouter » (activité ou tâche habituelle) ouvre le groupe « Sans catégorie » pour que la nouvelle ligne soit visible. Supprimer la dernière tâche habituelle d'un groupe supprime le groupe. Une erreur de saisie ouvre le groupe, comme la ligne et la carte (`flag`).
 - Test : `tests/test_regroupements.py`.
+
+## 36. Sous-activités cochables (0.22.0)
+
+- Chaque jour, une sous-activité peut être cochée « faite » : `day.kidsDone[clé du bloc][idSousActivité] = true` (champ additif, pas de changement de `DAYS_VERSION`). `sanitizeDays` ne garde que les valeurs `true` ; `buildDay` expose `it.kd`. La case est propre à chaque jour, alors que les sous-activités elles-mêmes sont permanentes (§24).
+- Cochée **d'office** par `markKidDone` quand son chrono s'arrête (`closeRunning`, donc aussi en passant à une autre sous-activité, et `stopNow`) et quand on saisit un temps à la main (`addSeg`). Démarrer un chrono ne coche pas. Cochable et décochable à la main ; décocher laisse le temps enregistré.
+- Affichage : une case par sous-activité dans la carte « Sans heure » (aujourd'hui : case + ▶ ; un autre jour : case + nom) et dans le panneau du bloc ; progression « n/m » après le nom dans « Sans heure » (`kidsProgress`, `kidRowHtml`).
+- Les sous-tâches libres du jour (§14) ne changent pas. Le lot 5 bis est en suspens (§24).
+- Test : `tests/test_cochables.py`.
 

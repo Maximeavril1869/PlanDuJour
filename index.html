@@ -184,6 +184,11 @@ button { font: inherit; }
 .cat-row .chk { display: flex; align-items: center; gap: 6px; }
 .cat-row .err { flex-basis: 100%; }
 .kidbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.kidrow { display: inline-flex; align-items: center; gap: 2px; }
+.kidchk { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; }
+.kidchk input, .kidlbl input { width: 22px; height: 22px; }
+.kidlbl { gap: 8px; min-height: 40px; }
+.kidname.done { text-decoration: line-through; color: var(--muted); }
 .rows li small.sub { color: var(--muted); }
 .childbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .subs { list-style: none; margin: 0 0 8px; padding: 0; }
@@ -307,7 +312,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.21.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.22.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -454,7 +459,7 @@ function blankSettings() {
     activities: []
   };
 }
-function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {}, presence: null }; }
+function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {}, presence: null, kidsDone: {} }; }
 // Présence au travail : un chrono à part, qui tourne en parallèle des activités. { start, end|null, pauses:[{start,end|null}] }
 function cleanPresence(p) {
   if (!p || typeof p !== 'object' || !isMinute(p.start)) return null;
@@ -707,6 +712,11 @@ function sanitizeDays(raw) {
       (Array.isArray(d.ponctuels) ? d.ponctuels : []).forEach((p) => { const c = cleanPonctuel(p); if (c) day.ponctuels.push(c); });
       if (d.segs && typeof d.segs === 'object') Object.keys(d.segs).forEach((key) => { const l = cleanSegs(d.segs[key]); if (l.length) day.segs[key] = l; });
       if (d.subtasks && typeof d.subtasks === 'object') Object.keys(d.subtasks).forEach((key) => { const l = cleanSubtasks(d.subtasks[key]); if (l.length) day.subtasks[key] = l; });
+      if (d.kidsDone && typeof d.kidsDone === 'object') Object.keys(d.kidsDone).forEach((key) => {       // sous-activités cochées ce jour-là (0.22.0)
+        const m = d.kidsDone[key], o = {};
+        if (m && typeof m === 'object') Object.keys(m).forEach((cid) => { if (m[cid] === true) o[cid] = true; });
+        if (Object.keys(o).length) day.kidsDone[key] = o;
+      });
       if (typeof d.profile === 'string') day.profile = d.profile;
       day.presence = cleanPresence(d.presence);
       if (d.review && typeof d.review === 'object') Object.keys(d.review).forEach((key) => { const r = cleanReview(d.review[key]); if (r) day.review[key] = r; });
@@ -791,6 +801,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     it.subs = (dayData.subtasks && dayData.subtasks[it.key]) || [];
     it.review = (dayData.review && dayData.review[it.key]) || null;
     it.segs = (dayData.segs && dayData.segs[it.key]) || [];
+    it.kd = (dayData.kidsDone && dayData.kidsDone[it.key]) || {};   // sous-activités cochées ce jour-là : { idSousActivité: true }
     if (it.segs.length && !it.real.missed) {         // bloc à sous-activités : ses heures viennent des temps chronométrés
       const open = it.segs.some((g) => g.end === null);
       it.real = { start: Math.min.apply(null, it.segs.map((g) => g.start)), end: open ? null : Math.max.apply(null, it.segs.map((g) => g.end)) };
@@ -1428,6 +1439,15 @@ function dayNow() { return selectedDate === dateKey(new Date()) ? nowMinutes() :
 function buildSelected() { return buildDay(current, daysData.days[selectedDate] || emptyDay(), isoWeekday(selectedDate), dayNow(), selectedDate < dateKey(new Date()), selectedDate); }
 function signed(m) { return m === 0 ? '0' : (m > 0 ? '+' : '−') + formatDuration(Math.abs(m)); }
 function subsProgress(it) { return it.subs.length ? it.subs.filter((t) => t.done).length + '/' + it.subs.length : ''; }
+// Sous-activités cochables (0.22.0) : progression « 3/4 » et ligne « case + nom (+ ▶ chrono aujourd'hui) ».
+function kidsProgress(it) { return it.children.length ? it.children.filter((c) => it.kd && it.kd[c.id] === true).length + '/' + it.children.length : ''; }
+function kidRowHtml(it, c, live) {
+  const on = !!(it.kd && it.kd[c.id] === true);
+  const box = '<input type="checkbox" data-kid-done="' + esc(c.id) + '" data-key="' + esc(it.key) + '"' + (on ? ' checked' : '') + ' aria-label="Fait : ' + esc(c.name) + '">';
+  return live
+    ? '<span class="kidrow"><label class="kidchk">' + box + '</label><button type="button" class="btn small" data-action="child-go" data-key="' + esc(it.key) + '" data-cid="' + esc(c.id) + '">▶ ' + esc(c.name) + '</button></span>'
+    : '<label class="kidrow kidlbl">' + box + '<span class="kidname' + (on ? ' done' : '') + '">' + esc(c.name) + '</span></label>';
+}
 function fromLabel(k) { return DAY_SHORT[isoWeekday(k)] + ' ' + k.slice(8, 10) + '/' + k.slice(5, 7); }
 function plural(n, one, many) { return n + ' ' + (n > 1 ? many : one); }
 
@@ -1592,8 +1612,8 @@ function renderDay() {
   if (build.pending.length || build.reopen.length) {
     const sansList = build.pending.concat(build.reopen);
     const sansLi = (it) =>
-      '<li><span>' + esc(it.name) + ' <span class="v">' + (it.state === 'done' ? '· ' + formatDuration(it.segs.reduce((t, g) => t + (g.end !== null ? g.end - g.start : 0), 0)) + ' faites' : '') + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
-      (it.children.length ? (dayNow() !== null ? '<div class="kidbtns">' + it.children.map((c) => '<button type="button" class="btn small" data-action="child-go" data-key="' + esc(it.key) + '" data-cid="' + esc(c.id) + '">▶ ' + esc(c.name) + '</button>').join('') + '</div>' : '<small class="kids">' + it.children.map((c) => esc(c.name)).join(' · ') + '</small>') : '') + '</span><span>' +
+      '<li><span>' + esc(it.name) + ' <span class="v">' + (it.state === 'done' ? '· ' + formatDuration(it.segs.reduce((t, g) => t + (g.end !== null ? g.end - g.start : 0), 0)) + ' faites' : '') + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.children.length ? ' · ' + kidsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
+      (it.children.length ? '<div class="kidbtns">' + it.children.map((c) => kidRowHtml(it, c, dayNow() !== null)).join('') + '</div>' : '') + '</span><span>' +
       (dayNow() !== null && !it.children.length ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
       '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>';
     head += '<details class="card fold" data-fid="card-sansheure"' + (sansOpen ? ' open' : '') + '><summary><h2>Sans heure · ' + sansList.length + '</h2></summary>' +
@@ -1809,12 +1829,18 @@ function persistDays() {
 
 // ---- Chrono ----
 // Un seul chrono à la fois : arrête tous les blocs et toutes les sous-activités en cours (sauf le bloc `exceptKey`).
+// Une sous-activité dont le chrono s'arrête (ou dont on saisit un temps) est cochée « faite » d'office ; on peut la décocher à la main, son temps reste.
+function markKidDone(day, key, cid) {
+  if (!day.kidsDone) day.kidsDone = {};
+  if (!day.kidsDone[key]) day.kidsDone[key] = {};
+  day.kidsDone[key][cid] = true;
+}
 function closeRunning(day, now, exceptKey) {
   Object.keys(day.real).forEach((k) => {
     const r = day.real[k];
     if (k !== exceptKey && r.start !== null && r.end === null) r.end = Math.min(1439, Math.max(now, r.start + 1));
   });
-  Object.keys(day.segs).forEach((k) => day.segs[k].forEach((g) => { if (g.end === null) g.end = Math.min(1439, Math.max(now, g.start + 1)); }));
+  Object.keys(day.segs).forEach((k) => day.segs[k].forEach((g) => { if (g.end === null) { g.end = Math.min(1439, Math.max(now, g.start + 1)); markKidDone(day, k, g.cid); } }));
 }
 function startNow(key) {
   const now = dayNow();
@@ -1841,7 +1867,7 @@ function stopNow(key) {
   const now = dayNow();
   const day = ensureDay();
   const open = (day.segs[key] || []).find((g) => g.end === null);
-  if (now !== null && open) { open.end = Math.min(1439, Math.max(now, open.start + 1)); persistDays(); renderDay(); return; }
+  if (now !== null && open) { open.end = Math.min(1439, Math.max(now, open.start + 1)); markKidDone(day, key, open.cid); persistDays(); renderDay(); return; }
   const r = day.real[key];
   if (now === null || !r || r.start === null) return;
   r.end = Math.min(1439, Math.max(now, r.start + 1));
@@ -2123,10 +2149,12 @@ function renderChildren() {
   const today = dayNow() !== null;
   const segs = ((day && day.segs[panelKey]) || []).slice();
   const run = segs.find((g) => g.end === null);
+  const kd = (day && day.kidsDone && day.kidsDone[panelKey]) || {};
+  const tick = (c) => '<label class="kidchk"><input type="checkbox" data-kid-done="' + esc(c.id) + '"' + (kd[c.id] === true ? ' checked' : '') + ' aria-label="Fait : ' + esc(c.name) + '"></label>';
   $('#bp-child-btns').innerHTML = today ? it.children.map((c) => {
     const on = run && run.cid === c.id;
-    return '<button type="button" class="btn ' + (on ? 'danger' : 'primary') + '" data-child-go="' + esc(c.id) + '">' + (on ? '■ ' : '▶ ') + esc(c.name) + '</button>';
-  }).join('') : it.children.map((c) => '<button type="button" class="btn" data-child-pick="' + esc(c.id) + '">+ ' + esc(c.name) + '</button>').join('') +
+    return '<span class="kidrow">' + tick(c) + '<button type="button" class="btn ' + (on ? 'danger' : 'primary') + '" data-child-go="' + esc(c.id) + '">' + (on ? '■ ' : '▶ ') + esc(c.name) + '</button></span>';
+  }).join('') : it.children.map((c) => '<span class="kidrow">' + tick(c) + '<button type="button" class="btn" data-child-pick="' + esc(c.id) + '">+ ' + esc(c.name) + '</button></span>').join('') +
     '<p class="help" style="margin:4px 0 0;width:100%">Le chrono ne marche que pour aujourd’hui : touche une sous-activité pour ajouter son temps à la main.</p>';
   const nm = (cid) => { const c = it.children.find((x) => x.id === cid); return c ? c.name : 'Sous-activité supprimée'; };
   $('#bp-seg-list').innerHTML = segs.map((g, i) => '<li><span>' + esc(nm(g.cid)) + ' <span class="v">· ' + (g.end === null ? 'depuis ' + formatTime(g.start) + ' · en cours' :
@@ -2149,6 +2177,7 @@ function addSeg() {
   if (!day.segs[panelKey]) day.segs[panelKey] = [];
   day.segs[panelKey].push({ cid: cid, start: st, end: en });
   day.segs[panelKey].sort((a, b) => a.start - b.start);
+  markKidDone(day, panelKey, cid);
   persistDays();
   sEl.value = ''; eEl.value = '';
   renderChildren();
@@ -2361,6 +2390,17 @@ function bindDayEvents() {
       const day = ensureDay();
       day.profile = e.target.value || null;
       persistDays();
+      renderDay();
+      return;
+    }
+    if (e.target.matches && e.target.matches('[data-kid-done]')) {          // case « fait » d'une sous-activité (page du jour ou panneau du bloc)
+      const key = e.target.dataset.key || panelKey, cid = e.target.dataset.kidDone;
+      if (!key || !cid) return;
+      const day = ensureDay();
+      if (e.target.checked) markKidDone(day, key, cid);
+      else if (day.kidsDone && day.kidsDone[key]) { delete day.kidsDone[key][cid]; if (!Object.keys(day.kidsDone[key]).length) delete day.kidsDone[key]; }
+      persistDays();
+      if (panelKey) renderChildren();
       renderDay();
       return;
     }
