@@ -91,6 +91,13 @@ input[aria-invalid=true] { border-color: var(--err); }
 .act-row .err { margin-bottom: 6px; }
 .act-row .del { position: absolute; right: 0; top: 30px; }
 .act-row[data-mode=free] .timed { display: none; }
+.tpl-row { border-top: 1px solid var(--line); padding: 10px 0 4px; position: relative; }
+.tpl-row:first-child { border-top: 0; }
+.tpl-row .wide { grid-column: 1 / -1; }
+.tpl-row .field.wide:first-child { padding-right: 52px; }
+.tpl-row .del { position: absolute; right: 0; top: 2px; }
+.tpl-row .chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
+.tpl-row .err { margin-bottom: 6px; }
 #bp-edit .act-row { border-top: 0; padding-top: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { min-width: 52px; min-height: 44px; padding: 0 12px; border-radius: 22px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
@@ -294,7 +301,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.14.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.15.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -412,6 +419,7 @@ function defaultSettings() {
     profiles: defaultProfiles(345, 1320),
     leave: defaultLeave(345, 1320),
     categories: cleanCats(DEFAULT_CATS),
+    templates: [],
     calIgnore: DEFAULT_CAL_IGNORE.slice(),
     workTarget: WORK_TARGET,
     relaxFloor: 30,       // détente minimale avant le coucher, à valider
@@ -569,6 +577,7 @@ function sanitize(raw) {
   s.relaxFloor = pickInt(raw.relaxFloor, d.relaxFloor, 0, 600);
   s.activities = sanitizeActs(raw.activities, d.activities);
   s.categories = raw.categories === undefined ? cleanCats(DEFAULT_CATS) : cleanCats(raw.categories);
+  s.templates = cleanTemplates(raw.templates, s.categories);
   s.calIgnore = Array.isArray(raw.calIgnore) ? raw.calIgnore.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim().slice(0, 40)).slice(0, 20) : DEFAULT_CAL_IGNORE.slice();
   s.workTarget = Number.isInteger(raw.workTarget) && raw.workTarget >= 1 && raw.workTarget <= 1440 ? raw.workTarget : WORK_TARGET;
   s.leave = raw.leave !== undefined ? sanitizeLeave(raw.leave, s.wake, s.bedtime) : (migrateLeave(raw.profiles, s.wake, s.bedtime) || defaultLeave(s.wake, s.bedtime));
@@ -618,6 +627,21 @@ function cleanSubtasks(list) {
     .filter((t) => t && typeof t.label === 'string' && t.label.trim())
     .map((t) => ({ id: typeof t.id === 'string' ? t.id : newId(), label: t.label.trim().slice(0, 80), action: typeof t.action === 'string' ? t.action.trim().slice(0, 80) : '', done: t.done === true }));
 }
+// Tâches habituelles : modèles proposés à la création d'un bloc ponctuel (nom, catégorie, heure, durée, options).
+function cleanTemplates(list, cats) {
+  const out = [];
+  (Array.isArray(list) ? list : []).forEach((t) => {
+    if (!t || typeof t.name !== 'string' || !t.name.trim() || out.length >= 30) return;
+    out.push({
+      id: typeof t.id === 'string' ? t.id : newId(), name: t.name.trim().slice(0, 40),
+      cat: typeof t.cat === 'string' && t.cat && (!cats || cats.some((c) => c.id === t.cat)) ? t.cat : null,
+      mode: MODES[t.mode] ? t.mode : 'fixed',
+      duration: Number.isInteger(t.duration) && t.duration >= 1 && t.duration <= 1440 ? t.duration : 30,
+      carry: t.carry === true, parallel: t.parallel === true, noCal: t.noCal === true, alarm: cleanAlarm(t.alarm)
+    });
+  });
+  return out;
+}
 function cleanPonctuel(p) {
   if (!p || typeof p.name !== 'string' || !p.name.trim()) return null;
   const mode = MODES[p.mode] ? p.mode : 'fixed';
@@ -627,7 +651,7 @@ function cleanPonctuel(p) {
     id: typeof p.id === 'string' ? p.id : newId(), name: p.name.trim().slice(0, 40), mode: mode, entry: p.entry === 'end' ? 'end' : 'duration',
     start: mode === 'free' ? null : p.start, duration: mode === 'free' ? 1 : Math.min(p.duration, 1440 - p.start),
     confirm: mode !== 'free' && p.confirm === true,
-    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null, alarm: cleanAlarm(p.alarm),
+    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null, alarm: cleanAlarm(p.alarm), parallel: p.parallel === true, noCal: p.noCal === true,
     from: isDateKey(p.from) ? p.from : null          // jour d'origine d'un bloc reporté
   };
 }
@@ -740,7 +764,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, noCal: a.noCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
-    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
+    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, parallel: p.parallel === true, noCal: p.noCal === true, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
   });
   const timed = [];
   items.forEach((it) => {
@@ -945,7 +969,7 @@ function actToRaw(a) {
 
 // Pliage dans Réglages : lignes dépliées et cartes repliées, conservées d'un affichage à l'autre (en mémoire seulement).
 const openRows = new Set();
-const foldClosed = new Set(['card-profs', 'card-leave', 'card-cats', 'card-acts', 'card-cal']);   // cartes repliées au départ
+const foldClosed = new Set(['card-profs', 'card-leave', 'card-cats', 'card-acts', 'card-tpl', 'card-cal']);   // cartes repliées au départ
 function shortDate(k) { return k.slice(8, 10) + '/' + k.slice(5, 7); }
 function daysText(days) { return days.length === 7 ? 'tous les jours' : (days.length ? days.map((d) => DAY_SHORT[d]).join(' ') : 'aucun jour'); }
 function actSummaryHtml(r) {
@@ -973,7 +997,21 @@ function catsFromForm() { return $$('#cats-list .cat-row').map((r) => ({ id: r.d
 function actOpts() { return { days: true, del: true, fold: true, cats: $('#cats-list') ? catsFromForm() : current.categories }; }
 function syncCatOptions() {
   const cats = catsFromForm();
+  $$('#tpls-list select[data-t=cat]').forEach((sel) => { const v = sel.value; sel.innerHTML = catOptionsHtml(cats, v); sel.value = cats.some((c) => c.id === v) ? v : ''; });
   $$('#acts-list select[data-a=cat]').forEach((sel) => { const v = sel.value; sel.innerHTML = catOptionsHtml(cats, v); sel.value = cats.some((c) => c.id === v) ? v : ''; });
+}
+function tplRowHtml(t, cats) {
+  const alarm = t.alarm === null || t.alarm === undefined ? '' : String(t.alarm);
+  return '<div class="tpl-row" data-id="' + esc(t.id) + '"><div class="rowgrid">' +
+    '<label class="field wide"><span class="lbl">Nom</span><input type="text" maxlength="40" data-t="name" value="' + esc(t.name) + '"></label>' +
+    '<label class="field wide"><span class="lbl">Catégorie</span><select data-t="cat">' + catOptionsHtml(cats, t.cat) + '</select></label>' +
+    '<label class="field wide"><span class="lbl">Heure</span><select data-t="mode">' + Object.keys(MODES).map((m) => '<option value="' + m + '"' + (t.mode === m ? ' selected' : '') + '>' + MODES[m] + '</option>').join('') + '</select></label>' +
+    '<label class="field"><span class="lbl">Durée (minutes)</span><input ' + INT_ATTRS + ' data-t="duration" value="' + t.duration + '"></label>' +
+    '<label class="field"><span class="lbl">Rappel (export)</span><select data-t="alarm"><option value="">Aucun</option>' + ALARMS.map((m) => '<option value="' + m + '"' + (alarm === String(m) ? ' selected' : '') + '>' + (m === 0 ? 'À l’heure' : (m === 60 ? '1 h avant' : m + ' min avant')) + '</option>').join('') + '</select></label>' +
+    '<label class="field wide chk"><input type="checkbox" data-t="carry"' + (t.carry ? ' checked' : '') + '> À reporter</label>' +
+    '<label class="field wide chk"><input type="checkbox" data-t="parallel"' + (t.parallel ? ' checked' : '') + '> On peut faire autre chose pendant</label>' +
+    '<label class="field wide chk"><input type="checkbox" data-t="noCal"' + (t.noCal ? ' checked' : '') + '> Ne pas exporter vers Calendrier</label>' +
+    '</div><button type="button" class="icon-btn del" data-action="del-tpl" aria-label="Supprimer ce modèle">✕</button><span class="err wide" hidden></span></div>';
 }
 function catRowHtml(c) {
   return '<div class="cat-row" data-id="' + esc(c.id) + '"><input type="text" maxlength="30" data-k="name" placeholder="Nom de la catégorie" value="' + esc(c.name) + '">' +
@@ -1005,9 +1043,11 @@ function actRowHtml(r, opts) {
     html += '<div class="field wide"><span class="lbl">Jours</span><div class="chips">' +
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>';
   }
-  if (opts.days) {
+  if (opts.days || opts.flags) {
     html += '<label class="field wide chk"><input type="checkbox" data-a="noCal"' + (r.noCal ? ' checked' : '') + '> Ne pas exporter vers Calendrier (déjà dans mon calendrier)</label>';
     html += '<label class="field wide chk"><input type="checkbox" data-a="parallel"' + (r.parallel ? ' checked' : '') + '> On peut faire autre chose pendant (pas d’alerte de chevauchement : trajet, par exemple)</label>';
+  }
+  if (opts.days) {
     html += '<div class="field wide"><span class="lbl">Sous-activités (chronométrables dans le bloc)</span><div class="childs">' + (r.children || []).map(childRowHtml).join('') + '</div>' +
       '<button type="button" class="btn small" data-action="add-child">+ Sous-activité</button></div>';
   }
@@ -1195,6 +1235,10 @@ function renderForm(s) {
       '<strong>Heure prévue</strong> : glisse si ce qui précède déborde. <strong>Sans heure</strong> : tu la lances quand tu veux, avec le chrono.</p>' +
       '<div id="acts-list">' + s.activities.map((a) => actRowHtml(actToRaw(a), { days: true, del: true, fold: true, cats: s.categories })).join('') + '</div>' +
       '<button type="button" class="btn" data-action="add-act">+ Ajouter une activité</button></details>' +
+    '<details class="card fold" data-fid="card-tpl"' + (foldClosed.has('card-tpl') ? '' : ' open') + '><summary><h2>Tâches habituelles</h2></summary>' +
+      '<p class="help">Tes tâches du quotidien. Elles apparaissent dans le menu « Modèle » quand tu crées un bloc ponctuel, avec leur catégorie, leur durée et leurs options déjà remplies.</p>' +
+      '<div id="tpls-list">' + (s.templates || []).map((t) => tplRowHtml(t, s.categories)).join('') + '</div>' +
+      '<button type="button" class="btn" data-action="add-tpl">+ Ajouter une tâche habituelle</button></details>' +
     '<details class="card fold" data-fid="card-cal"' + (foldClosed.has('card-cal') ? '' : ' open') + '><summary><h2>Calendrier</h2></summary><div data-nodirty>' +
       '<p class="help">Vers Calendrier : génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier » (les événements se mettent à jour si tu réexportes).</p>' +
       '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="tomorrow">Demain</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
@@ -1518,7 +1562,7 @@ function switchTab(name) {
 }
 
 // ---- Marquage des erreurs de saisie ----
-function errHost(el) { return el.closest('.act-row') || el.closest('.leave-per') || el.closest('.cat-row') || el.closest('.field'); }
+function errHost(el) { return el.closest('.act-row') || el.closest('.tpl-row') || el.closest('.leave-per') || el.closest('.cat-row') || el.closest('.field'); }
 function clearFlags(root) {
   $$('[aria-invalid]', root).forEach((el) => el.removeAttribute('aria-invalid'));
   $$('.err', root).forEach((el) => { el.textContent = ''; el.hidden = true; });
@@ -1567,10 +1611,19 @@ function readForm() {
     const inp = $('[data-k=name]', row), n = inp.value.trim();
     if (!n) flag(inp, 'Nom de la catégorie manquant', errors); else s.categories.push({ id: row.dataset.id || newId(), name: n.slice(0, 30), work: $('[data-k=work]', row).checked });
   });
+  s.templates = [];
+  $$('#tpls-list .tpl-row', form).forEach((row) => {
+    const nm = $('[data-t=name]', row), du = $('[data-t=duration]', row), dv = parseIntStrict(du.value), mode = $('[data-t=mode]', row).value;
+    if (!nm.value.trim()) flag(nm, 'Nom manquant', errors);
+    if (mode !== 'free' && (dv === null || dv < 1 || dv > 1440)) flag(du, 'Durée entre 1 et 1440 minutes', errors);
+    s.templates.push({ id: row.dataset.id || newId(), name: nm.value.trim().slice(0, 40), cat: $('[data-t=cat]', row).value || null, mode: mode, duration: dv !== null && dv >= 1 && dv <= 1440 ? dv : 30,
+      carry: $('[data-t=carry]', row).checked, parallel: $('[data-t=parallel]', row).checked, noCal: $('[data-t=noCal]', row).checked, alarm: $('[data-t=alarm]', row).value === '' ? null : Number($('[data-t=alarm]', row).value) });
+  });
   const wt = $('[data-w=target]', form), wtv = parseTime(wt.value);
   if (wtv === null || wtv < 1) { flag(wt, 'Durée invalide (ex. 07:42)', errors); s.workTarget = WORK_TARGET; } else s.workTarget = wtv;
   s.calIgnore = $('[data-w=calIgnore]', form).value.split(',').map((x) => x.trim().slice(0, 40)).filter(Boolean).slice(0, 20);
   s.activities.forEach((a) => { if (a.cat && !s.categories.some((c) => c.id === a.cat)) a.cat = null; });
+  s.templates.forEach((t) => { if (t.cat && !s.categories.some((c) => c.id === t.cat)) t.cat = null; });
   const actIds = s.activities.map((a) => a.id);
   s.leave.removes = s.leave.removes.filter((id) => actIds.includes(id));
   s.profiles.forEach((p) => { p.removes = p.removes.filter((id) => actIds.includes(id)); });
@@ -2015,10 +2068,13 @@ function openPanel(key) {
   const today = dayNow() !== null;
   $('#bp-title').textContent = it ? it.name : 'Nouveau bloc ponctuel';
   $('#bp-edit').innerHTML = isP
-    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm, carry: it.carry, cat: it.cat, alarm: it.alarm } :
-      { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60, confirm: false, carry: false }), { days: false, del: false })
+    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm, carry: it.carry, cat: it.cat, alarm: it.alarm, parallel: it.parallel, noCal: it.noCal } :
+      { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60, confirm: false, carry: false }), { days: false, del: false, flags: true })
     : '';
-  if (it && it.mode === 'free') { /* durée seule */ }
+  if (!it && (current.templates || []).length) {
+    $('#bp-edit').insertAdjacentHTML('afterbegin', '<label class="field wide"><span class="lbl">Modèle (tâche habituelle)</span><select id="bp-tpl"><option value="">Saisie libre</option>' +
+      current.templates.map((t) => '<option value="' + esc(t.id) + '">' + esc(t.name) + (t.mode === 'free' ? '' : ' (' + formatDuration(t.duration) + ')') + '</option>').join('') + '</select></label>');
+  }
   $('#bp-planned').textContent = !it ? 'Un bloc ponctuel ne concerne que ce jour.'
     : (it.mode === 'free' ? 'Sans heure' : 'Prévu : ' + formatTime(it.plannedStart) + '–' + formatTime(it.plannedStart + it.minutes) + ' · ' + MODE_TAG[it.mode]) +
       (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + (it.kind === 'act' ? ' · à modifier dans Réglages' : '');
@@ -2073,7 +2129,7 @@ function savePanel() {
   const day = ensureDay();
   let key = panelKey;
   if (isP && edited) {
-    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, alarm: edited.alarm, from: it ? it.from : null };
+    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, alarm: edited.alarm, parallel: edited.parallel, noCal: edited.noCal, from: it ? it.from : null };
     if (!it) { day.ponctuels.push(p); key = 'p:' + p.id; }
     else { const i = day.ponctuels.findIndex((x) => 'p:' + x.id === panelKey); if (i >= 0) day.ponctuels[i] = p; }
   }
@@ -2188,6 +2244,20 @@ function bindDayEvents() {
     if (e.target.matches && e.target.matches('[data-sub-done]') && panelKey) {
       const t = ((daysData.days[selectedDate] || {}).subtasks[panelKey] || []).find((x) => x.id === e.target.dataset.subDone);
       if (t) { t.done = e.target.checked; persistDays(); renderSubs(); renderDay(); }
+      return;
+    }
+    if (e.target.id === 'bp-tpl') {
+      const t = (current.templates || []).find((x) => x.id === e.target.value), row = $('#bp-edit .act-row');
+      if (t && row) {
+        $('[data-a=name]', row).value = t.name; $('[data-a=cat]', row).value = t.cat || '';
+        $('[data-a=mode]', row).value = t.mode; $('[data-a=entry]', row).value = 'duration';
+        $('[data-a=second]', row).value = String(t.mode === 'free' ? 30 : t.duration);
+        $('[data-a=carry]', row).checked = t.carry; $('[data-a=alarm]', row).value = t.alarm === null ? '' : String(t.alarm);
+        if ($('[data-a=parallel]', row)) $('[data-a=parallel]', row).checked = t.parallel;
+        if ($('[data-a=noCal]', row)) $('[data-a=noCal]', row).checked = t.noCal;
+        convertSecond(row, 'duration'); updateRowUi(row);
+        const st = $('[data-a=start]', row); if (t.mode !== 'free' && st) st.focus();
+      }
       return;
     }
     const row = e.target.closest('#bp-edit .act-row');
@@ -2308,6 +2378,13 @@ function bindEvents() {
       rerenderProfiles({ id: pid, name: '', wake: '07:00', bedtime: '22:00', days: [], removes: [] });
       const names = $$('#profs-list [data-p=name]');
       names[names.length - 1].focus();
+      setDirty(true);
+    } else if (action === 'add-tpl') {
+      $('#tpls-list').insertAdjacentHTML('beforeend', tplRowHtml({ id: newId(), name: '', cat: null, mode: 'fixed', duration: 30, carry: false, parallel: false, noCal: false, alarm: null }, catsFromForm()));
+      $$('#tpls-list [data-t=name]').slice(-1)[0].focus();
+      setDirty(true);
+    } else if (action === 'del-tpl') {
+      btn.closest('.tpl-row').remove();
       setDirty(true);
     } else if (action === 'add-cat') {
       $('#cats-list').insertAdjacentHTML('beforeend', catRowHtml({ id: newId(), name: '', work: false }));

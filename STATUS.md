@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.14.1** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.15.0** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -142,3 +142,6 @@ Fini quand : export .ics ajouté à Calendrier depuis la feuille de partage ; ra
 
 ## Lot 8 : présence au travail (0.14.0) — livré, à valider sur appareil
 Carte « Présence au travail » dans l'onglet Jour : boutons « Je suis arrivé », « Pause », « Reprise », « Je pars », saisie manuelle de l'arrivée, du départ et des pauses, heure de départ conseillée (pour atteindre 7 h 42). La présence est un chrono à part, en parallèle des activités. À valider : le calcul (présence + travail hors présence, sans double comptage) et la pause.
+
+## Lot 9 : tâches habituelles (0.15.0) — livré, à valider sur appareil
+Réglages > « Tâches habituelles » : modèles (nom, catégorie, heure, durée, à reporter, parallèle, ne pas exporter, rappel). Menu « Modèle » en haut du formulaire de création d'un bloc ponctuel : choisir un modèle préremplit les champs, tout reste modifiable. Les blocs ponctuels ont désormais aussi « en parallèle » et « ne pas exporter ».
