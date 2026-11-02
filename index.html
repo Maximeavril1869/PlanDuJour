@@ -94,8 +94,9 @@ input[aria-invalid=true] { border-color: var(--err); }
 .tpl-row { border-top: 1px solid var(--line); padding: 10px 0 4px; position: relative; }
 .tpl-row:first-child { border-top: 0; }
 .tpl-row .wide { grid-column: 1 / -1; }
-.tpl-row .field.wide:first-child { padding-right: 52px; }
 .tpl-row .del { position: absolute; right: 0; top: 2px; }
+.tpl-row .rowfold > summary { padding-right: 52px; }
+.tplgroup { margin: 14px 0 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .tpl-row .chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
 .tpl-row .err { margin-bottom: 6px; }
 #bp-edit .act-row { border-top: 0; padding-top: 0; }
@@ -301,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.15.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.15.3';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -985,6 +986,7 @@ function profSummaryHtml(r) {
 function updateSummary(row) {
   const sum = row && $('.rowfold > summary', row);
   if (!sum) return;
+  if (row.classList.contains('tpl-row')) { sum.innerHTML = tplSummaryHtml({ name: $('[data-t=name]', row).value, cat: $('[data-t=cat]', row).value, mode: $('[data-t=mode]', row).value, duration: $('[data-t=duration]', row).value }, catsFromForm()); return; }
   sum.innerHTML = row.classList.contains('prof-row') ? profSummaryHtml(readProfRaw(row)) : actSummaryHtml(readActRaw(row));
 }
 function foldStart(id, summaryHtml) {
@@ -1001,9 +1003,25 @@ function syncCatOptions() {
   $$('#tpls-list select[data-t=cat]').forEach((sel) => { const v = sel.value; sel.innerHTML = catOptionsHtml(cats, v); sel.value = cats.some((c) => c.id === v) ? v : ''; });
   $$('#acts-list select[data-a=cat]').forEach((sel) => { const v = sel.value; sel.innerHTML = catOptionsHtml(cats, v); sel.value = cats.some((c) => c.id === v) ? v : ''; });
 }
+function tplSummaryHtml(t, cats) {
+  const cat = (cats || []).find((c) => c.id === t.cat);
+  return '<span class="sumtxt"><strong>' + esc((t.name || '').trim() || 'Nouvelle tâche') + '</strong><small>' + esc((cat ? cat.name + ' · ' : '') + (t.mode === 'free' ? 'sans heure' : formatDuration(Math.max(1, Number(t.duration) || 0)))) + '</small></span>';
+}
+// Tâches habituelles triées par catégorie (ordre des catégories, « sans catégorie » en dernier) puis par nom ; un titre par catégorie.
+function tplListHtml(list, cats) {
+  const rank = (t) => { const i = cats.findIndex((c) => c.id === t.cat); return i < 0 ? 1e6 : i; };
+  const sorted = list.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+  let html = '', last = null;
+  sorted.forEach((t) => {
+    const r = rank(t);
+    if (r !== last) { const c = cats[r]; html += '<h3 class="tplgroup">' + esc(c ? c.name : 'Sans catégorie') + '</h3>'; last = r; }
+    html += tplRowHtml(t, cats);
+  });
+  return html;
+}
 function tplRowHtml(t, cats) {
   const alarm = t.alarm === null || t.alarm === undefined ? '' : String(t.alarm);
-  return '<div class="tpl-row" data-id="' + esc(t.id) + '"><div class="rowgrid">' +
+  return '<div class="tpl-row" data-id="' + esc(t.id) + '">' + foldStart(t.id, tplSummaryHtml(t, cats)) +
     '<label class="field wide"><span class="lbl">Nom</span><input type="text" maxlength="40" data-t="name" value="' + esc(t.name) + '"></label>' +
     '<label class="field wide"><span class="lbl">Catégorie</span><select data-t="cat">' + catOptionsHtml(cats, t.cat) + '</select></label>' +
     '<label class="field wide"><span class="lbl">Heure</span><select data-t="mode">' + Object.keys(MODES).map((m) => '<option value="' + m + '"' + (t.mode === m ? ' selected' : '') + '>' + MODES[m] + '</option>').join('') + '</select></label>' +
@@ -1013,7 +1031,7 @@ function tplRowHtml(t, cats) {
     '<label class="field wide chk"><input type="checkbox" data-t="carry"' + (t.carry ? ' checked' : '') + '> À reporter</label>' +
     '<label class="field wide chk"><input type="checkbox" data-t="parallel"' + (t.parallel ? ' checked' : '') + '> On peut faire autre chose pendant</label>' +
     '<label class="field wide chk"><input type="checkbox" data-t="noCal"' + (t.noCal ? ' checked' : '') + '> Ne pas exporter vers Calendrier</label>' +
-    '</div><button type="button" class="icon-btn del" data-action="del-tpl" aria-label="Supprimer ce modèle">✕</button><span class="err wide" hidden></span></div>';
+    '</div></details><button type="button" class="icon-btn del" data-action="del-tpl" aria-label="Supprimer ce modèle">✕</button><span class="err wide" hidden></span></div>';
 }
 function catRowHtml(c) {
   return '<div class="cat-row" data-id="' + esc(c.id) + '"><input type="text" maxlength="30" data-k="name" placeholder="Nom de la catégorie" value="' + esc(c.name) + '">' +
@@ -1239,7 +1257,7 @@ function renderForm(s) {
       '<button type="button" class="btn" data-action="add-act">+ Ajouter une activité</button></details>' +
     '<details class="card fold" data-fid="card-tpl"' + (foldClosed.has('card-tpl') ? '' : ' open') + '><summary><h2>Tâches habituelles</h2></summary>' +
       '<p class="help">Tes tâches du quotidien. Elles apparaissent dans le menu « Modèle » quand tu crées un bloc ponctuel, avec leur catégorie, leur durée et leurs options déjà remplies.</p>' +
-      '<div id="tpls-list">' + (s.templates || []).map((t) => tplRowHtml(t, s.categories)).join('') + '</div>' +
+      '<div id="tpls-list">' + tplListHtml(s.templates || [], s.categories) + '</div>' +
       '<button type="button" class="btn" data-action="add-tpl">+ Ajouter une tâche habituelle</button></details>' +
     '<details class="card fold" data-fid="card-cal"' + (foldClosed.has('card-cal') ? '' : ' open') + '><summary><h2>Calendrier</h2></summary><div data-nodirty>' +
       '<p class="help">Vers Calendrier : génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier » (les événements se mettent à jour si tu réexportes).</p>' +
@@ -2346,7 +2364,7 @@ function bindEvents() {
     else if (nv) { recapDate = addDays(recapDate, Number(nv.dataset.recapNav)); renderRecap(current, loadStatus); }
   });
 
-  form.addEventListener('input', (e) => { if (e.target.id === 'import-file' || (e.target.closest && e.target.closest('[data-nodirty]'))) return; if (e.target.closest && e.target.closest('#cats-list')) syncCatOptions(); setDirty(true); updateSummary(e.target.closest && e.target.closest('.act-row')); });
+  form.addEventListener('input', (e) => { if (e.target.id === 'import-file' || (e.target.closest && e.target.closest('[data-nodirty]'))) return; if (e.target.closest && e.target.closest('#cats-list')) syncCatOptions(); setDirty(true); updateSummary(e.target.closest && (e.target.closest('.act-row') || e.target.closest('.tpl-row'))); });
   form.addEventListener('toggle', (e) => {                 // mémorise ce qui est plié ou déplié
     const d = e.target, id = d.dataset && d.dataset.fid;
     if (!id) return;
@@ -2424,7 +2442,8 @@ function bindEvents() {
       names[names.length - 1].focus();
       setDirty(true);
     } else if (action === 'add-tpl') {
-      $('#tpls-list').insertAdjacentHTML('beforeend', tplRowHtml({ id: newId(), name: '', cat: null, mode: 'fixed', duration: 30, confirm: false, carry: false, parallel: false, noCal: false, alarm: null }, catsFromForm()));
+      const ntid = newId(); openRows.add(ntid);
+      $('#tpls-list').insertAdjacentHTML('beforeend', tplRowHtml({ id: ntid, name: '', cat: null, mode: 'fixed', duration: 30, confirm: false, carry: false, parallel: false, noCal: false, alarm: null }, catsFromForm()));
       $$('#tpls-list [data-t=name]').slice(-1)[0].focus();
       setDirty(true);
     } else if (action === 'del-tpl') {

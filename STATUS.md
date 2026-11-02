@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.15.2** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.15.3** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -151,3 +151,6 @@ Champ « Rechercher une tâche » en haut de l'onglet Jour : liste toutes les oc
 
 ## 0.15.2 — correctif : activité sans heure à sous-activités — livré, à valider sur appareil
 Une fois une sous-activité terminée, l'activité passait en « faite » et sa liste de sous-activités disparaissait de l'onglet Jour (les temps restaient enregistrés). Elle reste maintenant dans la carte « Sans heure », avec le temps déjà fait, pour enchaîner la suivante.
+
+## 0.15.3 — tâches habituelles repliables et triées — livré, à valider sur appareil
+Chaque tâche habituelle est repliée au départ (nom, catégorie et durée dans le résumé) ; la liste est triée par catégorie (ordre des catégories, « sans catégorie » en dernier) puis par nom, avec un titre par catégorie. Le tri s'applique à l'ouverture et à l'enregistrement, pas pendant la saisie.

@@ -218,3 +218,5 @@ Mise à jour 0.14.1 : le Récap a deux modes. « Semaine réelle » (défaut) : 
 Mise à jour 0.15.1 : recherche de tâche (`searchTasks`, onglet Jour) sans accent ni casse, 2 lettres minimum, 80 résultats affichés au plus, à venir d'abord puis passé récent d'abord ; les jours passés sans données enregistrées ne sont pas listés (seuls les jours enregistrés comptent). Les modèles portent `confirm`. Test : test_lot18.js.
 
 Mise à jour 0.15.2 : un bloc « sans heure » à sous-activités dont le chrono est arrêté (état `done` dérivé de ses segments) reste listé dans `build.reopen` et s'affiche dans la carte « Sans heure » avec ses boutons de sous-activités et le temps fait ; il apparaît aussi dans la frise. Test : test_lot19.js.
+
+Mise à jour 0.15.3 : les lignes de tâches habituelles utilisent le même repli que les activités (`foldStart`, `openRows`, résumé mis à jour à la saisie). Tri par `tplListHtml` : ordre des catégories puis nom (`localeCompare` fr), seulement au rendu du formulaire (ouverture, enregistrement) ; une ligne ajoutée reste en bas et ouverte jusqu'à l'enregistrement. Test : test_lot20.js.
