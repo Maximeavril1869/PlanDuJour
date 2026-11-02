@@ -18,6 +18,7 @@ Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le
 
 | Fichier | Vérifie |
 |---|---|
+| `test_reinitialisation.py` | Réinitialisation : confirmation par mot, réglages vierges, effacement des jours et des copies, rechargement, ajout d'un bloc dans l'app vierge |
 | `test_pliage.py` | Cartes repliables fermées au départ (Réglages, page du jour : Présence, Sans heure, Revue du jour), dépliage au tap et conservation de l'état |
 | `test_calendrier.py` | Démarrage sans erreur, export vers Calendrier (codes, exclusions), lecture des lignes et des `.ics`, import (mise à jour par code, par date de création, doublons, calendrier dédié), conservation du lien dans l'éditeur |
 

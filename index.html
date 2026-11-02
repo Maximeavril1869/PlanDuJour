@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.18.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.19.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -434,6 +434,23 @@ function defaultSettings() {
       makeAct('act-menage', 'Ménage', [1, 4], 'flex', 'duration', 1050, 30, true),                   // 17:30, à régler, à confirmer
       makeAct('act-concentration', 'Concentration', [1, 2, 3, 4, 5], 'free', 'duration', null, 90)   // sans heure
     ]
+  };
+}
+// Réglages vierges (réinitialisation) : aucune activité, catégorie, tâche habituelle ni titre ignoré ; un seul profil « Journée » à heures libres ; aucun congé.
+// La cible de travail doit rester un nombre valide : elle garde la valeur de départ.
+function blankSettings() {
+  return {
+    version: DATA_VERSION,
+    wake: 345,
+    bedtime: 1320,        // valeurs de secours internes, sans effet : le profil est à heures libres
+    profiles: [makeProfile('prof-journee', 'Journée', null, null, [1, 2, 3, 4, 5, 6, 7], [])],
+    leave: makeLeave([], null, null, [], null, null),
+    categories: [],
+    templates: [],
+    calIgnore: [],
+    workTarget: WORK_TARGET,
+    relaxFloor: 30,
+    activities: []
   };
 }
 function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {}, presence: null }; }
@@ -1302,12 +1319,14 @@ function renderForm(s) {
       '<div class="btnrow"><button type="button" class="btn primary" data-action="export">Exporter mes données</button>' +
       '<button type="button" class="btn" data-action="import">Importer un fichier…</button></div>' +
       '<input type="file" id="import-file" accept="application/json,.json" hidden><div id="import-box"></div></div>' +
-    '<div class="foot"><button type="button" class="btn danger" data-action="reset">Rétablir les valeurs de départ</button>' +
+    '<div class="foot"><button type="button" class="btn danger" data-action="reset">Réinitialiser…</button><div id="reset-box" data-nodirty></div>' +
       '<div>Plan du jour · version ' + APP_VERSION + '</div><div>Données stockées uniquement sur cet appareil.</div></div>';
   renderImportBox();
+  renderResetBox();
 }
 
 let pendingImport = null;   // fichier lu et validé, en attente de choix
+let resetOpen = false;      // panneau de réinitialisation affiché (mémoire seulement)
 let recapMode = 'reel';   // 'reel' : semaine réelle (profil, congés, blocs ponctuels de chaque date) ; 'type' : semaine type
 let recapDate = null;    // un jour de la semaine réelle affichée
 let recapDay = 1;   // jour de semaine affiché dans le récapitulatif
@@ -2029,6 +2048,52 @@ function renderImportBox() {
     '<button type="button" class="btn" data-action="imp-settings">Remplacer les réglages seulement (garder mes jours)</button>' +
     '<button type="button" class="btn" data-action="imp-cancel">Annuler</button></div></div>';
 }
+// ---- Réinitialisation : tout effacer (réglages vierges + jours) ou seulement les jours ; définitive, sans copie de sécurité ----
+const RESET_WORD = 'EFFACER';
+function renderResetBox() {
+  const box = $('#reset-box');
+  if (!box) return;
+  if (!resetOpen) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="imp"><strong>Réinitialisation</strong>' +
+    '<p class="help" style="margin:4px 0 8px">Définitif : aucune copie de sécurité n’est gardée. Pense à « Exporter mes données » avant. Les modifications non enregistrées de Réglages seront perdues.</p>' +
+    '<label class="field wide chk"><input type="radio" name="reset-mode" value="all" checked> Tout effacer : réglages vierges (aucune activité, catégorie ni tâche habituelle, un seul profil « Journée » à heures libres) et tous les jours</label>' +
+    '<label class="field wide chk"><input type="radio" name="reset-mode" value="days"> Effacer seulement les jours (heures réelles, blocs ponctuels, sous-tâches, présence), en gardant mes réglages</label>' +
+    '<label class="field"><span class="lbl">Pour confirmer, tape ' + RESET_WORD + '</span><input type="text" id="reset-word" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>' +
+    '<p class="help" id="reset-err" role="alert" style="color:var(--danger,#b42318)" hidden></p>' +
+    '<div class="btnrow"><button type="button" class="btn danger" data-action="reset-go">Réinitialiser</button>' +
+    '<button type="button" class="btn" data-action="reset-cancel">Annuler</button></div></div>';
+}
+function doReset(mode) {
+  const all = mode === 'all';
+  try {                                                   // anciennes copies de sécurité effacées aussi : rien ne doit subsister
+    window.localStorage.removeItem(DAYS_KEY + '.sauvegarde');
+    window.localStorage.removeItem('plandujour.avant-import.jours');
+    if (all) window.localStorage.removeItem('plandujour.avant-import.reglages');
+  } catch (e) { /* ignoré */ }
+  const fresh = emptyDays();
+  if (!saveDays(fresh)) { showToast('Réinitialisation impossible sur cet appareil', 'err'); return; }
+  if (all) {
+    const blank = blankSettings();
+    if (!saveSettings(blank)) { showToast('Réinitialisation impossible sur cet appareil', 'err'); return; }
+    current = blank;
+    loadStatus = 'ok';
+    openRows.clear();
+  }
+  daysData = fresh;
+  pendingImport = null;
+  resetOpen = false;
+  closePanel();
+  closePick();
+  reviewOpen = null;
+  searchQ = '';
+  selectedDate = dateKey(new Date());
+  recapDate = selectedDate;
+  recapDay = isoWeekday(selectedDate);
+  if (all) { renderForm(current); setDirty(false); } else renderResetBox();
+  renderRecap(current, loadStatus);
+  renderDay();
+  showToast(all ? 'Application réinitialisée' : 'Jours effacés');
+}
 function applyImport(mode) {
   const p = pendingImport;
   if (!p) return;
@@ -2575,10 +2640,22 @@ function bindEvents() {
       row.remove();
       setDirty(true);
     } else if (action === 'reset') {
-      if (window.confirm('Remplacer les champs par les valeurs de départ ? Rien ne sera enregistré avant que tu appuies sur « Enregistrer ».')) {
-        renderForm(defaultSettings());
-        setDirty(true);
+      resetOpen = true;
+      renderResetBox();
+      const w = $('#reset-word');
+      if (w) { w.scrollIntoView({ block: 'center' }); w.focus(); }
+    } else if (action === 'reset-cancel') {
+      resetOpen = false;
+      renderResetBox();
+    } else if (action === 'reset-go') {
+      const word = $('#reset-word'), err = $('#reset-err'), pick = $('input[name=reset-mode]:checked', form);
+      if (!word || word.value.trim().toUpperCase() !== RESET_WORD) {
+        err.textContent = 'Tape ' + RESET_WORD + ' dans le champ pour confirmer : rien n’a été effacé.';
+        err.hidden = false;
+        if (word) word.focus();
+        return;
       }
+      doReset(pick ? pick.value : 'all');
     }
   });
 
