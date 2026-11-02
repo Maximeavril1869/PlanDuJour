@@ -6,7 +6,8 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.18.0**, poussée sur GitHub Pages (à valider sur appareil, raccourci iOS à modifier).
+- Version **0.18.1**, poussée sur GitHub Pages (à valider sur appareil, raccourci iOS à modifier).
+- Calendrier, en suspens : le fichier `.ics` s'ouvre en aperçu sans option d'ajout sur l'iPhone ; hypothèse = ancien fichier dont les événements sont déjà dans le calendrier. Réponses attendues : message affiché après l'export, Notes d'un événement de l'aperçu, contenu de « Titres à ignorer », où apparaissent les doublons de trains. Raccourci à corriger (variables prises sur la liste au lieu de l'élément de répétition).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - À faire : lot 5 bis (chrono sur les sous-tâches du jour).
 - Corrigé en 0.17.2 : les rendez-vous importés du calendrier ne sont plus réexportés. Livré en 0.18.0 : codes d'événements pour la mise à jour réciproque. Reste à tester sur l'iPhone (voir 2 novembre, session de reprise).
@@ -26,7 +27,8 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - À faire par l'utilisateur : modifier le raccourci (calendrier, date de création `yyyyMMddHHmmss`, notes) et vérifier sur l'iPhone que la date de création est renseignée et stable.
 
 ### Commits du jour
-- **0.18.0** : codes d'événements et mise à jour à l'import (voir ci-dessus).
+- **0.18.1** : toutes les cartes repliables fermées au départ (Présence au travail, Sans heure devenue repliable avec son compteur, Revue du jour même pour un jour passé). `tests/test_pliage.py`, 10 vérifications.
+- `ff029ae` **0.18.0** : codes d'événements et mise à jour à l'import (voir ci-dessus).
 - `8875ba4` **0.17.2** : rendez-vous importés marqués et jamais réexportés.
 - `f1715cf` Documentation : carnet de bord et architecture du projet.
 - `94d6e2b` **0.14.0** : présence au travail (chrono parallèle, pauses, départ conseillé).

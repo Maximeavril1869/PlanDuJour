@@ -245,3 +245,6 @@ Champ additif `fromCal` sur les blocs ponctuels (`false` par défaut, pas de cha
 - **Limites connues** : un événement créé dans le calendrier n'est jamais réécrit par l'app (il n'est pas exporté) ; un événement modifié des deux côtés prend la valeur du dernier import ; une occurrence d'activité modifiée dans le calendrier n'est pas reprise.
 - Champ additif `calKey` (14 chiffres ou `null`) sur les blocs ponctuels, pas de changement de version des jours.
 - Tests : `tests/test_calendrier.py` (navigateur automatisé, voir `tests/README.md`).
+
+## 32. Cartes repliées au départ (0.18.1)
+Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglages (`foldClosed`, `openRows`) et page du jour (`presOpen`, `sansOpen`, `reviewOpen` valent `false` au départ). La carte « Sans heure » de la page du jour est un `<details class="card fold" data-fid="card-sansheure">` dont le titre porte le nombre de tâches. La « Revue du jour » est aussi repliée pour un jour passé : ce point remplace la règle « ouverte d'office pour un jour passé » du §15. L'état déplié vit en mémoire seulement (survit aux réaffichages, pas à la fermeture de l'app). Test : `tests/test_pliage.py`.

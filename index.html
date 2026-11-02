@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.18.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.18.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1417,7 +1417,7 @@ function fromLabel(k) { return DAY_SHORT[isoWeekday(k)] + ' ' + k.slice(8, 10) +
 function plural(n, one, many) { return n + ' ' + (n > 1 ? many : one); }
 
 // ---- Revue du jour : reporter ou abandonner ce qui n'a pas été fait ----
-let reviewOpen = null;     // null = ouverte d'office pour un jour passé ; sinon choix de l'utilisateur
+let reviewOpen = null;     // null ou false = repliée (aussi pour un jour passé) ; true = dépliée par l'utilisateur
 let reviewPick = null;     // clé du bloc dont on choisit le jour de report
 let reviewError = '';
 function reviewStatusText(r) {
@@ -1434,7 +1434,7 @@ function reviewDoneText(it) {
 function reviewHtml(build, today) {
   if (selectedDate > today || (!build.review.length && !build.reviewed.length)) return '';
   const past = selectedDate < today;
-  const open = reviewOpen === null ? past : reviewOpen;
+  const open = reviewOpen === true;
   const next = past ? 'Jour suivant' : 'Demain';
   let html = '<div class="card"><button type="button" class="rv-head" data-action="rv-toggle" aria-expanded="' + open + '"><span><strong>Revue du jour</strong> · ' +
     (build.review.length ? build.review.length + ' à voir' : 'tout est traité') + '</span><span aria-hidden="true">' + (open ? '▴' : '▾') + '</span></button>';
@@ -1575,11 +1575,12 @@ function renderDay() {
   }
   head += pickHtml(build) + reviewHtml(build, dateKey(new Date()));
   if (build.pending.length || build.reopen.length) {
-    head += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + build.pending.concat(build.reopen).map((it) =>
+    const sansList = build.pending.concat(build.reopen);
+    head += '<details class="card fold" data-fid="card-sansheure"' + (sansOpen ? ' open' : '') + '><summary><h2>Sans heure · ' + sansList.length + '</h2></summary><ul class="rows">' + sansList.map((it) =>
       '<li><span>' + esc(it.name) + ' <span class="v">' + (it.state === 'done' ? '· ' + formatDuration(it.segs.reduce((t, g) => t + (g.end !== null ? g.end - g.start : 0), 0)) + ' faites' : '') + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
       (it.children.length ? (dayNow() !== null ? '<div class="kidbtns">' + it.children.map((c) => '<button type="button" class="btn small" data-action="child-go" data-key="' + esc(it.key) + '" data-cid="' + esc(c.id) + '">▶ ' + esc(c.name) + '</button>').join('') + '</div>' : '<small class="kids">' + it.children.map((c) => esc(c.name)).join(' · ') + '</small>') : '') + '</span><span>' +
       (dayNow() !== null && !it.children.length ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
-      '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul></div>';
+      '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>').join('') + '</ul></details>';
   }
   if (build.warnings.length) head += '<div class="banner warn"><strong>À vérifier</strong><ul>' + build.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
   if (build.missed.length) {
@@ -1730,7 +1731,8 @@ let current = null;     // réglages enregistrés (ou valeurs de départ)
 let loadStatus = 'empty';
 let dirty = false;
 let daysData = emptyDays();   // heures réelles et blocs ponctuels, par date
-let presOpen = true;           // carte « Présence au travail » dépliée (mémoire seulement)
+let presOpen = false;          // carte « Présence au travail » dépliée (mémoire seulement ; repliée au départ)
+let sansOpen = false;          // carte « Sans heure » de la page du jour dépliée (mémoire seulement ; repliée au départ)
 let selectedDate = null;      // « AAAA-MM-JJ » du jour affiché
 let panelKey = null;          // clé du bloc ouvert dans le panneau ; null = nouveau bloc ponctuel
 let panelOpen = false;
@@ -2310,7 +2312,7 @@ function bindDayEvents() {
         if (it) { ensureDay().real[it.key] = { start: it.start, end: it.end }; persistDays(); renderDay(); }
       } else if (a === 'confirm-missed') { ensureDay().real[act.dataset.key] = { start: null, end: null, missed: true }; persistDays(); renderDay(); }
       else if (a === 'unmiss') { const k = act.dataset.key; undoReview(k); delete ensureDay().real[k]; persistDays(); renderDay(); }
-      else if (a === 'rv-toggle') { const today = dateKey(new Date()); reviewOpen = !(reviewOpen === null ? selectedDate < today : reviewOpen); renderDay(); }
+      else if (a === 'rv-toggle') { const today = dateKey(new Date()); reviewOpen = !(reviewOpen === true); renderDay(); }
       else if (a === 'rv-pick') { reviewPick = act.dataset.key; reviewError = ''; renderDay(); const d = $('#rv-date'); if (d) d.scrollIntoView({ block: 'center' }); }
       else if (a === 'rv-cancel') { closePick(); renderDay(); }
       else if (a === 'rv-carry' || a === 'rv-go') {
@@ -2378,7 +2380,10 @@ function bindDayEvents() {
   panel.addEventListener('input', (e) => {
     if (e.target.id === 'day-search') { searchQ = e.target.value; $('#day-search-res').innerHTML = searchResultsHtml(); }
   });
-  panel.addEventListener('toggle', (e) => { if (e.target.dataset && e.target.dataset.fid === 'card-pres') presOpen = e.target.open; }, true);
+  panel.addEventListener('toggle', (e) => {
+    const f = e.target.dataset && e.target.dataset.fid;
+    if (f === 'card-pres') presOpen = e.target.open; else if (f === 'card-sansheure') sansOpen = e.target.open;
+  }, true);
   panel.addEventListener('change', (e) => {
     if (e.target.dataset && e.target.dataset.pres && ['start', 'end'].includes(e.target.dataset.pres)) { presenceEdit(e.target.dataset.pres, e.target.value); return; }
     if (e.target.id === 'day-profile') {
