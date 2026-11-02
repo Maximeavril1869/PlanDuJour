@@ -80,19 +80,25 @@ def test_export(browser):
     d = day_offset(pg, 1)
     res = pg.evaluate("""(d) => {
       const P = window.PDJ, s = P.defaultSettings(), day = P.emptyDay();
-      const mk = (id, name, st, fromCal) => ({ id, name, mode: 'fixed', entry: 'duration', start: st, duration: 60, confirm: false, carry: false, cat: null, alarm: null, parallel: false, noCal: false, fromCal });
-      day.ponctuels = [mk('idA', 'Venu cal', 600, true), mk('idB', 'Cree app', 720, false)];
+      const mk = (id, name, st, fromCal, alarm) => ({ id, name, mode: 'fixed', entry: 'duration', start: st, duration: 60, confirm: false, carry: false, cat: null, alarm: alarm, parallel: false, noCal: false, fromCal });
+      day.ponctuels = [mk('idA', 'Venu cal', 600, true, 10), mk('idB', 'Cree app', 720, false, 10), mk('idC', 'Sans rappel', 800, false, null), mk('idD', 'Rappel heure', 900, false, 0)];
+      s.activities.forEach((a) => { a.days = [1, 2, 3, 4, 5, 6, 7]; a.alarm = null; });    // aucune activité n'a de rappel...
+      s.activities.find((a) => a.id === 'act-sax').alarm = 5;                              // ...sauf le saxophone
       const ev = P.calendarEvents({ [d]: day }, s, d, d, 'plan');
       return { ev: ev, ics: P.buildIcs(ev) };
     }""", d)
     titles = [e['title'] for e in res['ev']]
-    check('un rendez-vous venu du calendrier n’est pas exporté', 'Venu cal' not in titles, titles)
-    check('un bloc créé dans l’app est exporté', 'Cree app' in titles)
+    check('un rendez-vous venu du calendrier n’est pas exporté, même avec un rappel', 'Venu cal' not in titles, titles)
+    check('un bloc avec rappel est exporté', 'Cree app' in titles)
+    check('un rappel « à l’heure » (0 minute) compte', 'Rappel heure' in titles)
+    check('un bloc sans rappel n’est pas exporté', 'Sans rappel' not in titles, titles)
+    check('seuls les blocs avec rappel sortent (une activité sans rappel reste chez elle)', sorted(titles) == ['Cree app', 'Rappel heure', 'Saxophone'], titles)
     mine = [e for e in res['ev'] if e['title'] == 'Cree app'][0]
     check('le bloc ponctuel a un UID et un code sans date', mine['uid'] == 'pdj-p-idB' and mine['code'] == 'PDJ-p-idB', mine)
     check('le code part dans les Notes (DESCRIPTION) du .ics', 'DESCRIPTION:PDJ-p-idB' in res['ics'])
-    others = [e for e in res['ev'] if e['title'] != 'Cree app']
-    check('les occurrences d’activités portent un code PDJ-a avec leur jour', all(e['code'].startswith('PDJ-a-') and e['code'].endswith(d) for e in others), others)
+    check('le rappel part dans le .ics', 'TRIGGER:-PT10M' in res['ics'] and 'TRIGGER:PT0S' in res['ics'])
+    others = [e for e in res['ev'] if e['title'] == 'Saxophone']
+    check('l’occurrence d’activité porte un code PDJ-a avec son jour', all(e['code'].startswith('PDJ-a-') and e['code'].endswith(d) for e in others), others)
     pg.close()
 
 

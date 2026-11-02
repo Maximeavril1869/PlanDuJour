@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.19.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.19.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1094,7 +1094,7 @@ function actRowHtml(r, opts) {
   let html = '<div class="act-row" data-id="' + esc(r.id) + '" data-mode="' + r.mode + '"' + (fold ? ' data-fold="1"' : '') + '>' + (fold ? foldStart(r.id, actSummaryHtml(r)) : '') +
     '<label class="field wide' + (opts.del && !fold ? ' first' : '') + '"><span class="lbl">Nom</span><input type="text" maxlength="40" data-a="name" value="' + esc(r.name) + '"></label>' +
     '<label class="field wide"><span class="lbl">Catégorie</span><select data-a="cat">' + catOptionsHtml(opts.cats || (current && current.categories) || [], r.cat) + '</select></label>' +
-    '<label class="field wide"><span class="lbl">Rappel dans Calendrier (à l’export)</span><select data-a="alarm"><option value="">Aucun</option>' + ALARMS.map((m) => '<option value="' + m + '"' + (String(r.alarm) === String(m) ? ' selected' : '') + '>' + (m === 0 ? 'À l’heure' : (m === 60 ? '1 h avant' : m + ' min avant')) + '</option>').join('') + '</select></label>' +
+    '<label class="field wide"><span class="lbl">Rappel dans Calendrier (seuls les blocs avec rappel sont exportés)</span><select data-a="alarm"><option value="">Aucun</option>' + ALARMS.map((m) => '<option value="' + m + '"' + (String(r.alarm) === String(m) ? ' selected' : '') + '>' + (m === 0 ? 'À l’heure' : (m === 60 ? '1 h avant' : m + ' min avant')) + '</option>').join('') + '</select></label>' +
     '<label class="field wide"><span class="lbl">Heure</span><select data-a="mode">' + modeOptions + '</select></label>' +
     '<label class="field timed wide"><span class="lbl">Saisie</span><select data-a="entry">' + entryOptions + '</select></label>' +
     '<label class="field timed"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-a="start" value="' + esc(r.start) + '"></label>' +
@@ -1306,7 +1306,7 @@ function renderForm(s) {
       '<div id="tpls-list">' + tplListHtml(s.templates || [], s.categories) + '</div>' +
       '<button type="button" class="btn" data-action="add-tpl">+ Ajouter une tâche habituelle</button></details>' +
     '<details class="card fold" data-fid="card-cal"' + (foldClosed.has('card-cal') ? '' : ' open') + '><summary><h2>Calendrier</h2></summary><div data-nodirty>' +
-      '<p class="help">Vers Calendrier : génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier » (les événements se mettent à jour si tu réexportes).</p>' +
+      '<p class="help">Vers Calendrier : n’exporte que les blocs pour lesquels tu as réglé un « Rappel dans Calendrier » (dans l’activité ou le bloc ponctuel). Génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier ».</p>' +
       '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="tomorrow">Demain</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
       '<button type="button" class="btn primary" data-action="cal-export">Exporter vers Calendrier</button>' +
       '<p class="help" style="margin-top:14px">Depuis Calendrier : un raccourci iOS copie tes rendez-vous (une ligne chacun : <code>2026-11-02 09:00 10:30 Titre</code>), puis tu les colles ici. Les doublons sont ignorés.</p>' +
@@ -1861,6 +1861,7 @@ function calendarEvents(daysMap, settings, from, to, mode) {
     const b = buildDay(settings, daysMap[k] || emptyDay(), isoWeekday(k), null, k < today, k);
     b.placed.forEach((it) => {
       if (it.noCal || it.fromCal) return;          // trajets exclus, et rendez-vous venus du calendrier
+      if (mode !== 'real' && !Number.isInteger(it.alarm)) return;   // seuls les blocs avec un rappel sont exportés
       const cat = catName(it.cat);
       if (mode === 'real') {
         if (it.segs.length) {
@@ -1974,7 +1975,7 @@ async function doCalExport() {
   const per = $('#cal-period').value, today = dateKey(new Date());
   const from = addDays(today, 1), to = per === 'week' ? addDays(today, 7) : from;   // jamais le jour même : on exporte le plan des jours suivants
   const events = calendarEvents(daysData.days, current, from, to, 'plan');
-  if (!events.length) { showToast('Rien à exporter sur cette période', 'err'); return; }
+  if (!events.length) { showToast('Aucun bloc avec rappel sur cette période : règle un « Rappel dans Calendrier » sur un bloc', 'err'); return; }
   const text = buildIcs(events), name = 'plandujour-' + from + (to !== from ? '_' + to : '') + '.ics';
   try {                                                   // feuille de partage : « Calendrier » propose d'ajouter les événements
     const file = new File([text], name, { type: 'text/calendar' });

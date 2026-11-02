@@ -131,7 +131,7 @@ flowchart TD
 | Flux | Sens | Format | Détail |
 |---|---|---|---|
 | Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » |
-| Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-p-<id>` ou `pdj-<date>-<clé>`, code dans les Notes) | Jours suivants seulement ; blocs `noCal` et `fromCal` exclus ; rappels `VALARM` ; à ajouter dans un calendrier dédié « Plan du jour » |
+| Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-p-<id>` ou `pdj-<date>-<clé>`, code dans les Notes) | Jours suivants seulement ; **seulement les blocs avec rappel** ; blocs `noCal` et `fromCal` exclus ; rappels `VALARM` ; à ajouter dans un calendrier dédié « Plan du jour » |
 | Import de rendez-vous | Calendrier → app | texte `AAAA-MM-JJ HH:MM HH:MM Titre \| Calendrier \| AAAAMMJJHHMMSS \| Notes` (raccourci iOS, presse-papiers) ou `.ics` | Reconnaît par code (Notes) puis par date de création (`calKey`) et met à jour ; sinon ajoute des blocs ponctuels marqués `fromCal` ; titres de `calIgnore` ignorés ; doublon exact évité |
 
 ```mermaid
