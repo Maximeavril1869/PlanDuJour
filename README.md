@@ -9,3 +9,8 @@ Petite app (PWA) de plan du jour pour iPhone et iPad : des contraintes saisies u
 - Tests automatiques : [tests/README.md](tests/README.md)
 
 Ce dépôt ne contient que du code, jamais de données saisies.
+
+
+## Licence
+
+Tous droits réservés © Maximeavril1869. Code publié pour consultation uniquement ; toute réutilisation exige l'autorisation écrite de l'auteur. Voir le fichier `LICENSE`.
