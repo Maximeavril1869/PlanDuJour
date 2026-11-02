@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.15.5** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
+Version actuelle : **0.16.0** (lots 1 à 4, profils de journée à heures libres et congé) (lots 1 à 3, option « à reporter » et profils de journée). Règles de travail : voir `CONVENTIONS.md`.
 
 ## Lots
 
@@ -160,3 +160,6 @@ Catégories triées de A à Z. Activités groupées par catégorie (un titre par
 
 ## 0.15.5 — un bloc par sous-activité dans la frise — livré, à valider sur appareil
 Une activité à sous-activités n'est plus affichée comme une seule plage du premier au dernier chrono : chaque temps chronométré a son propre créneau (« Concentration · Dossier A »). Les alertes de chevauchement et le temps disponible se calculent sur ces créneaux, donc plus de fausse alerte quand une autre tâche a eu lieu entre deux sous-activités.
+
+## 0.16.0 — Récap par sous-tâche, présence et blocs fixes dans les Stats — livré, à valider sur appareil
+Récap : un créneau par temps chronométré (« Concentration · Dossier A »), et les noms des sous-tâches sous l'activité (semaine type, activités sans heure). Stats : un bloc à heure fixe passé, sans « à confirmer », ni raté ni reporté, est compté à sa durée prévue même sans chrono (rendez-vous, trajets), donc les catégories comme « Perso » apparaissent ; carte « Présence au travail » (temps net, en parallèle, non ajouté aux totaux par activité). À valider : le comptage automatique des trajets et rendez-vous (marquer « Raté » ce qui n'a pas eu lieu).

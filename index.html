@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.15.5';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.16.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -867,6 +867,19 @@ function timeEntries(daysMap, settings, from, to) {
       out.push({ date: k, key: key, name: name, cat: cat, child: null, minutes: r.end - r.start, start: r.start, end: r.end });
     });
   });
+  // Avancement de la journée : un bloc à heure fixe, passé, sans « à confirmer », ni raté ni reporté, compte à sa durée prévue même sans chrono.
+  const keys = Object.keys(daysMap).sort(), todayK = dateKey(new Date()), nowM = nowMinutes();
+  if (keys.length) {
+    const first = keys[0] < todayK ? keys[0] : todayK;
+    for (let k = from > first ? from : first; k <= to && k <= todayK; k = addDays(k, 1)) {
+      const d = daysMap[k] || emptyDay(), isToday = k === todayK;
+      const b = buildDay(settings, d, isoWeekday(k), isToday ? nowM : null, !isToday, k);
+      b.placed.forEach((it) => {
+        if (it.mode !== 'fixed' || it.confirm || it.state !== 'planned' || it.review || (isToday && it.end > nowM)) return;
+        out.push({ date: k, key: it.key, name: it.name, cat: it.cat, child: null, minutes: it.end - it.start, start: it.start, end: it.end, auto: true });
+      });
+    }
+  }
   return out;
 }
 // Statistiques : temps réel par nom d'activité (avec le détail par sous-activité) et par catégorie.
@@ -889,7 +902,10 @@ function statsFor(daysMap, settings, from, to) {
   }).sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
   const cats = Object.keys(ctot).map((id) => { const c = catList.find((x) => x.id === id); return { id: id, name: c ? c.name : 'Sans catégorie', work: !!(c && c.work), minutes: ctot[id] }; })
     .sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
-  return { rows: rows, cats: cats, total: rows.reduce((t, r) => t + r.minutes, 0), daysUsed: Object.keys(dates).length };
+  let presence = 0;
+  const todayK = dateKey(new Date());
+  Object.keys(daysMap).forEach((k) => { if (k >= from && k <= to) presence += presenceNet(daysMap[k].presence, k === todayK ? nowMinutes() : null); });
+  return { rows: rows, cats: cats, presence: presence, total: rows.reduce((t, r) => t + r.minutes, 0), daysUsed: Object.keys(dates).length };
 }
 // Suivi du temps de travail : minutes travaillées (catégories marquées « travail ») jour par jour, face à la cible (lundi–vendredi, hors congé).
 function workReport(daysMap, settings, from, to, today, nowMin) {
@@ -1327,9 +1343,11 @@ function renderRecap(s, status) {
   if (b.warnings.length) html += '<div class="banner warn"><strong>À vérifier</strong><ul>' + b.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
   const entries = [];
   if (b.profile.wake !== null) entries.push({ at: b.profile.wake - 0.5, html: '<li class="mark"><span class="t">' + formatTime(b.profile.wake) + '</span><span class="dot"></span><span class="what">Lever</span></li>' });
-  b.placed.forEach((it) => {
-    entries.push({ at: it.start, html: '<li><span class="t">' + formatTime(it.start) + '–' + formatTime(it.end) + '</span><span class="dot"></span><span class="what">' + esc(it.name) + ' <span class="v">(' + formatDuration(it.end - it.start) + ')</span>' +
-      '<small>' + MODE_TAG[it.mode] + '</small></span></li>' });
+  b.spans.forEach((sp) => {
+    const it = sp.owner, kid = sp.seg ? it.children.find((c) => c.id === sp.seg.cid) : null;
+    const names = !sp.seg && it.children.length ? '<small>' + esc(it.children.map((c) => c.name).join(' · ')) + '</small>' : '';
+    entries.push({ at: sp.start, html: '<li><span class="t">' + formatTime(sp.start) + '–' + formatTime(sp.end) + '</span><span class="dot"></span><span class="what">' + esc(it.name + (kid ? ' · ' + kid.name : '')) + ' <span class="v">(' + formatDuration(sp.end - sp.start) + ')</span>' +
+      names + '<small>' + MODE_TAG[it.mode] + '</small></span></li>' });
   });
   b.gaps.forEach((g) => {
     entries.push({ at: g.from + 0.1, html: '<li class="gapli"><span class="t">' + formatDuration(g.minutes) + '</span><span class="dot"></span><span class="what">disponible' + (g.last ? ' avant le coucher' : '') + '</span></li>' });
@@ -1340,7 +1358,7 @@ function renderRecap(s, status) {
     (b.placed.length ? '' : '<p class="help">Aucune activité ce jour-là.</p>') + '</div>';
   if (b.pending.length) {
     html += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + b.pending.map((it) =>
-      '<li><span>' + esc(it.name) + '</span></li>').join('') + '</ul></div>';
+      '<li><span>' + esc(it.name) + (it.children.length ? '<small class="kids">' + esc(it.children.map((c) => c.name).join(' · ')) + '</small>' : '') + '</span></li>').join('') + '</ul></div>';
   }
   $('#panel-recap').innerHTML = html;
 }
@@ -1381,6 +1399,9 @@ function renderStats() {
     html += '<div class="card"><h2>Par catégorie</h2><ul class="rows">' + st.cats.map((c) => '<li class="strow"><div class="stline"><span>' + esc(c.name) + (c.work ? ' <span class="v">· travail</span>' : '') + '</span><strong>' + formatDuration(c.minutes) + '</strong></div>' +
       '<div class="bar"><span style="width:' + Math.max(2, Math.round(c.minutes / cmax * 100)) + '%"></span></div></li>').join('') + '</ul></div>';
   }
+  if (st.presence > 0) {
+    html += '<div class="card"><h2>Présence au travail <span class="v">· ' + formatDuration(st.presence) + '</span></h2><p class="help" style="margin:0">Temps net (pauses retirées), en parallèle des activités : il compte dans « Travail » ci-dessus sans s’ajouter aux totaux par activité.</p></div>';
+  }
   if (!st.rows.length) {
     html += '<div class="card"><p class="help" style="margin:0">Aucune heure réelle sur cette période. Les heures viennent du chrono ou des heures réelles saisies sur la page du jour.</p></div>';
   } else {
@@ -1388,7 +1409,7 @@ function renderStats() {
       st.rows.map((r) => '<li class="strow"><div class="stline"><span>' + esc(r.name) + '</span><strong>' + formatDuration(r.minutes) + '</strong></div>' +
         (r.children.length ? '<ul class="stsub">' + r.children.map((c) => '<li><span>' + esc(c.name) + '</span><span>' + formatDuration(c.minutes) + '</span></li>').join('') + '</ul>' : '') +
         '<div class="bar"><span style="width:' + Math.max(2, Math.round(r.minutes / max * 100)) + '%"></span></div></li>').join('') + '</ul>' +
-      '<p class="help" style="margin:10px 0 0">Un bloc en cours n’est compté qu’une fois arrêté. Les blocs ratés ne comptent pas. Regroupement par nom d’activité.</p></div>';
+      '<p class="help" style="margin:10px 0 0">Un bloc en cours n’est compté qu’une fois arrêté. Un bloc à heure fixe passé, sans « à confirmer », compte à sa durée prévue même sans chrono (marque-le « Raté » s’il n’a pas eu lieu). Les blocs ratés ne comptent pas. Regroupement par nom d’activité.</p></div>';
   }
   $('#panel-stats').innerHTML = html;
 }
@@ -1544,7 +1565,7 @@ function renderDay() {
   const wrk = workReport(daysData.days, current, selectedDate, selectedDate, selectedDate, dayNow()), wd1 = wrk.days[0];
   head += presenceHtml(wd1);
   if (wrk.enabled && (wd1.target > 0 || wd1.minutes > 0)) {
-    head += '<div class="workbar' + (wd1.target && wd1.minutes > wd1.target ? ' over' : '') + '"><span>Travail du jour<small>' + (dayNow() !== null && (daysData.days[selectedDate] || {}).presence && !daysData.days[selectedDate].presence.end ? 'présence en cours incluse' : 'temps terminés seulement') + '</small></span><strong>' + formatDuration(wd1.minutes) +
+    head += '<div class="workbar' + (wd1.target && wd1.minutes > wd1.target ? ' over' : '') + '"><span>Travail du jour<small>' + (dayNow() !== null && (daysData.days[selectedDate] || {}).presence && !daysData.days[selectedDate].presence.end ? 'présence en cours incluse' : 'temps terminés et blocs à heure fixe passés') + '</small></span><strong>' + formatDuration(wd1.minutes) +
       (wd1.target ? ' / ' + formatDuration(wd1.target) : '') + '</strong></div>' +
       (wd1.target ? '<p class="hours-help" style="margin:0 0 6px">' + (wd1.minutes >= wd1.target ? 'Cible atteinte (' + signed(wd1.minutes - wd1.target) + ').' : 'Il reste ' + formatDuration(wd1.target - wd1.minutes) + '.') + '</p>' : '<p class="hours-help" style="margin:0 0 6px">Jour sans cible : tout est du hors-horaires.</p>');
   }
