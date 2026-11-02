@@ -131,8 +131,19 @@ flowchart TD
 | Flux | Sens | Format | Détail |
 |---|---|---|---|
 | Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » |
-| Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-<date>-<clé>`) | Jours suivants seulement ; blocs `noCal` et `fromCal` exclus ; rappels `VALARM` ; à ajouter dans un calendrier dédié « Plan du jour » |
-| Import de rendez-vous | Calendrier → app | texte `AAAA-MM-JJ HH:MM HH:MM Titre` (raccourci iOS, presse-papiers) ou `.ics` | Crée des blocs ponctuels à heure fixe marqués `fromCal` ; titres de `calIgnore` ignorés ; doublon = même titre, début, durée |
+| Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-p-<id>` ou `pdj-<date>-<clé>`, code dans les Notes) | Jours suivants seulement ; blocs `noCal` et `fromCal` exclus ; rappels `VALARM` ; à ajouter dans un calendrier dédié « Plan du jour » |
+| Import de rendez-vous | Calendrier → app | texte `AAAA-MM-JJ HH:MM HH:MM Titre \| Calendrier \| AAAAMMJJHHMMSS \| Notes` (raccourci iOS, presse-papiers) ou `.ics` | Reconnaît par code (Notes) puis par date de création (`calKey`) et met à jour ; sinon ajoute des blocs ponctuels marqués `fromCal` ; titres de `calIgnore` ignorés ; doublon exact évité |
+
+```mermaid
+flowchart LR
+  A[Bloc ponctuel de l'app<br/>id stable] -->|export .ics<br/>code PDJ-p-id dans les Notes| C[(Calendrier<br/>« Plan du jour »)]
+  C -->|raccourci : titre, heures,<br/>calendrier, création, notes| I[importCalendarEvents]
+  X[Événement créé dans<br/>le calendrier] -->|même raccourci| I
+  I -->|code PDJ-p| U[mise à jour du bloc]
+  I -->|date de création unique| U
+  I -->|nouveau| N[ajout, fromCal]
+  I -->|PDJ-a ou calendrier dédié sans code| S[ignoré]
+```
 
 Aucune donnée n'est envoyée à un serveur : GitHub ne reçoit que le code.
 
@@ -142,4 +153,4 @@ GitHub Pages, branche `main`, racine du dépôt, chemins relatifs. Le service wo
 
 ## 9. Tests
 
-Les notes de lot citent des fichiers `test_lot*.js` (navigateur automatisé) qui ne sont **pas** dans le dépôt : ils vivent hors de GitHub. À confirmer avec le propriétaire.
+Dossier `tests/` : vérifications en navigateur automatisé (Chromium piloté par Python et Playwright), voir `tests/README.md`. Les anciens `test_lot*.js` cités dans `STATUS.md` et `CONVENTIONS.md` ne sont pas dans le dépôt (perdus avec les sessions précédentes) ; les nouveaux tests les remplacent un domaine à la fois.

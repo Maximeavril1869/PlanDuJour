@@ -175,3 +175,8 @@ La carte « Sans heure » reste dans la semaine type (rappel de ce qui est prév
 
 ## 0.17.2 — Calendrier : les rendez-vous importés ne sont plus réexportés — livré, à valider sur appareil
 Les rendez-vous importés depuis le calendrier sont marqués « Vient de mon calendrier » et ne partent plus jamais à l'export. La case existe dans l'éditeur d'un bloc ponctuel, pour marquer à la main ceux importés avant cette version. Usage prévu : exporter dans un calendrier dédié « Plan du jour » (choisi à l'ajout) que le raccourci d'import ne lit pas. Point ouvert : un code unique par événement pour la mise à jour réciproque (voir CARNET.md).
+
+## 0.18.0 — Calendrier : codes pour retrouver un événement après un changement — livré, à valider sur appareil
+Fini quand : (1) ce que l'app exporte porte un code dans le champ Notes (`PDJ-p-<id>` pour un bloc ponctuel, `PDJ-a-<activité>-<jour>` pour une occurrence d'activité) ; si tu changes l'heure, le jour ou le nom d'un bloc exporté dans Calendrier, l'import suivant le **met à jour** dans l'app au lieu de créer un doublon ; (2) ce qui vient du calendrier est retrouvé par sa **date de création**, si le raccourci la renvoie ; (3) les événements du calendrier dédié « Plan du jour » sans code sont ignorés.
+Le raccourci iOS « Plan du jour RDV » doit être modifié pour renvoyer calendrier, date de création et notes (voir CONVENTIONS §31). Tests : `tests/test_calendrier.py` (33 vérifications).
+À valider sur l'iPhone : que « Date de création » est bien renseignée pour un événement du calendrier et ne change pas quand on le modifie ; que rouvrir un `.ics` de même code dans le calendrier « Plan du jour » met l'événement à jour au lieu de le dupliquer.

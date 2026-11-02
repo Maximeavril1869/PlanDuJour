@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.17.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.18.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -653,7 +653,7 @@ function cleanPonctuel(p) {
     id: typeof p.id === 'string' ? p.id : newId(), name: p.name.trim().slice(0, 40), mode: mode, entry: p.entry === 'end' ? 'end' : 'duration',
     start: mode === 'free' ? null : p.start, duration: mode === 'free' ? 1 : Math.min(p.duration, 1440 - p.start),
     confirm: mode !== 'free' && p.confirm === true,
-    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null, alarm: cleanAlarm(p.alarm), parallel: p.parallel === true, noCal: p.noCal === true, fromCal: p.fromCal === true,
+    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null, alarm: cleanAlarm(p.alarm), parallel: p.parallel === true, noCal: p.noCal === true, fromCal: p.fromCal === true, calKey: typeof p.calKey === 'string' && /^\d{14}$/.test(p.calKey) ? p.calKey : null,
     from: isDateKey(p.from) ? p.from : null          // jour d'origine d'un bloc reporté
   };
 }
@@ -766,7 +766,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, noCal: a.noCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
-    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, parallel: p.parallel === true, noCal: p.noCal === true, fromCal: p.fromCal === true, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
+    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, parallel: p.parallel === true, noCal: p.noCal === true, fromCal: p.fromCal === true, calKey: p.calKey || null, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
   });
   const timed = [];
   items.forEach((it) => {
@@ -1852,7 +1852,9 @@ function calendarEvents(daysMap, settings, from, to, mode) {
         }
         if (it.state !== 'done') return;
       }
-      out.push({ uid: 'pdj-' + k + '-' + it.key, date: k, start: it.start, end: it.end, title: it.name, cat: cat, alarm: it.alarm === undefined ? null : it.alarm });
+      // Code unique : un bloc ponctuel garde le même code quel que soit son jour (il peut donc être retrouvé s'il change de jour, d'heure ou de nom) ; une occurrence d'activité porte son jour.
+      const isP = it.kind === 'p';
+      out.push({ uid: isP ? 'pdj-p-' + it.id : 'pdj-' + k + '-' + it.key, code: isP ? 'PDJ-p-' + it.id : 'PDJ-a-' + it.id + '-' + k, date: k, start: it.start, end: it.end, title: it.name, cat: cat, alarm: it.alarm === undefined ? null : it.alarm });
     });
   }
   return out;
@@ -1863,6 +1865,7 @@ function buildIcs(events) {
   events.forEach((e) => {
     lines.push('BEGIN:VEVENT', 'UID:' + e.uid + '@plandujour', 'DTSTAMP:' + stamp, 'DTSTART:' + icsStamp(e.date, e.start), 'DTEND:' + icsStamp(e.date, e.end), 'SUMMARY:' + icsEscape(e.title));
     if (e.cat) lines.push('CATEGORIES:' + icsEscape(e.cat));
+    if (e.code) lines.push('DESCRIPTION:' + icsEscape(e.code));            // devient le champ « Notes » de l'événement
     if (Number.isInteger(e.alarm)) lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEscape(e.title), 'TRIGGER:' + (e.alarm === 0 ? 'PT0S' : '-PT' + e.alarm + 'M'), 'END:VALARM');
     lines.push('END:VEVENT');
   });
@@ -1877,28 +1880,74 @@ function parseCalendarText(text) {
       const get = (n) => { const m = block.match(new RegExp('^' + n + '[^:\\r\\n]*:(.*)$', 'm')); return m ? m[1].trim() : null; };
       const when = (v) => { const m = v && v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})/); return m ? { date: m[1] + '-' + m[2] + '-' + m[3], min: Number(m[4]) * 60 + Number(m[5]) } : null; };
       const a = when(get('DTSTART')), b = when(get('DTEND')), title = get('SUMMARY');
-      if (a && b && title && a.date === b.date && b.min > a.min) events.push({ date: a.date, start: a.min, end: b.min, title: title.replace(/\\([,;])/g, '$1').replace(/\\n/g, ' ').slice(0, 40) });
+      const cm = block.match(/PDJ-[pa]-[A-Za-z0-9_-]+/), cr = (get('CREATED') || '').replace(/\D/g, '');
+      if (a && b && title && a.date === b.date && b.min > a.min) events.push({ date: a.date, start: a.min, end: b.min, title: title.replace(/\\([,;])/g, '$1').replace(/\\n/g, ' ').slice(0, 40), cal: null, created: cr.length === 14 ? cr : null, code: cm ? cm[0] : null });
     });
     return events;
   }
+  // Ligne : « AAAA-MM-JJ HH:MM HH:MM Titre », puis facultativement « | Calendrier | AAAAMMJJHHMMSS (date de création) | Notes » (le raccourci iOS).
   t.split(/\r?\n/).forEach((line) => {
     const m = line.trim().match(/^(\d{4}-\d{2}-\d{2})[ ;|T]+(\d{1,2})[:h](\d{2})[ ;|\-–]+(\d{1,2})[:h](\d{2})[ ;|]+(.+)$/);
     if (!m) return;
     const st = Number(m[2]) * 60 + Number(m[3]), en = Number(m[4]) * 60 + Number(m[5]);
-    if (isDateKey(m[1]) && isMinute(st) && isMinute(en) && en > st) events.push({ date: m[1], start: st, end: en, title: m[6].trim().slice(0, 40) });
+    const parts = m[6].split(/\s\|\s/), notes = parts.slice(3).join(' | ');
+    const cm = notes.match(/PDJ-[pa]-[A-Za-z0-9_-]+/), cr = (parts[2] || '').replace(/\D/g, '');
+    if (isDateKey(m[1]) && isMinute(st) && isMinute(en) && en > st) events.push({ date: m[1], start: st, end: en, title: parts[0].trim().slice(0, 40), cal: parts[1] ? parts[1].trim() : null, created: cr.length === 14 ? cr : null, code: cm ? cm[0] : null });
   });
   return events;
 }
+const CAL_APP_NAME = 'Plan du jour';            // calendrier dédié aux événements exportés par l'app
+function matchPonctuels(pred) {                  // tous les blocs ponctuels qui répondent : [{ date, day, i, p }]
+  const out = [];
+  Object.keys(daysData.days).forEach((d) => { const day = daysData.days[d]; day.ponctuels.forEach((p, i) => { if (pred(p)) out.push({ date: d, day: day, i: i, p: p }); }); });
+  return out;
+}
+// Remplace un bloc ponctuel par sa version mise à jour, en le changeant de jour si besoin (heures réelles et sous-tâches le suivent).
+function movePonctuel(hit, newDate, merged) {
+  if (newDate === hit.date) { hit.day.ponctuels[hit.i] = merged; return; }
+  hit.day.ponctuels.splice(hit.i, 1);
+  const dst = daysData.days[newDate] || (daysData.days[newDate] = emptyDay());
+  dst.ponctuels.push(merged);
+  const key = 'p:' + merged.id;
+  ['real', 'subtasks'].forEach((f) => { if (hit.day[f] && hit.day[f][key] !== undefined) { dst[f][key] = hit.day[f][key]; delete hit.day[f][key]; } });
+}
+// Importe des rendez-vous. Ordre de reconnaissance : 1) code PDJ dans les Notes (ce que l'app a exporté) ; 2) date de création (ce qui vient du calendrier), si elle est unique dans le lot ;
+// 3) doublon exact (jour, titre, début, durée). Un événement reconnu est mis à jour (titre, jour, heures) au lieu d'être ajouté en double.
 function importCalendarEvents(events) {
-  let added = 0, skipped = 0;
+  let added = 0, updated = 0, skipped = 0, byCode = 0, byCreated = 0, linked = 0;
+  const createdCount = {};
+  events.forEach((ev) => { if (ev.created) createdCount[ev.created] = (createdCount[ev.created] || 0) + 1; });
+  const apply = (hit, ev) => {                    // vrai si le bloc a changé
+    const p = hit.p, dur = ev.end - ev.start;
+    if (p.name === ev.title && hit.date === ev.date && p.start === ev.start && p.duration === dur) return false;
+    const merged = cleanPonctuel(Object.assign({}, p, { name: ev.title, start: ev.start, duration: dur }));
+    if (!merged) return false;
+    movePonctuel(hit, ev.date, merged);
+    return true;
+  };
   events.forEach((ev) => {
+    const dur = ev.end - ev.start;
+    const cm = ev.code ? ev.code.match(/^PDJ-([pa])-(.+)$/) : null;
+    if (cm && cm[1] === 'a') { skipped++; return; }                       // occurrence d'activité exportée par l'app : déjà chez soi
+    if (cm && cm[1] === 'p') {
+      const hits = matchPonctuels((x) => x.id === cm[2]);
+      if (hits.length === 1) { byCode++; if (apply(hits[0], ev)) updated++; else skipped++; } else skipped++;   // bloc supprimé dans l'app : on ne le recrée pas
+      return;
+    }
+    if (ev.cal && ev.cal.trim().toLowerCase() === CAL_APP_NAME.toLowerCase()) { skipped++; return; }          // calendrier dédié, sans code (ancien export)
+    const key = ev.created && createdCount[ev.created] === 1 ? ev.created : null;   // date de création jamais partagée avec un autre événement du lot
+    if (key) {
+      const hits = matchPonctuels((x) => x.calKey === key);
+      if (hits.length === 1) { byCreated++; if (apply(hits[0], ev)) updated++; else skipped++; return; }
+    }
     const day = daysData.days[ev.date] || (daysData.days[ev.date] = emptyDay());
-    if (day.ponctuels.some((p) => p.name === ev.title && p.start === ev.start && p.duration === ev.end - ev.start)) { skipped++; return; }   // déjà importé
-    const p = cleanPonctuel({ id: newId(), name: ev.title, mode: 'fixed', entry: 'end', start: ev.start, duration: ev.end - ev.start, confirm: false, carry: false, cat: null, from: null, fromCal: true });   // marqué : jamais réexporté
+    const dup = day.ponctuels.find((p) => p.name === ev.title && p.start === ev.start && p.duration === dur);
+    if (dup) { if (key && !dup.calKey) { dup.calKey = key; linked++; } skipped++; return; }               // déjà importé ; on lui attache la date de création pour le retrouver plus tard
+    const p = cleanPonctuel({ id: newId(), name: ev.title, mode: 'fixed', entry: 'end', start: ev.start, duration: dur, confirm: false, carry: false, cat: null, from: null, fromCal: true, calKey: key });   // marqué : jamais réexporté
     if (p) { day.ponctuels.push(p); added++; } else skipped++;
   });
-  if (added) persistDays();
-  return { added: added, skipped: skipped };
+  if (added || updated || linked) persistDays();
+  return { added: added, updated: updated, skipped: skipped, byCode: byCode, byCreated: byCreated, linked: linked };
 }
 async function doCalExport() {
   const per = $('#cal-period').value, today = dateKey(new Date());
@@ -1925,8 +1974,9 @@ function doCalImport() {
   if (!events.length && all.length) { out.textContent = plural(all.length, 'événement ignoré', 'événements ignorés') + ' (titres ignorés : ' + (current.calIgnore || []).join(', ') + ').'; return; }
   if (!events.length) { out.textContent = 'Aucun rendez-vous reconnu. Format attendu par ligne : 2026-11-02 09:00 10:30 Titre'; return; }
   const r = importCalendarEvents(events);
-  out.textContent = plural(r.added, 'rendez-vous ajouté', 'rendez-vous ajoutés') + (r.skipped ? ' · ' + plural(r.skipped, 'déjà présent ou ignoré', 'déjà présents ou ignorés') : '') + (all.length > events.length ? ' · ' + plural(all.length - events.length, 'événement ignoré', 'événements ignorés') + ' par titre' : '') + '.';
-  if (r.added) { box.value = ''; renderDay(); }
+  out.textContent = plural(r.added, 'rendez-vous ajouté', 'rendez-vous ajoutés') + (r.updated ? ' · ' + plural(r.updated, 'rendez-vous mis à jour', 'rendez-vous mis à jour') : '') + (r.skipped ? ' · ' + plural(r.skipped, 'déjà présent ou ignoré', 'déjà présents ou ignorés') : '') + (all.length > events.length ? ' · ' + plural(all.length - events.length, 'événement ignoré', 'événements ignorés') + ' par titre' : '') +
+    (r.byCode || r.byCreated ? ' · reconnus : ' + r.byCode + ' par code, ' + r.byCreated + ' par date de création' : '') + (r.linked ? ' · ' + plural(r.linked, 'relié à sa date de création', 'reliés à leur date de création') : '') + '.';
+  if (r.added || r.updated) { box.value = ''; renderDay(); }
 }
 async function doCalPaste() {
   try { $('#cal-text').value = await navigator.clipboard.readText(); doCalImport(); }
@@ -2221,7 +2271,7 @@ function savePanel() {
   const day = ensureDay();
   let key = panelKey;
   if (isP && edited) {
-    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, alarm: edited.alarm, parallel: edited.parallel, noCal: edited.noCal, fromCal: edited.fromCal, from: it ? it.from : null };
+    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, alarm: edited.alarm, parallel: edited.parallel, noCal: edited.noCal, fromCal: edited.fromCal, calKey: it ? it.calKey : null, from: it ? it.from : null };
     if (!it) { day.ponctuels.push(p); key = 'p:' + p.id; }
     else { const i = day.ponctuels.findIndex((x) => 'p:' + x.id === panelKey); if (i >= 0) day.ponctuels[i] = p; }
   }

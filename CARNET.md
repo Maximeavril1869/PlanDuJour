@@ -6,10 +6,10 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.17.2**, déployée sur GitHub Pages.
+- Version **0.18.0**, poussée sur GitHub Pages (à valider sur appareil, raccourci iOS à modifier).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - À faire : lot 5 bis (chrono sur les sous-tâches du jour).
-- Corrigé en 0.17.2 : les rendez-vous importés du calendrier ne sont plus réexportés. Reste ouvert : un code unique par événement pour la mise à jour réciproque (voir 2 novembre, session de reprise).
+- Corrigé en 0.17.2 : les rendez-vous importés du calendrier ne sont plus réexportés. Livré en 0.18.0 : codes d'événements pour la mise à jour réciproque. Reste à tester sur l'iPhone (voir 2 novembre, session de reprise).
 
 ## 2 novembre 2026
 
@@ -20,10 +20,14 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Correction demandée : les rendez-vous importés du calendrier sont réexportés vers le calendrier, et ce que l'app exporte peut être réimporté (deux sens du même problème).
 - Décisions de l'utilisateur : case « Vient de mon calendrier » validée ; l'export ira dans un nouveau calendrier dédié « Plan du jour » (à créer sur l'iPhone) que le raccourci d'import ne lira pas ; questions sur les retours de test et le nettoyage de `STATUS.md` abandonnées.
 - **0.17.2** : champ `fromCal` sur les blocs ponctuels, posé à l'import, exclu de l'export, case dans l'éditeur du bloc. Vérifié en navigateur automatisé : import marqué, marque conservée après rechargement, export sans les rendez-vous importés, case cochée puis décochée.
-- Question en cours : un code unique par événement pour retrouver un rendez-vous malgré un changement d'heure ou de nom (dépend de ce que le raccourci iOS peut lire).
+- Question posée : un code unique par événement, pour retrouver un rendez-vous malgré un changement d'heure ou de nom. L'utilisateur a envoyé deux captures : Raccourcis ne fournit **aucun identifiant d'événement** (détails disponibles : titre, dates, calendrier, notes, URL, date de création…). Il a aussi envoyé son raccourci « Plan du jour RDV » : recherche des événements des 7 prochains jours, texte `date début / heure début / heure fin / titre`, copie dans le presse-papiers.
+- Décisions : principe « code dans les Notes pour ce que l'app exporte, date de création pour ce qui vient du calendrier » à essayer ; dossier `tests/` accepté. L'utilisateur ne connaissait pas les `test_lot*.js` : ils ont sans doute été perdus avec les sessions précédentes.
+- **0.18.0** : export avec code dans les Notes et UID stable des blocs ponctuels ; import qui reconnaît par code, puis par date de création (`calKey`, seulement si unique), et met à jour au lieu de dupliquer ; calendrier « Plan du jour » sans code ignoré ; `tests/test_calendrier.py` (33 vérifications, toutes passées).
+- À faire par l'utilisateur : modifier le raccourci (calendrier, date de création `yyyyMMddHHmmss`, notes) et vérifier sur l'iPhone que la date de création est renseignée et stable.
 
 ### Commits du jour
-- **0.17.2** : rendez-vous importés marqués et jamais réexportés (voir ci-dessus).
+- **0.18.0** : codes d'événements et mise à jour à l'import (voir ci-dessus).
+- `8875ba4` **0.17.2** : rendez-vous importés marqués et jamais réexportés.
 - `f1715cf` Documentation : carnet de bord et architecture du projet.
 - `94d6e2b` **0.14.0** : présence au travail (chrono parallèle, pauses, départ conseillé).
 - `26dd854` **0.14.1** : Récap en semaine réelle ou semaine type.
