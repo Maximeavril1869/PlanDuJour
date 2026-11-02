@@ -302,7 +302,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.19.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.20.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -345,8 +345,6 @@ const DEFAULT_CATS = [{ id: 'cat-travail', name: 'Travail', work: true }, { id: 
 const DEFAULT_ACT_CAT = { 'act-trajet-aller': 'cat-trajets', 'act-trajet-retour': 'cat-trajets', 'act-cours-sax': 'cat-musique', 'act-orchestre': 'cat-musique',
   'act-sax': 'cat-musique', 'act-menage': 'cat-maison', 'act-concentration': 'cat-travail' };
 const DEFAULT_PARALLEL = ['act-trajet-aller', 'act-trajet-retour'];   // on peut travailler pendant un trajet : pas d'alerte de chevauchement
-const DEFAULT_NOCAL = ['act-trajet-aller', 'act-trajet-retour'];   // déjà dans le calendrier (événement « Train ») : pas d'export
-const DEFAULT_CAL_IGNORE = ['Train'];                                  // titres du calendrier ignorés à l'import
 const ALARMS = [0, 5, 10, 15, 30, 60];   // rappels exportés vers Calendrier : minutes avant le début (0 = à l'heure)
 const cleanAlarm = (v) => (Number.isInteger(v) && ALARMS.includes(v) ? v : null);
 const WORK_TARGET = 462;   // 7 h 42 par jour, du lundi au vendredi
@@ -359,11 +357,11 @@ function cleanCats(list) {
   });
   return out.sort(byName);
 }
-function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel, noCal, alarm) {
+function makeAct(id, name, days, mode, entry, start, duration, confirm, carry, children, cat, parallel, toCal, alarm) {
   return { id: id, name: name, days: days, mode: mode, entry: entry, start: start, duration: mode === 'free' ? 1 : duration, confirm: confirm === true,
     carry: carry === undefined ? DEFAULT_CARRY.includes(id) : carry === true, children: Array.isArray(children) ? children : [],
     cat: cat === undefined ? (DEFAULT_ACT_CAT[id] || null) : cat, parallel: parallel === undefined ? DEFAULT_PARALLEL.includes(id) : parallel === true,
-    noCal: noCal === undefined ? DEFAULT_NOCAL.includes(id) : noCal === true, alarm: cleanAlarm(alarm) };
+    toCal: toCal === true, alarm: cleanAlarm(alarm) };
 }
 // Sous-activités permanentes d'une activité (lot 5) : { id, name }.
 function cleanChildren(list) {
@@ -422,7 +420,6 @@ function defaultSettings() {
     leave: defaultLeave(345, 1320),
     categories: cleanCats(DEFAULT_CATS),
     templates: [],
-    calIgnore: DEFAULT_CAL_IGNORE.slice(),
     workTarget: WORK_TARGET,
     relaxFloor: 30,       // détente minimale avant le coucher, à valider
     activities: [
@@ -447,7 +444,6 @@ function blankSettings() {
     leave: makeLeave([], null, null, [], null, null),
     categories: [],
     templates: [],
-    calIgnore: [],
     workTarget: WORK_TARGET,
     relaxFloor: 30,
     activities: []
@@ -505,7 +501,7 @@ function sanitizeActs(list, fallback) {
       children: cleanChildren(a.children),
       cat: a.cat === undefined ? (DEFAULT_ACT_CAT[a.id] || null) : (typeof a.cat === 'string' ? a.cat : null),
       parallel: a.parallel === undefined ? DEFAULT_PARALLEL.includes(a.id) : a.parallel === true,
-      noCal: a.noCal === undefined ? DEFAULT_NOCAL.includes(a.id) : a.noCal === true,
+      toCal: a.toCal === true,
       alarm: cleanAlarm(a.alarm)
     });
   });
@@ -597,7 +593,6 @@ function sanitize(raw) {
   s.activities = sanitizeActs(raw.activities, d.activities);
   s.categories = raw.categories === undefined ? cleanCats(DEFAULT_CATS) : cleanCats(raw.categories);
   s.templates = cleanTemplates(raw.templates, s.categories);
-  s.calIgnore = Array.isArray(raw.calIgnore) ? raw.calIgnore.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim().slice(0, 40)).slice(0, 20) : DEFAULT_CAL_IGNORE.slice();
   s.workTarget = Number.isInteger(raw.workTarget) && raw.workTarget >= 1 && raw.workTarget <= 1440 ? raw.workTarget : WORK_TARGET;
   s.leave = raw.leave !== undefined ? sanitizeLeave(raw.leave, s.wake, s.bedtime) : (migrateLeave(raw.profiles, s.wake, s.bedtime) || defaultLeave(s.wake, s.bedtime));
   s.profiles = sanitizeProfiles((Array.isArray(raw.profiles) ? raw.profiles : []).filter((p) => !isOldLeave(p)), s.wake, s.bedtime);
@@ -656,7 +651,7 @@ function cleanTemplates(list, cats) {
       cat: typeof t.cat === 'string' && t.cat && (!cats || cats.some((c) => c.id === t.cat)) ? t.cat : null,
       mode: MODES[t.mode] ? t.mode : 'fixed',
       duration: Number.isInteger(t.duration) && t.duration >= 1 && t.duration <= 1440 ? t.duration : 30,
-      confirm: t.mode !== 'free' && t.confirm === true, carry: t.carry === true, parallel: t.parallel === true, noCal: t.noCal === true, alarm: cleanAlarm(t.alarm)
+      confirm: t.mode !== 'free' && t.confirm === true, carry: t.carry === true, parallel: t.parallel === true, toCal: t.toCal === true, alarm: cleanAlarm(t.alarm)
     });
   });
   return out;
@@ -670,7 +665,7 @@ function cleanPonctuel(p) {
     id: typeof p.id === 'string' ? p.id : newId(), name: p.name.trim().slice(0, 40), mode: mode, entry: p.entry === 'end' ? 'end' : 'duration',
     start: mode === 'free' ? null : p.start, duration: mode === 'free' ? 1 : Math.min(p.duration, 1440 - p.start),
     confirm: mode !== 'free' && p.confirm === true,
-    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null, alarm: cleanAlarm(p.alarm), parallel: p.parallel === true, noCal: p.noCal === true, fromCal: p.fromCal === true, calKey: typeof p.calKey === 'string' && /^\d{14}$/.test(p.calKey) ? p.calKey : null,
+    carry: p.carry === true, cat: typeof p.cat === 'string' ? p.cat : null, alarm: cleanAlarm(p.alarm), parallel: p.parallel === true, toCal: p.toCal === true,
     from: isDateKey(p.from) ? p.from : null          // jour d'origine d'un bloc reporté
   };
 }
@@ -780,10 +775,10 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], reopen: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
-    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, noCal: a.noCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
+    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, toCal: a.toCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
-    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, parallel: p.parallel === true, noCal: p.noCal === true, fromCal: p.fromCal === true, calKey: p.calKey || null, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
+    items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, parallel: p.parallel === true, toCal: p.toCal === true, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
   });
   const timed = [];
   items.forEach((it) => {
@@ -992,7 +987,7 @@ function actToRaw(a) {
   const entry = !free && a.entry === 'end' && a.start + a.duration < 1440 ? 'end' : 'duration';
   return {
     id: a.id, name: a.name, mode: a.mode, entry: entry, days: a.days || [], confirm: a.confirm === true, carry: a.carry === true,
-    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '', parallel: a.parallel === true, noCal: a.noCal === true, fromCal: a.fromCal === true, alarm: a.alarm === null || a.alarm === undefined ? '' : String(a.alarm),
+    children: (a.children || []).map((c) => ({ id: c.id, name: c.name })), cat: a.cat || '', parallel: a.parallel === true, toCal: a.toCal === true, alarm: a.alarm === null || a.alarm === undefined ? '' : String(a.alarm),
     start: free || a.start === null ? '' : formatTime(a.start),
     second: free ? '30' : (entry === 'end' ? formatTime(a.start + a.duration) : String(a.duration))
   };
@@ -1073,7 +1068,7 @@ function tplRowHtml(t, cats) {
     '<label class="field wide chk"><input type="checkbox" data-t="confirm"' + (t.confirm ? ' checked' : '') + '> À confirmer (« Fait / Raté » proposé après l’heure)</label>' +
     '<label class="field wide chk"><input type="checkbox" data-t="carry"' + (t.carry ? ' checked' : '') + '> À reporter</label>' +
     '<label class="field wide chk"><input type="checkbox" data-t="parallel"' + (t.parallel ? ' checked' : '') + '> On peut faire autre chose pendant</label>' +
-    '<label class="field wide chk"><input type="checkbox" data-t="noCal"' + (t.noCal ? ' checked' : '') + '> Ne pas exporter vers Calendrier</label>' +
+    '<label class="field wide chk"><input type="checkbox" data-t="toCal"' + (t.toCal ? ' checked' : '') + '> Exporter vers Calendrier</label>' +
     '</div></details><button type="button" class="icon-btn del" data-action="del-tpl" aria-label="Supprimer ce modèle">✕</button><span class="err wide" hidden></span></div>';
 }
 function catRowHtml(c) {
@@ -1094,7 +1089,7 @@ function actRowHtml(r, opts) {
   let html = '<div class="act-row" data-id="' + esc(r.id) + '" data-mode="' + r.mode + '"' + (fold ? ' data-fold="1"' : '') + '>' + (fold ? foldStart(r.id, actSummaryHtml(r)) : '') +
     '<label class="field wide' + (opts.del && !fold ? ' first' : '') + '"><span class="lbl">Nom</span><input type="text" maxlength="40" data-a="name" value="' + esc(r.name) + '"></label>' +
     '<label class="field wide"><span class="lbl">Catégorie</span><select data-a="cat">' + catOptionsHtml(opts.cats || (current && current.categories) || [], r.cat) + '</select></label>' +
-    '<label class="field wide"><span class="lbl">Rappel dans Calendrier (seuls les blocs avec rappel sont exportés)</span><select data-a="alarm"><option value="">Aucun</option>' + ALARMS.map((m) => '<option value="' + m + '"' + (String(r.alarm) === String(m) ? ' selected' : '') + '>' + (m === 0 ? 'À l’heure' : (m === 60 ? '1 h avant' : m + ' min avant')) + '</option>').join('') + '</select></label>' +
+    '<label class="field wide"><span class="lbl">Rappel dans Calendrier (si le bloc est exporté)</span><select data-a="alarm"><option value="">Aucun</option>' + ALARMS.map((m) => '<option value="' + m + '"' + (String(r.alarm) === String(m) ? ' selected' : '') + '>' + (m === 0 ? 'À l’heure' : (m === 60 ? '1 h avant' : m + ' min avant')) + '</option>').join('') + '</select></label>' +
     '<label class="field wide"><span class="lbl">Heure</span><select data-a="mode">' + modeOptions + '</select></label>' +
     '<label class="field timed wide"><span class="lbl">Saisie</span><select data-a="entry">' + entryOptions + '</select></label>' +
     '<label class="field timed"><span class="lbl">Début</span><input ' + TIME_ATTRS + ' data-kind="time" data-a="start" value="' + esc(r.start) + '"></label>' +
@@ -1107,11 +1102,8 @@ function actRowHtml(r, opts) {
       [1, 2, 3, 4, 5, 6, 7].map((d) => '<button type="button" class="chip" data-day="' + d + '" aria-pressed="' + r.days.includes(d) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div></div>';
   }
   if (opts.days || opts.flags) {
-    html += '<label class="field wide chk"><input type="checkbox" data-a="noCal"' + (r.noCal ? ' checked' : '') + '> Ne pas exporter vers Calendrier (déjà dans mon calendrier)</label>';
+    html += '<label class="field wide chk"><input type="checkbox" data-a="toCal"' + (r.toCal ? ' checked' : '') + '> Exporter vers Calendrier (seuls les blocs cochés sont exportés)</label>';
     html += '<label class="field wide chk"><input type="checkbox" data-a="parallel"' + (r.parallel ? ' checked' : '') + '> On peut faire autre chose pendant (pas d’alerte de chevauchement : trajet, par exemple)</label>';
-  }
-  if (opts.flags && !opts.days) {                    // bloc ponctuel seulement : l'origine du rendez-vous
-    html += '<label class="field wide chk"><input type="checkbox" data-a="fromCal"' + (r.fromCal ? ' checked' : '') + '> Vient de mon calendrier (jamais réexporté vers Calendrier)</label>';
   }
   if (opts.days) {
     html += '<div class="field wide"><span class="lbl">Sous-activités (chronométrables dans le bloc)</span><div class="childs">' + (r.children || []).map(childRowHtml).join('') + '</div>' +
@@ -1150,7 +1142,7 @@ function readActRaw(row) {
     start: $('[data-a=start]', row).value, second: $('[data-a=second]', row).value, confirm: $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked,
     days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)),
     children: $$('.child-row', row).map((c) => ({ id: c.dataset.cid, name: $('[data-c=name]', c).value })),
-    cat: $('[data-a=cat]', row).value, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), fromCal: !!($('[data-a=fromCal]', row) && $('[data-a=fromCal]', row).checked), alarm: $('[data-a=alarm]', row).value
+    cat: $('[data-a=cat]', row).value, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), toCal: !!($('[data-a=toCal]', row) && $('[data-a=toCal]', row).checked), alarm: $('[data-a=alarm]', row).value
   };
 }
 // Lit et valide une ligne d'activité ; retourne l'activité ou null (champs invalides marqués).
@@ -1183,7 +1175,7 @@ function readActRow(row, errors) {
     if (!n) flag(inp, 'Nom de la sous-activité manquant', errors); else children.push({ id: c.dataset.cid || newId(), name: n.slice(0, 40) });
   });
   if (errors.length > before) return null;
-  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), noCal: !!($('[data-a=noCal]', row) && $('[data-a=noCal]', row).checked), fromCal: !!($('[data-a=fromCal]', row) && $('[data-a=fromCal]', row).checked), alarm: $('[data-a=alarm]', row).value === '' ? null : Number($('[data-a=alarm]', row).value), days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
+  return { id: row.dataset.id || newId(), name: name, children: children, cat: $('[data-a=cat]', row).value || null, parallel: !!($('[data-a=parallel]', row) && $('[data-a=parallel]', row).checked), toCal: !!($('[data-a=toCal]', row) && $('[data-a=toCal]', row).checked), alarm: $('[data-a=alarm]', row).value === '' ? null : Number($('[data-a=alarm]', row).value), days: $$('.chip[aria-pressed=true]', row).map((c) => Number(c.dataset.day)), mode: mode, entry: entry, start: start, duration: duration,
     confirm: mode !== 'free' && $('[data-a=confirm]', row).checked, carry: $('[data-a=carry]', row).checked };
 }
 
@@ -1306,14 +1298,9 @@ function renderForm(s) {
       '<div id="tpls-list">' + tplListHtml(s.templates || [], s.categories) + '</div>' +
       '<button type="button" class="btn" data-action="add-tpl">+ Ajouter une tâche habituelle</button></details>' +
     '<details class="card fold" data-fid="card-cal"' + (foldClosed.has('card-cal') ? '' : ' open') + '><summary><h2>Calendrier</h2></summary><div data-nodirty>' +
-      '<p class="help">Vers Calendrier : n’exporte que les blocs pour lesquels tu as réglé un « Rappel dans Calendrier » (dans l’activité ou le bloc ponctuel). Génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier ».</p>' +
+      '<p class="help">N’exporte que les blocs pour lesquels tu as coché « Exporter vers Calendrier » (dans l’activité, la tâche habituelle ou le bloc ponctuel). Génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier ». Le rappel est facultatif.</p>' +
       '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="tomorrow">Demain</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
-      '<button type="button" class="btn primary" data-action="cal-export">Exporter vers Calendrier</button>' +
-      '<p class="help" style="margin-top:14px">Depuis Calendrier : un raccourci iOS copie tes rendez-vous (une ligne chacun : <code>2026-11-02 09:00 10:30 Titre</code>), puis tu les colles ici. Les doublons sont ignorés.</p>' +
-      '<div class="btnrow"><a class="btn" href="shortcuts://run-shortcut?name=Plan%20du%20jour%20RDV">1. Lancer le raccourci</a><button type="button" class="btn" data-action="cal-paste">2. Coller et importer</button></div>' +
-      '<label class="field" style="margin-top:8px"><span class="lbl">Ou colle le texte ici</span><textarea id="cal-text" rows="4" autocomplete="off" spellcheck="false" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--bg-field,transparent);color:inherit"></textarea></label>' +
-      '<button type="button" class="btn" data-action="cal-import">Importer</button><p class="help" id="cal-result" style="margin-top:8px" role="status"></p></div>' +
-      '<label class="field" style="margin-top:10px"><span class="lbl">Titres du calendrier à ignorer à l’import (séparés par des virgules)</span><input type="text" maxlength="200" data-w="calIgnore" value="' + esc((s.calIgnore || []).join(', ')) + '"></label></details>' +
+      '<button type="button" class="btn primary" data-action="cal-export">Exporter vers Calendrier</button></div></details>' +
     '<div class="card"><h2>Sauvegarde</h2>' +
       '<p class="help">Un seul fichier avec tes réglages et tous tes jours. Sert à sauvegarder, ou à passer de l’iPhone à l’iPad : enregistre-le dans Fichiers (iCloud Drive), puis importe-le sur l’autre appareil.</p>' +
       '<div class="btnrow"><button type="button" class="btn primary" data-action="export">Exporter mes données</button>' +
@@ -1728,12 +1715,11 @@ function readForm() {
     if (!nm.value.trim()) flag(nm, 'Nom manquant', errors);
     if (mode !== 'free' && (dv === null || dv < 1 || dv > 1440)) flag(du, 'Durée entre 1 et 1440 minutes', errors);
     s.templates.push({ id: row.dataset.id || newId(), name: nm.value.trim().slice(0, 40), cat: $('[data-t=cat]', row).value || null, mode: mode, duration: dv !== null && dv >= 1 && dv <= 1440 ? dv : 30,
-      confirm: $('[data-t=confirm]', row).checked, carry: $('[data-t=carry]', row).checked, parallel: $('[data-t=parallel]', row).checked, noCal: $('[data-t=noCal]', row).checked, alarm: $('[data-t=alarm]', row).value === '' ? null : Number($('[data-t=alarm]', row).value) });
+      confirm: $('[data-t=confirm]', row).checked, carry: $('[data-t=carry]', row).checked, parallel: $('[data-t=parallel]', row).checked, toCal: $('[data-t=toCal]', row).checked, alarm: $('[data-t=alarm]', row).value === '' ? null : Number($('[data-t=alarm]', row).value) });
   });
   s.categories.sort(byName);
   const wt = $('[data-w=target]', form), wtv = parseTime(wt.value);
   if (wtv === null || wtv < 1) { flag(wt, 'Durée invalide (ex. 07:42)', errors); s.workTarget = WORK_TARGET; } else s.workTarget = wtv;
-  s.calIgnore = $('[data-w=calIgnore]', form).value.split(',').map((x) => x.trim().slice(0, 40)).filter(Boolean).slice(0, 20);
   s.activities.forEach((a) => { if (a.cat && !s.categories.some((c) => c.id === a.cat)) a.cat = null; });
   s.templates.forEach((t) => { if (t.cat && !s.categories.some((c) => c.id === t.cat)) t.cat = null; });
   const actIds = s.activities.map((a) => a.id);
@@ -1850,7 +1836,7 @@ function stopNow(key) {
   renderDay();
 }
 
-// ---- Calendrier : export .ics et import de rendez-vous (lot 7) ----
+// ---- Calendrier : export .ics (lot 7) ----
 function icsEscape(t) { return String(t).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
 function icsStamp(k, m) { return k.replace(/-/g, '') + 'T' + pad2(Math.floor(m / 60)) + pad2(m % 60) + '00'; }
 // mode 'plan' : blocs placés (réels si faits, sinon prévus) ; 'real' : temps terminés seulement (un événement par sous-activité).
@@ -1860,8 +1846,7 @@ function calendarEvents(daysMap, settings, from, to, mode) {
   for (let k = from; k <= to; k = addDays(k, 1)) {
     const b = buildDay(settings, daysMap[k] || emptyDay(), isoWeekday(k), null, k < today, k);
     b.placed.forEach((it) => {
-      if (it.noCal || it.fromCal) return;          // trajets exclus, et rendez-vous venus du calendrier
-      if (mode !== 'real' && !Number.isInteger(it.alarm)) return;   // seuls les blocs avec un rappel sont exportés
+      if (!it.toCal) return;                         // seuls les blocs cochés « Exporter vers Calendrier »
       const cat = catName(it.cat);
       if (mode === 'real') {
         if (it.segs.length) {
@@ -1894,88 +1879,11 @@ function buildIcs(events) {
   lines.push('END:VCALENDAR');
   return lines.join('\r\n') + '\r\n';
 }
-// Lit des rendez-vous : lignes « 2026-11-02 09:00 10:30 Titre » (raccourci iOS) ou un fichier .ics (heures locales, sans fuseau).
-function parseCalendarText(text) {
-  const t = String(text || ''), events = [];
-  if (/BEGIN:VEVENT/.test(t)) {
-    t.replace(/\r?\n[ \t]/g, '').split('BEGIN:VEVENT').slice(1).forEach((block) => {
-      const get = (n) => { const m = block.match(new RegExp('^' + n + '[^:\\r\\n]*:(.*)$', 'm')); return m ? m[1].trim() : null; };
-      const when = (v) => { const m = v && v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})/); return m ? { date: m[1] + '-' + m[2] + '-' + m[3], min: Number(m[4]) * 60 + Number(m[5]) } : null; };
-      const a = when(get('DTSTART')), b = when(get('DTEND')), title = get('SUMMARY');
-      const cm = block.match(/PDJ-[pa]-[A-Za-z0-9_-]+/), cr = (get('CREATED') || '').replace(/\D/g, '');
-      if (a && b && title && a.date === b.date && b.min > a.min) events.push({ date: a.date, start: a.min, end: b.min, title: title.replace(/\\([,;])/g, '$1').replace(/\\n/g, ' ').slice(0, 40), cal: null, created: cr.length === 14 ? cr : null, code: cm ? cm[0] : null });
-    });
-    return events;
-  }
-  // Ligne : « AAAA-MM-JJ HH:MM HH:MM Titre », puis facultativement « | Calendrier | AAAAMMJJHHMMSS (date de création) | Notes » (le raccourci iOS).
-  t.split(/\r?\n/).forEach((line) => {
-    const m = line.trim().match(/^(\d{4}-\d{2}-\d{2})[ ;|T]+(\d{1,2})[:h](\d{2})[ ;|\-–]+(\d{1,2})[:h](\d{2})[ ;|]+(.+)$/);
-    if (!m) return;
-    const st = Number(m[2]) * 60 + Number(m[3]), en = Number(m[4]) * 60 + Number(m[5]);
-    const parts = m[6].split(/\s\|\s/), notes = parts.slice(3).join(' | ');
-    const cm = notes.match(/PDJ-[pa]-[A-Za-z0-9_-]+/), cr = (parts[2] || '').replace(/\D/g, '');
-    if (isDateKey(m[1]) && isMinute(st) && isMinute(en) && en > st) events.push({ date: m[1], start: st, end: en, title: parts[0].trim().slice(0, 40), cal: parts[1] ? parts[1].trim() : null, created: cr.length === 14 ? cr : null, code: cm ? cm[0] : null });
-  });
-  return events;
-}
-const CAL_APP_NAME = 'Plan du jour';            // calendrier dédié aux événements exportés par l'app
-function matchPonctuels(pred) {                  // tous les blocs ponctuels qui répondent : [{ date, day, i, p }]
-  const out = [];
-  Object.keys(daysData.days).forEach((d) => { const day = daysData.days[d]; day.ponctuels.forEach((p, i) => { if (pred(p)) out.push({ date: d, day: day, i: i, p: p }); }); });
-  return out;
-}
-// Remplace un bloc ponctuel par sa version mise à jour, en le changeant de jour si besoin (heures réelles et sous-tâches le suivent).
-function movePonctuel(hit, newDate, merged) {
-  if (newDate === hit.date) { hit.day.ponctuels[hit.i] = merged; return; }
-  hit.day.ponctuels.splice(hit.i, 1);
-  const dst = daysData.days[newDate] || (daysData.days[newDate] = emptyDay());
-  dst.ponctuels.push(merged);
-  const key = 'p:' + merged.id;
-  ['real', 'subtasks'].forEach((f) => { if (hit.day[f] && hit.day[f][key] !== undefined) { dst[f][key] = hit.day[f][key]; delete hit.day[f][key]; } });
-}
-// Importe des rendez-vous. Ordre de reconnaissance : 1) code PDJ dans les Notes (ce que l'app a exporté) ; 2) date de création (ce qui vient du calendrier), si elle est unique dans le lot ;
-// 3) doublon exact (jour, titre, début, durée). Un événement reconnu est mis à jour (titre, jour, heures) au lieu d'être ajouté en double.
-function importCalendarEvents(events) {
-  let added = 0, updated = 0, skipped = 0, byCode = 0, byCreated = 0, linked = 0;
-  const createdCount = {};
-  events.forEach((ev) => { if (ev.created) createdCount[ev.created] = (createdCount[ev.created] || 0) + 1; });
-  const apply = (hit, ev) => {                    // vrai si le bloc a changé
-    const p = hit.p, dur = ev.end - ev.start;
-    if (p.name === ev.title && hit.date === ev.date && p.start === ev.start && p.duration === dur) return false;
-    const merged = cleanPonctuel(Object.assign({}, p, { name: ev.title, start: ev.start, duration: dur }));
-    if (!merged) return false;
-    movePonctuel(hit, ev.date, merged);
-    return true;
-  };
-  events.forEach((ev) => {
-    const dur = ev.end - ev.start;
-    const cm = ev.code ? ev.code.match(/^PDJ-([pa])-(.+)$/) : null;
-    if (cm && cm[1] === 'a') { skipped++; return; }                       // occurrence d'activité exportée par l'app : déjà chez soi
-    if (cm && cm[1] === 'p') {
-      const hits = matchPonctuels((x) => x.id === cm[2]);
-      if (hits.length === 1) { byCode++; if (apply(hits[0], ev)) updated++; else skipped++; } else skipped++;   // bloc supprimé dans l'app : on ne le recrée pas
-      return;
-    }
-    if (ev.cal && ev.cal.trim().toLowerCase() === CAL_APP_NAME.toLowerCase()) { skipped++; return; }          // calendrier dédié, sans code (ancien export)
-    const key = ev.created && createdCount[ev.created] === 1 ? ev.created : null;   // date de création jamais partagée avec un autre événement du lot
-    if (key) {
-      const hits = matchPonctuels((x) => x.calKey === key);
-      if (hits.length === 1) { byCreated++; if (apply(hits[0], ev)) updated++; else skipped++; return; }
-    }
-    const day = daysData.days[ev.date] || (daysData.days[ev.date] = emptyDay());
-    const dup = day.ponctuels.find((p) => p.name === ev.title && p.start === ev.start && p.duration === dur);
-    if (dup) { if (key && !dup.calKey) { dup.calKey = key; linked++; } skipped++; return; }               // déjà importé ; on lui attache la date de création pour le retrouver plus tard
-    const p = cleanPonctuel({ id: newId(), name: ev.title, mode: 'fixed', entry: 'end', start: ev.start, duration: dur, confirm: false, carry: false, cat: null, from: null, fromCal: true, calKey: key });   // marqué : jamais réexporté
-    if (p) { day.ponctuels.push(p); added++; } else skipped++;
-  });
-  if (added || updated || linked) persistDays();
-  return { added: added, updated: updated, skipped: skipped, byCode: byCode, byCreated: byCreated, linked: linked };
-}
 async function doCalExport() {
   const per = $('#cal-period').value, today = dateKey(new Date());
   const from = addDays(today, 1), to = per === 'week' ? addDays(today, 7) : from;   // jamais le jour même : on exporte le plan des jours suivants
   const events = calendarEvents(daysData.days, current, from, to, 'plan');
-  if (!events.length) { showToast('Aucun bloc avec rappel sur cette période : règle un « Rappel dans Calendrier » sur un bloc', 'err'); return; }
+  if (!events.length) { showToast('Aucun bloc à exporter sur cette période : coche « Exporter vers Calendrier » sur un bloc', 'err'); return; }
   const text = buildIcs(events), name = 'plandujour-' + from + (to !== from ? '_' + to : '') + '.ics';
   try {                                                   // feuille de partage : « Calendrier » propose d'ajouter les événements
     const file = new File([text], name, { type: 'text/calendar' });
@@ -1988,23 +1896,6 @@ async function doCalExport() {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   showToast('Fichier .ics téléchargé');
 }
-function doCalImport() {
-  const box = $('#cal-text'), out = $('#cal-result');
-  const ignore = (current.calIgnore || []).map((x) => x.toLowerCase());
-  const all = parseCalendarText(box.value);
-  const events = all.filter((e) => !ignore.includes(e.title.trim().toLowerCase()));
-  if (!events.length && all.length) { out.textContent = plural(all.length, 'événement ignoré', 'événements ignorés') + ' (titres ignorés : ' + (current.calIgnore || []).join(', ') + ').'; return; }
-  if (!events.length) { out.textContent = 'Aucun rendez-vous reconnu. Format attendu par ligne : 2026-11-02 09:00 10:30 Titre'; return; }
-  const r = importCalendarEvents(events);
-  out.textContent = plural(r.added, 'rendez-vous ajouté', 'rendez-vous ajoutés') + (r.updated ? ' · ' + plural(r.updated, 'rendez-vous mis à jour', 'rendez-vous mis à jour') : '') + (r.skipped ? ' · ' + plural(r.skipped, 'déjà présent ou ignoré', 'déjà présents ou ignorés') : '') + (all.length > events.length ? ' · ' + plural(all.length - events.length, 'événement ignoré', 'événements ignorés') + ' par titre' : '') +
-    (r.byCode || r.byCreated ? ' · reconnus : ' + r.byCode + ' par code, ' + r.byCreated + ' par date de création' : '') + (r.linked ? ' · ' + plural(r.linked, 'relié à sa date de création', 'reliés à leur date de création') : '') + '.';
-  if (r.added || r.updated) { box.value = ''; renderDay(); }
-}
-async function doCalPaste() {
-  try { $('#cal-text').value = await navigator.clipboard.readText(); doCalImport(); }
-  catch (e) { $('#cal-result').textContent = 'Lecture du presse-papiers refusée : colle le texte à la main dans la zone, puis touche « Importer ».'; $('#cal-text').focus(); }
-}
-
 // ---- Sauvegarde : export et import ----
 function exportPayload() {
   return { app: 'plandujour', format: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), settings: current, days: daysData };
@@ -2278,7 +2169,7 @@ function openPanel(key) {
   const today = dayNow() !== null;
   $('#bp-title').textContent = it ? it.name : 'Nouveau bloc ponctuel';
   $('#bp-edit').innerHTML = isP
-    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm, carry: it.carry, cat: it.cat, alarm: it.alarm, parallel: it.parallel, noCal: it.noCal, fromCal: it.fromCal } :
+    ? actRowHtml(actToRaw(it ? { id: it.id, name: it.name, mode: it.mode, entry: it.entry, start: it.plannedStart, duration: it.minutes, confirm: it.confirm, carry: it.carry, cat: it.cat, alarm: it.alarm, parallel: it.parallel, toCal: it.toCal } :
       { id: newId(), name: '', mode: 'fixed', entry: 'duration', start: null, duration: 60, confirm: false, carry: false }), { days: false, del: false, flags: true })
     : '';
   if (!it && (current.templates || []).length) {
@@ -2339,7 +2230,7 @@ function savePanel() {
   const day = ensureDay();
   let key = panelKey;
   if (isP && edited) {
-    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, alarm: edited.alarm, parallel: edited.parallel, noCal: edited.noCal, fromCal: edited.fromCal, calKey: it ? it.calKey : null, from: it ? it.from : null };
+    const p = { id: edited.id, name: edited.name, mode: edited.mode, entry: edited.entry, start: edited.start, duration: edited.duration, confirm: edited.confirm, carry: edited.carry, cat: edited.cat, alarm: edited.alarm, parallel: edited.parallel, toCal: edited.toCal, from: it ? it.from : null };
     if (!it) { day.ponctuels.push(p); key = 'p:' + p.id; }
     else { const i = day.ponctuels.findIndex((x) => 'p:' + x.id === panelKey); if (i >= 0) day.ponctuels[i] = p; }
   }
@@ -2472,7 +2363,7 @@ function bindDayEvents() {
         $('[data-a=second]', row).value = String(t.mode === 'free' ? 30 : t.duration);
         $('[data-a=confirm]', row).checked = t.confirm === true && t.mode !== 'free'; $('[data-a=carry]', row).checked = t.carry; $('[data-a=alarm]', row).value = t.alarm === null ? '' : String(t.alarm);
         if ($('[data-a=parallel]', row)) $('[data-a=parallel]', row).checked = t.parallel;
-        if ($('[data-a=noCal]', row)) $('[data-a=noCal]', row).checked = t.noCal;
+        if ($('[data-a=toCal]', row)) $('[data-a=toCal]', row).checked = t.toCal;
         convertSecond(row, 'duration'); updateRowUi(row);
         const st = $('[data-a=start]', row); if (t.mode !== 'free' && st) st.focus();
       }
@@ -2564,8 +2455,6 @@ function bindEvents() {
     const action = btn.dataset.action;
     if (action === 'export') { doExport(); return; }
     if (action === 'cal-export') { doCalExport(); return; }
-    if (action === 'cal-import') { doCalImport(); return; }
-    if (action === 'cal-paste') { doCalPaste(); return; }
     if (action === 'import') {
       if (dirty && !window.confirm('Des modifications ne sont pas enregistrées. Elles seront perdues si tu remplaces les réglages. Continuer ?')) return;
       $('#import-file').click();
@@ -2578,7 +2467,7 @@ function bindEvents() {
       const raws = $$('#acts-list .act-row').map(readActRaw);
       const nid = newId();
       openRows.add(nid);
-      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '', parallel: false, noCal: false, alarm: '' });
+      raws.push({ id: nid, name: '', mode: 'fixed', entry: 'duration', days: [1, 2, 3, 4, 5], start: '', second: '30', confirm: false, carry: false, children: [], cat: '', parallel: false, toCal: false, alarm: '' });
       $('#acts-list').innerHTML = actsListHtml(raws, actOpts(), false);
       rerenderProfiles();
       const names = $$('#acts-list [data-a=name]');
@@ -2599,7 +2488,7 @@ function bindEvents() {
       setDirty(true);
     } else if (action === 'add-tpl') {
       const ntid = newId(); openRows.add(ntid);
-      $('#tpls-list').insertAdjacentHTML('beforeend', tplRowHtml({ id: ntid, name: '', cat: null, mode: 'fixed', duration: 30, confirm: false, carry: false, parallel: false, noCal: false, alarm: null }, catsFromForm()));
+      $('#tpls-list').insertAdjacentHTML('beforeend', tplRowHtml({ id: ntid, name: '', cat: null, mode: 'fixed', duration: 30, confirm: false, carry: false, parallel: false, toCal: false, alarm: null }, catsFromForm()));
       $$('#tpls-list [data-t=name]').slice(-1)[0].focus();
       setDirty(true);
     } else if (action === 'del-tpl') {
@@ -2702,7 +2591,7 @@ function init() {
   setInterval(() => {
     if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && document.activeElement.id !== 'day-search' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
-  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, parseCalendarText: parseCalendarText, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
+  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });

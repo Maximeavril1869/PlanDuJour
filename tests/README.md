@@ -9,7 +9,7 @@ Depuis la racine du dépôt (Python 3 requis) :
 ```
 pip install playwright
 playwright install chromium
-python3 tests/test_calendrier.py
+python3 tests/test_calendrier (export).py
 ```
 
 Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le nombre d'échecs.
@@ -20,7 +20,7 @@ Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le
 |---|---|
 | `test_reinitialisation.py` | Réinitialisation : confirmation par mot, réglages vierges, effacement des jours et des copies, rechargement, ajout d'un bloc dans l'app vierge |
 | `test_pliage.py` | Cartes repliables fermées au départ (Réglages, page du jour : Présence, Sans heure, Revue du jour), dépliage au tap et conservation de l'état |
-| `test_calendrier.py` | Démarrage sans erreur, export vers Calendrier (codes, exclusions), lecture des lignes et des `.ics`, import (mise à jour par code, par date de création, doublons, calendrier dédié), conservation du lien dans l'éditeur |
+| `test_calendrier (export).py` | Démarrage sans erreur, export vers Calendrier (codes, exclusions), lecture des lignes et des `.ics`, import (mise à jour par code, par date de création, doublons, calendrier (export) dédié), conservation du lien dans l'éditeur |
 
 ## Règles
 

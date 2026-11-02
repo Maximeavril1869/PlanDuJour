@@ -256,3 +256,10 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - **Définitif** : pas de copie de sécurité (choix de l'utilisateur) ; `plandujour.jours.sauvegarde` et `plandujour.avant-import.jours` sont supprimées dans les deux modes, `plandujour.avant-import.reglages` en mode `all`. Les modifications non enregistrées du formulaire sont perdues en mode `all`.
 - Export vers Calendrier (0.19.1) : `calendarEvents` (mode `plan`) ne garde que les blocs dont `alarm` est un entier (0 = à l'heure) ; cela s'ajoute aux exclusions `noCal` et `fromCal` (§26, §30, §31). L'import reste disponible.
 - `defaultSettings` reste utilisé au premier lancement, pour une lecture impossible et pour les migrations. Test : `tests/test_reinitialisation.py`.
+
+## 34. Export Calendrier par case à cocher, plus d'import (0.20.0)
+
+- L'app est la source unique. L'import depuis le calendrier est retiré (zone de collage, raccourci, titres ignorés, `calIgnore`, `fromCal`, `calKey`). Les §26, §30 et §31 ne décrivent plus que l'export : les codes `PDJ-p-` / `PDJ-a-` restent écrits dans les Notes.
+- Chaque activité, tâche habituelle et bloc ponctuel porte `toCal` (booléen, **décoché par défaut**). `calendarEvents` n'exporte que si `toCal === true`. Le rappel (`alarm`) est facultatif et indépendant : un bloc coché sans rappel est exporté sans alarme.
+- `noCal` (case inversée « Ne pas exporter ») est remplacé par `toCal` ; aucune migration (données réinitialisées avant le passage).
+

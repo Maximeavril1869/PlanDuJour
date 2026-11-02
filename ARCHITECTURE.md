@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.17.1**.
+Version décrite : **0.20.0**.
 
 ## 1. Principe
 
@@ -61,7 +61,7 @@ Quatre onglets : **Jour**, **Récapitulatif**, **Stats**, **Réglages**.
 | Jour | Plan de la journée en frise, chrono, présence, sous-tâches, revue du jour, recherche | `renderDay` |
 | Récapitulatif | Semaine réelle (vrais profils, congés, reports) ou semaine type | `renderRecap` |
 | Stats | Jour / semaine / mois : travail (présence) face à 7 h 42, par catégorie, par activité | `renderStats` |
-| Réglages | Profils, congés, activités, catégories, tâches habituelles, sauvegarde, calendrier | éditeurs de la section 6 |
+| Réglages | Profils, congés, activités, catégories, tâches habituelles, sauvegarde, export calendrier | éditeurs de la section 6 |
 
 ## 5. Données
 
@@ -131,18 +131,14 @@ flowchart TD
 | Flux | Sens | Format | Détail |
 |---|---|---|---|
 | Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » |
-| Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-p-<id>` ou `pdj-<date>-<clé>`, code dans les Notes) | Jours suivants seulement ; **seulement les blocs avec rappel** ; blocs `noCal` et `fromCal` exclus ; rappels `VALARM` ; à ajouter dans un calendrier dédié « Plan du jour » |
-| Import de rendez-vous | Calendrier → app | texte `AAAA-MM-JJ HH:MM HH:MM Titre \| Calendrier \| AAAAMMJJHHMMSS \| Notes` (raccourci iOS, presse-papiers) ou `.ics` | Reconnaît par code (Notes) puis par date de création (`calKey`) et met à jour ; sinon ajoute des blocs ponctuels marqués `fromCal` ; titres de `calIgnore` ignorés ; doublon exact évité |
+| Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-p-<id>` ou `pdj-<date>-<clé>`, code dans les Notes) | Jours suivants seulement ; **uniquement les blocs dont la case « Exporter vers Calendrier » (`toCal`) est cochée** ; rappel `VALARM` facultatif ; à ajouter dans un calendrier dédié « Plan du jour » |
+
+L'app est la source unique : **il n'y a plus d'import depuis le calendrier** (retiré en 0.20.0). Un bloc n'est exporté que si la case est cochée, par défaut décochée.
 
 ```mermaid
 flowchart LR
-  A[Bloc ponctuel de l'app<br/>id stable] -->|export .ics<br/>code PDJ-p-id dans les Notes| C[(Calendrier<br/>« Plan du jour »)]
-  C -->|raccourci : titre, heures,<br/>calendrier, création, notes| I[importCalendarEvents]
-  X[Événement créé dans<br/>le calendrier] -->|même raccourci| I
-  I -->|code PDJ-p| U[mise à jour du bloc]
-  I -->|date de création unique| U
-  I -->|nouveau| N[ajout, fromCal]
-  I -->|PDJ-a ou calendrier dédié sans code| S[ignoré]
+  A[Bloc de l'app<br/>case Exporter cochée] -->|export .ics<br/>code PDJ dans les Notes| C[(Calendrier<br/>« Plan du jour »)]
+  B[Bloc non coché] -. reste dans l'app .-> B
 ```
 
 Aucune donnée n'est envoyée à un serveur : GitHub ne reçoit que le code.

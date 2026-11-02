@@ -6,11 +6,10 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.19.1**, poussée sur GitHub Pages (à valider sur appareil, raccourci iOS à modifier).
-- Calendrier, en suspens : le fichier `.ics` s'ouvre en aperçu sans option d'ajout sur l'iPhone ; hypothèse = ancien fichier dont les événements sont déjà dans le calendrier. Réponses attendues : message affiché après l'export, Notes d'un événement de l'aperçu, contenu de « Titres à ignorer », où apparaissent les doublons de trains. Raccourci à corriger (variables prises sur la liste au lieu de l'élément de répétition).
+- Version **0.20.0**, poussée sur GitHub Pages (à valider sur appareil). Données réinitialisées par l'utilisateur : base saine.
+- Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - À faire : lot 5 bis (chrono sur les sous-tâches du jour).
-- Corrigé en 0.17.2 : les rendez-vous importés du calendrier ne sont plus réexportés. Livré en 0.18.0 : codes d'événements pour la mise à jour réciproque. Reste à tester sur l'iPhone (voir 2 novembre, session de reprise).
 
 ## 2 novembre 2026
 
@@ -27,6 +26,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - À faire par l'utilisateur : modifier le raccourci (calendrier, date de création `yyyyMMddHHmmss`, notes) et vérifier sur l'iPhone que la date de création est renseignée et stable.
 
 ### Commits du jour
+- **0.20.0** : décisions de l'utilisateur après la 0.19.1 : « on n'importe plus, on exporte juste », case à cocher plutôt que filtre par rappel, réinitialisation faite donc base saine. Import retiré, `noCal` remplacé par `toCal`, tests réécrits (48 vérifications).
 - **0.19.1** : l'utilisateur décide de se servir de l'app comme outil principal et de n'exporter que les tâches pour lesquelles il veut un rappel. L'export ne garde que les blocs avec « Rappel dans Calendrier ». Tests : 69 vérifications (37 + 10 + 22) passées. Questions calendrier précédentes (message après export, Notes de l'aperçu, titres ignorés, trains en double, correction du raccourci) : suspendues, l'import n'étant plus au centre.
 - `48a12bd` **0.19.0** : réinitialisation à la place de « Rétablir les valeurs de départ ». Décisions de l'utilisateur : les deux modes (tout / jours seulement), réglages **vierges**, **pas de copie de sécurité**, confirmation (interprétée comme renforcée : taper EFFACER). `tests/test_reinitialisation.py`, 22 vérifications ; les trois fichiers de tests (65 vérifications) passent.
 - `7316164` **0.18.1** : toutes les cartes repliables fermées au départ (Présence au travail, Sans heure devenue repliable avec son compteur, Revue du jour même pour un jour passé). `tests/test_pliage.py`, 10 vérifications.
