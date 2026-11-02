@@ -209,3 +209,5 @@ Mise à jour 0.13.3 : l'export vers Calendrier ne propose plus « Aujourd'hui »
 
 ## 27. Présence au travail (0.14.0)
 Champ additif `day.presence = { start, end|null, pauses:[{start,end|null}] }` (null par défaut, pas de changement de version des jours). Chrono indépendant des activités (plusieurs chronos peuvent tourner : un seul chrono d'activité, plus la présence). Temps de travail d'un jour = présence nette (pauses retirées) + activités de catégorie « travail » dont la partie située dans la fenêtre de présence est retirée (aucun double comptage). Présence ouverte : comptée en direct pour aujourd'hui seulement (`workReport(..., nowMin)`), ignorée ailleurs. Départ conseillé = maintenant + (cible − travail du jour). `timeEntries` expose maintenant `start` et `end`. Test : test_lot15.js.
+
+Mise à jour 0.14.1 : le Récap a deux modes. « Semaine réelle » (défaut) : les 7 dates de la semaine avec le vrai profil de chaque jour, les congés, les blocs ponctuels et les reports (`buildDay` avec les données du jour) ; flèches pour changer de semaine. « Semaine type » : l'ancien affichage par jour de la semaine, avec le profil habituel seulement. Test : test_lot16.js.

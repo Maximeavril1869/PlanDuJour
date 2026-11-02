@@ -294,7 +294,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.14.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.14.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1215,6 +1215,8 @@ function renderForm(s) {
 }
 
 let pendingImport = null;   // fichier lu et validé, en attente de choix
+let recapMode = 'reel';   // 'reel' : semaine réelle (profil, congés, blocs ponctuels de chaque date) ; 'type' : semaine type
+let recapDate = null;    // un jour de la semaine réelle affichée
 let recapDay = 1;   // jour de semaine affiché dans le récapitulatif
 
 function renderRecap(s, status) {
@@ -1222,10 +1224,20 @@ function renderRecap(s, status) {
   if (status === 'empty') html += '<div class="banner info">Valeurs de départ affichées. Rien n’est enregistré tant que tu n’as pas appuyé sur « Enregistrer » dans Réglages.</div>';
   if (status === 'corrupt') html += '<div class="banner warn">Les données enregistrées sont illisibles : les valeurs de départ sont affichées. Elles ne seront remplacées que lorsque tu enregistreras.</div>';
   if (status === 'unavailable') html += '<div class="banner warn">Le stockage du navigateur est indisponible (navigation privée ?). Tu peux saisir, mais rien ne sera conservé.</div>';
-  html += '<div class="chips" style="margin:12px 0">' + [1, 2, 3, 4, 5, 6, 7].map((d) =>
-    '<button type="button" class="chip" data-recap-day="' + d + '" aria-pressed="' + (d === recapDay) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div>';
-
-  const b = buildDay(s, emptyDay(), recapDay, null);
+  const real = recapMode === 'reel';
+  if (real && !recapDate) recapDate = dateKey(new Date());
+  html += '<div class="chips" style="margin:12px 0 4px">' + [['reel', 'Semaine réelle'], ['type', 'Semaine type']].map((m) =>
+    '<button type="button" class="chip" data-recap-mode="' + m[0] + '" aria-pressed="' + (m[0] === recapMode) + '">' + m[1] + '</button>').join('') + '</div>';
+  if (real) {
+    const mon = addDays(recapDate, -(isoWeekday(recapDate) - 1));
+    html += '<div class="daynav"><button type="button" class="icon-btn" data-recap-nav="-7" aria-label="Semaine précédente">‹</button><div class="daylabel">Semaine du ' + esc(fmtDateLabel(mon)) + '</div>' +
+      '<button type="button" class="icon-btn" data-recap-nav="7" aria-label="Semaine suivante">›</button></div>' +
+      '<div class="chips" style="margin:8px 0">' + [0, 1, 2, 3, 4, 5, 6].map((i) => { const k = addDays(mon, i); return '<button type="button" class="chip" data-recap-date="' + k + '" aria-pressed="' + (k === recapDate) + '">' + DAY_SHORT[i + 1] + ' ' + k.slice(8, 10) + '</button>'; }).join('') + '</div>';
+  } else {
+    html += '<div class="chips" style="margin:12px 0">' + [1, 2, 3, 4, 5, 6, 7].map((d) =>
+      '<button type="button" class="chip" data-recap-day="' + d + '" aria-pressed="' + (d === recapDay) + '">' + DAY_SHORT[d] + '</button>').join('') + '</div>';
+  }
+  const b = real ? buildDay(s, daysData.days[recapDate] || emptyDay(), isoWeekday(recapDate), null, recapDate < dateKey(new Date()), recapDate) : buildDay(s, emptyDay(), recapDay, null);
   if (b.warnings.length) html += '<div class="banner warn"><strong>À vérifier</strong><ul>' + b.warnings.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul></div>';
   const entries = [];
   if (b.profile.wake !== null) entries.push({ at: b.profile.wake - 0.5, html: '<li class="mark"><span class="t">' + formatTime(b.profile.wake) + '</span><span class="dot"></span><span class="what">Lever</span></li>' });
@@ -1238,7 +1250,7 @@ function renderRecap(s, status) {
   });
   if (b.profile.bedtime !== null) entries.push({ at: 99999, html: '<li class="mark"><span class="t">' + formatTime(b.profile.bedtime) + '</span><span class="dot"></span><span class="what">Coucher</span></li>' });
   entries.sort((x, y) => x.at - y.at);
-  html += '<div class="card"><h2>' + DAY_NAMES[recapDay] + ' <span class="v">· profil ' + esc(b.profile.name) + '</span></h2><ul class="tl">' + entries.map((e) => e.html).join('') + '</ul>' +
+  html += '<div class="card"><h2>' + (real ? esc(fmtDateLabel(recapDate)) : DAY_NAMES[recapDay] + ' (semaine type)') + ' <span class="v">· profil ' + esc(b.profile.name) + '</span></h2><ul class="tl">' + entries.map((e) => e.html).join('') + '</ul>' +
     (b.placed.length ? '' : '<p class="help">Aucune activité ce jour-là.</p>') + '</div>';
   if (b.pending.length) {
     html += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + b.pending.map((it) =>
@@ -2213,7 +2225,11 @@ function bindEvents() {
   });
   $('#panel-recap').addEventListener('click', (e) => {
     const b = e.target.closest('[data-recap-day]');
-    if (b) { recapDay = Number(b.dataset.recapDay); renderRecap(current, loadStatus); }
+    if (b) { recapDay = Number(b.dataset.recapDay); renderRecap(current, loadStatus); return; }
+    const m = e.target.closest('[data-recap-mode]'), dt = e.target.closest('[data-recap-date]'), nv = e.target.closest('[data-recap-nav]');
+    if (m) { recapMode = m.dataset.recapMode; if (recapMode === 'type' && recapDate) recapDay = isoWeekday(recapDate); renderRecap(current, loadStatus); }
+    else if (dt) { recapDate = dt.dataset.recapDate; renderRecap(current, loadStatus); }
+    else if (nv) { recapDate = addDays(recapDate, Number(nv.dataset.recapNav)); renderRecap(current, loadStatus); }
   });
 
   form.addEventListener('input', (e) => { if (e.target.id === 'import-file' || (e.target.closest && e.target.closest('[data-nodirty]'))) return; if (e.target.closest && e.target.closest('#cats-list')) syncCatOptions(); setDirty(true); updateSummary(e.target.closest && e.target.closest('.act-row')); });
@@ -2368,6 +2384,7 @@ function init() {
   daysData = loadDays();
   selectedDate = dateKey(new Date());
   recapDay = isoWeekday(selectedDate);
+  recapDate = selectedDate;
   renderForm(current);
   renderRecap(current, loadStatus);
   setDirty(false);
