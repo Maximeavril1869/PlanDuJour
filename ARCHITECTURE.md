@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.24.0**.
+Version décrite : **0.25.0**.
 
 ## 1. Principe
 
@@ -23,7 +23,7 @@ flowchart LR
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Toute l'app (≈ 2 800 lignes) |
+| `index.html` | Toute l'app (≈ 2 870 lignes) |
 | `sw.js` | Service worker : cache `plandujour-<version>`, hors ligne |
 | `manifest.json` | Manifeste PWA (nom, icônes, plein écran) |
 | `icon-180.png`, `icon-192.png`, `icon-512.png` | Icônes |
@@ -74,6 +74,7 @@ Deux objets JSON versionnés, plus des copies de sécurité.
 | `plandujour.reglages` | Réglages : activités, profils, congés, catégories, modèles de tâches, cible de travail | `DATA_VERSION = 3` |
 | `plandujour.jours` | Données par date (`YYYY-MM-DD`) | `DAYS_VERSION = 2` |
 | `plandujour.jours.sauvegarde` | Copie brute si les jours sont illisibles | — |
+| `plandujour.sauvegarde` | Rappel de sauvegarde, propre à l'appareil : dernier export, première modification non sauvegardée, report, délai (0.25.0, §40) ; jamais exporté | — |
 | `plandujour.avant-import.reglages` / `.jours` | État précédent, gardé avant un import (une génération) | — |
 
 ```mermaid
@@ -132,7 +133,7 @@ flowchart TD
 
 | Flux | Sens | Format | Détail |
 |---|---|---|---|
-| Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » |
+| Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » ; un bandeau sur la page du jour rappelle d'exporter après N jours de modifications non sauvegardées (0.25.0) |
 | Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-p-<id>` ou `pdj-<date>-<clé>`, code dans les Notes) | Jours suivants seulement ; **uniquement les blocs dont la case « Exporter vers Calendrier » (`toCal`) est cochée** ; rappel `VALARM` facultatif ; à ajouter dans un calendrier dédié « Plan du jour » |
 
 L'app est la source unique : **il n'y a plus d'import depuis le calendrier** (retiré en 0.20.0). Un bloc n'est exporté que si la case est cochée, par défaut décochée.

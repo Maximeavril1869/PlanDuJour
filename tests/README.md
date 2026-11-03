@@ -24,6 +24,7 @@ Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le
 | `test_arborescence.py` | Catégories en arbre : chemin dans les listes et « Sans heure », choix du parent, suppression qui remonte les enfants, profondeur 8, réparation des boucles et parents inexistants |
 | `test_statuts.py` | Statuts Travail / Perso / Hors : lecture et héritage, trois menus et arbre imbriqué dans Réglages, changement de statut, rangement sous un autre parent, ajout et suppression, anciens réglages |
 | `test_stats_arbre.py` | Stats en arbre : totaux par statut et par catégorie, activités et sous-activités, « Sans catégorie » en Hors, catégorie supprimée, période sans temps, absence de double compte, pliage conservé |
+| `test_sauvegarde.py` | Rappel de sauvegarde : quand le bandeau apparaît (délai, report, état illisible), « Exporter maintenant » (téléchargement, feuille de partage acceptée ou annulée), ce qui compte comme une modification, réglage du délai, import et réinitialisation |
 | `test_cochables.py` | Sous-activités cochables : cases à la main, coche d'office à l'arrêt du chrono et à la saisie d'un temps, panneau du bloc, jour passé, lecture de données invalides |
 | `test_calendrier.py` | Démarrage sans erreur, export vers Calendrier par case à cocher (`toCal`, codes, rappel facultatif, `.ics`), valeurs par défaut, case conservée après rechargement |
 

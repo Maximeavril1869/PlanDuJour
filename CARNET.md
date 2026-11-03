@@ -6,19 +6,27 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.24.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.25.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
 - Catégories en arbre (0.23.0) : un seul parent, jusqu'à 8 niveaux, chemin « A › B » affiché.
 - Statuts Travail / Perso / Hors (0.23.1) : portés par la racine, hérités par les sous-catégories ; Réglages en trois menus de statut contenant un menu par catégorie, imbriqués. 
 - Stats en arbre (0.24.0) : trois menus Travail / Perso / Hors, catégories imbriquées, activités et sous-activités au bout ; un total à chaque niveau ; fermé au départ.
-- Avant la 1.0 : rappel de sauvegarde, validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
+- Rappel de sauvegarde (0.25.0) : bandeau sur la page du jour après N jours (7 par défaut) de modifications non sauvegardées ; résumé et délai dans Réglages › Sauvegarde ; état propre à l'appareil.
+- Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 169 vérifications (8 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 219 vérifications (9 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 2 novembre 2026
+
+### Session de la 0.25.0 (rappel de sauvegarde)
+- Demande : « passe au rappel de sauvegardes ». Sur la question « garder à la fois Par catégorie et Par activité », l'utilisateur répondra quand des activités seront enregistrées : question toujours ouverte.
+- Choix par défaut (à confirmer à l'usage) : délai de 7 jours réglable (jamais, 3, 7, 14, 30) ; le rappel ne se déclenche que s'il y a des modifications non sauvegardées (pas sur une app inchangée) ; bandeau sur la page du jour seulement ; « Plus tard » = rappel demain ; le compte d'une app déjà utilisée commence à la première ouverture de la 0.25.0.
+- **0.25.0** : clé `plandujour.sauvegarde` (`last`, `since`, `snooze`, `every`), `backupDue`, bandeau, résumé et choix du délai dans Réglages, marquage dans `persistDays`, l'enregistrement des réglages, l'import et la réinitialisation, `doExport` marque la sauvegarde (feuille de partage acceptée ou téléchargement). `tests/test_sauvegarde.py` (50 vérifications) ; deux contrôles négatifs faits (seuil du délai : 2 échecs ; marquage des modifications : 1 échec) ; captures vérifiées sur écran d'iPhone (390 px, clair et sombre) ; 219 vérifications OK. Un conflit de nom avec une fonction existante (`isDateKey`) a fait échouer tous les tests au démarrage ; ma fonction a été renommée `isRealDateKey`, l'ancienne est inchangée.
+- Limite connue : l'app ne peut pas savoir si le fichier exporté a été rangé au bon endroit (Fichiers, iCloud Drive) ; elle compte la sauvegarde dès que la feuille de partage est acceptée.
+- Questions ouvertes : « Par catégorie » et « Par activité » ; délai de 7 jours ; liste de contrôles sur appareil toujours à livrer ; validation iPad.
 
 ### Session de la 0.24.0 (Stats en arbre)
 - Retours de l'utilisateur sur la 0.23.1 : tout fonctionnait sur l'appareil ; on garde les catégories sans sous-catégorie derrière leur menu (un tap de plus), pas de ligne directe. Feu vert pour la 0.24.0.

@@ -336,7 +336,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.24.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.25.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1450,6 +1450,7 @@ function renderForm(s) {
       '<button type="button" class="btn primary" data-action="cal-export">Exporter vers Calendrier</button></div></details>' +
     '<div class="card"><h2>Sauvegarde</h2>' +
       '<p class="help">Un seul fichier avec tes réglages et tous tes jours. Sert à sauvegarder, ou à passer de l’iPhone à l’iPad : enregistre-le dans Fichiers (iCloud Drive), puis importe-le sur l’autre appareil.</p>' +
+      backupSettingsHtml() +
       '<div class="btnrow"><button type="button" class="btn primary" data-action="export">Exporter mes données</button>' +
       '<button type="button" class="btn" data-action="import">Importer un fichier…</button></div>' +
       '<input type="file" id="import-file" accept="application/json,.json" hidden><div id="import-box"></div></div>' +
@@ -1713,7 +1714,7 @@ function presenceHtml(wd1) {
 }
 function renderDay() {
   const build = buildSelected();
-  let head = '<input type="search" id="day-search" placeholder="Rechercher une tâche…" autocomplete="off" value="' + esc(searchQ) + '" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:transparent;color:inherit"><div id="day-search-res">' + (searchQ ? searchResultsHtml() : '') + '</div>' +
+  let head = backupBannerHtml() + '<input type="search" id="day-search" placeholder="Rechercher une tâche…" autocomplete="off" value="' + esc(searchQ) + '" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:transparent;color:inherit"><div id="day-search-res">' + (searchQ ? searchResultsHtml() : '') + '</div>' +
     '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
     '<div class="daylabel">' + esc(fmtDateLabel(selectedDate)) + '</div>' +
     '<button type="button" class="icon-btn" data-day-nav="1" aria-label="Jour suivant">›</button></div>' +
@@ -1966,7 +1967,7 @@ function presenceEdit(which, text) {
   persistDays(); renderDay();
 }
 function persistDays() {
-  if (!saveDays(daysData)) showToast('Enregistrement impossible sur cet appareil', 'err');
+  if (!saveDays(daysData)) showToast('Enregistrement impossible sur cet appareil', 'err'); else backupMarkChanged();
 }
 
 // ---- Chrono ----
@@ -2087,7 +2088,7 @@ async function doExport() {
   const name = 'plandujour-' + dateKey(new Date()) + '.json';
   try {                                                   // iPhone / iPad : feuille de partage (« Enregistrer dans Fichiers »)
     const file = new File([text], name, { type: 'application/json' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Plan du jour' }); showToast('Export prêt'); return; }
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Plan du jour' }); backupMarkSaved(); refreshBackupUi(); showToast('Export prêt'); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }
   const a = document.createElement('a');                  // sinon : téléchargement classique
   a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -2096,8 +2097,65 @@ async function doExport() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  backupMarkSaved();
+  refreshBackupUi();
   showToast('Fichier téléchargé');
 }
+// ---- Rappel de sauvegarde (0.25.0) ----
+// État propre à chaque appareil, jamais exporté : `last` = date du dernier export, `since` = date de la première modification non sauvegardée,
+// `snooze` = rappel reporté jusqu'à cette date, `every` = délai du rappel en jours (0 = jamais). Le bandeau n'apparaît que s'il y a des modifications
+// non sauvegardées depuis au moins `every` jours : une app qu'on n'a pas touchée ne réclame rien.
+const BACKUP_KEY = 'plandujour.sauvegarde';
+const BACKUP_EVERY = [0, 3, 7, 14, 30], BACKUP_EVERY_DEFAULT = 7;
+const isRealDateKey = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && dateKey(parseDateKey(v)) === v;
+function readBackup() {
+  let raw = null;
+  try { raw = JSON.parse(window.localStorage.getItem(BACKUP_KEY)); } catch (e) { raw = null; }
+  raw = raw && typeof raw === 'object' ? raw : {};
+  return { last: isRealDateKey(raw.last) ? raw.last : null, since: isRealDateKey(raw.since) ? raw.since : null, snooze: isRealDateKey(raw.snooze) ? raw.snooze : null,
+    every: BACKUP_EVERY.includes(raw.every) ? raw.every : BACKUP_EVERY_DEFAULT };
+}
+function writeBackup(b) { try { window.localStorage.setItem(BACKUP_KEY, JSON.stringify(b)); } catch (e) { /* ignoré : le rappel est facultatif */ } }
+function backupMarkChanged() { const b = readBackup(); if (!b.since) { b.since = dateKey(new Date()); writeBackup(b); } }
+function backupMarkSaved() { const b = readBackup(); b.last = dateKey(new Date()); b.since = null; b.snooze = null; writeBackup(b); }
+function backupMarkImported() { const b = readBackup(); b.since = null; b.snooze = null; writeBackup(b); }
+function backupInit() {   // première ouverture après la 0.25.0 avec des jours déjà enregistrés : le compte commence aujourd'hui
+  const b = readBackup();
+  if (b.last === null && b.since === null && Object.keys(daysData.days).length > 0) backupMarkChanged();
+}
+const daysBetween = (a, b) => Math.round((parseDateKey(b) - parseDateKey(a)) / 86400000);
+function backupDue() {
+  const b = readBackup(), today = dateKey(new Date());
+  if (b.every === 0 || !b.since || (b.snooze && b.snooze > today)) return null;
+  const n = daysBetween(b.since, today);
+  return n >= b.every ? { days: n, since: b.since, last: b.last } : null;
+}
+function ago(k) { const n = daysBetween(k, dateKey(new Date())); return n <= 0 ? 'aujourd’hui' : n === 1 ? 'hier' : 'il y a ' + n + ' jours'; }
+function backupBannerHtml() {
+  const d = backupDue();
+  if (!d) return '';
+  return '<div class="banner warn" id="backup-banner"><strong>Pense à sauvegarder tes données</strong><br>Des modifications ne sont pas sauvegardées depuis ' + plural(d.days, 'jour', 'jours') +
+    ' (depuis ' + esc(fromLabel(d.since)) + '). ' + (d.last ? 'Dernière sauvegarde : ' + esc(fromLabel(d.last)) + '.' : 'Aucune sauvegarde faite depuis cet appareil.') +
+    '<div class="btnrow" style="margin-top:8px"><button type="button" class="btn primary" data-action="backup-now">Exporter maintenant</button>' +
+    '<button type="button" class="btn" data-action="backup-later">Plus tard</button></div></div>';
+}
+function backupInfoHtml() {
+  const b = readBackup();
+  return (b.last ? 'Dernière sauvegarde : ' + esc(fmtDateLabel(b.last).toLowerCase()) + ' (' + ago(b.last) + ').' : 'Aucune sauvegarde faite depuis cet appareil.') + ' ' +
+    (b.since ? 'Modifications non sauvegardées depuis ' + esc(fromLabel(b.since)) + '.' : 'Aucune modification depuis la dernière sauvegarde.');
+}
+function backupSettingsHtml() {
+  const every = readBackup().every;
+  return '<p class="help" id="backup-info" data-nodirty>' + backupInfoHtml() + '</p>' +
+    '<label class="field" data-nodirty><span class="lbl">Me rappeler quand des modifications ne sont pas sauvegardées depuis</span><select id="backup-every">' +
+    BACKUP_EVERY.map((n) => '<option value="' + n + '"' + (n === every ? ' selected' : '') + '>' + (n === 0 ? 'Jamais (pas de rappel)' : plural(n, 'jour', 'jours')) + '</option>').join('') + '</select></label>';
+}
+function refreshBackupUi() {     // après un export, un report ou un changement de délai : bandeau de la page Jour et résumé de Réglages
+  const info = $('#backup-info');
+  if (info) info.innerHTML = backupInfoHtml();
+  renderDay();
+}
+function backupLater() { const b = readBackup(); b.snooze = addDays(dateKey(new Date()), 1); writeBackup(b); refreshBackupUi(); showToast('Je te le rappellerai demain'); }
 // Lit et valide un fichier d'export ; retourne null s'il n'est pas reconnu. Rien n'est écrit.
 function readImportText(text) {
   let raw;
@@ -2153,6 +2211,8 @@ function doReset(mode) {
     openRows.clear();
   }
   daysData = fresh;
+  try { if (all) window.localStorage.removeItem(BACKUP_KEY); } catch (e) { /* ignoré */ }
+  if (!all) backupMarkChanged();            // les jours effacés ne sont plus dans aucune sauvegarde
   pendingImport = null;
   resetOpen = false;
   closePanel();
@@ -2179,6 +2239,7 @@ function applyImport(mode) {
   current = p.settings;
   loadStatus = 'ok';
   if (mode === 'all') { daysData = p.days; if (!saveDays(daysData)) showToast('Enregistrement impossible sur cet appareil', 'err'); }
+  if (mode === 'all') backupMarkImported(); else backupMarkChanged();     // tout remplacé : l'appareil est identique au fichier ; réglages seuls : mes jours ne sont dans aucun fichier
   pendingImport = null;
   closePanel();
   closePick();
@@ -2443,6 +2504,8 @@ function bindDayEvents() {
     if (act) {
       const a = act.dataset.action;
       if (a === 'add-block') openPanel(null);
+      else if (a === 'backup-now') doExport();
+      else if (a === 'backup-later') backupLater();
       else if (a === 'open-block') openPanel(act.dataset.key);
       else if (a === 'start') startNow(act.dataset.key);
       else if (a === 'child-go') toggleChild(act.dataset.key, act.dataset.cid);
@@ -2620,6 +2683,7 @@ function bindEvents() {
   }, true);
   form.addEventListener('change', (e) => {
     if (e.target.id === 'import-file') { onImportFile(e.target); return; }
+    if (e.target.id === 'backup-every') { const b = readBackup(); b.every = Number(e.target.value); b.snooze = null; writeBackup(b); refreshBackupUi(); return; }   // réglage immédiat, sans « Enregistrer »
     if (e.target.closest && e.target.closest('[data-nodirty]')) return;
     if (e.target.matches('#acts-list [data-a=name]')) syncActChips();
     const row = e.target.closest('.act-row');
@@ -2778,6 +2842,7 @@ function bindEvents() {
     }
     current = result.settings;
     loadStatus = 'ok';
+    backupMarkChanged();
     renderForm(current);
     renderRecap(current, loadStatus);
     renderDay();
@@ -2792,6 +2857,7 @@ function init() {
   current = loaded.settings;
   loadStatus = loaded.status;
   daysData = loadDays();
+  backupInit();
   selectedDate = dateKey(new Date());
   recapDay = isoWeekday(selectedDate);
   recapDate = selectedDate;
