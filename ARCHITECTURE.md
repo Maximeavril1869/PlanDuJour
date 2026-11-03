@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.31.1**.
+Version décrite : **0.32.0**.
 
 ## 1. Principe
 
@@ -59,7 +59,7 @@ Quatre onglets : **Jour**, **Récapitulatif**, **Stats**, **Réglages**.
 
 | Onglet | Rôle | Fonctions principales |
 |---|---|---|
-| Jour | Plan de la journée en frise (avec ligne « maintenant »), chrono, présence, sous-tâches, revue du jour, recherche, « Sans heure » regroupé par catégorie | `renderDay` |
+| Jour | Plan de la journée en frise (avec ligne « maintenant » et lignes de repère : départ et retour de chez soi, arrivée, pauses et départ du travail), chrono, présence, départ et retour, sous-tâches, revue du jour, recherche, « Sans heure » regroupé par catégorie | `renderDay` |
 | Récapitulatif | Semaine réelle (vrais profils, congés, reports) ou semaine type | `renderRecap` |
 | Stats | Jour / semaine / mois : travail (présence) face à 7 h 42, arbre Travail / Perso / Hors › catégories › activités avec un total à chaque niveau (0.24.0), puis par activité | `renderStats`, `statsTree` |
 | Réglages | Profils, congés, activités, catégories, tâches habituelles, sauvegarde, export calendrier | éditeurs de la section 6 |
@@ -96,7 +96,7 @@ erDiagram
 
 **Premier lancement** (0.31.1) : rien d'enregistré, stockage illisible ou indisponible → `blankSettings()` (app vierge, voir CONVENTIONS §49). `defaultSettings()` ne sert plus qu'à lire d'anciennes données et de fixture aux tests.
 
-Un jour (`emptyDay`) : `{ real, ponctuels, subtasks, review, profile, segs, presence, kidsDone }`. `kidsDone[clé du bloc][idSousActivité] = true` : sous-activités cochées « faites » ce jour-là (0.22.0, voir CONVENTIONS §36). Dans `segs`, une entrée de `cid` vide est un **passage** d'une tâche sans heure sans sous-activité (0.25.3, CONVENTIONS §42) ; elle peut porter un `name` facultatif (0.30.0, CONVENTIONS §47), conservé par `cleanSegs` pour les passages seulement.
+Un jour (`emptyDay`) : `{ real, ponctuels, subtasks, review, profile, segs, presence, kidsDone, trip }`. `trip = { leave, home }` : départ de chez soi et retour chez soi, minutes ou `null` (0.32.0, CONVENTIONS §50) ; avec la présence (arrivée, pauses, départ) il alimente `dayMarks`, les lignes de repère de la frise et du Récap. `kidsDone[clé du bloc][idSousActivité] = true` : sous-activités cochées « faites » ce jour-là (0.22.0, voir CONVENTIONS §36). Dans `segs`, une entrée de `cid` vide est un **passage** d'une tâche sans heure sans sous-activité (0.25.3, CONVENTIONS §42) ; elle peut porter un `name` facultatif (0.30.0, CONVENTIONS §47), conservé par `cleanSegs` pour les passages seulement.
 
 Clé d'un bloc : `act:<id>` pour une activité de Réglages, `p:<id>` pour un bloc ponctuel du jour.
 

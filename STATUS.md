@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.31.1**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.32.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -267,6 +267,12 @@ Demande de l'utilisateur (3 novembre 2026) : il ne veut **aucune valeur de dépa
 Non touché : la lecture d'anciennes données (réglages des versions 1 et 2, exports sans catégories), car l'iPad en contient encore et la migration est dans la checklist iPad ; `defaultSettings()` reste dans le code pour cela et sert de fixture aux tests (`window.PDJ.defaultSettings`).
 Fini quand, sur l'appareil : après « Réinitialiser… » **ou** sur une installation neuve, Réglages › Activités est vide, le Récap annonce « App vierge » et rien n'est enregistré avant d'appuyer sur « Enregistrer ». Tests : `tests/test_calendrier.py` (23 vérifications dont 2 pour des réglages illisibles ; 7 de plus qu’avant), `tests/test_temps_restant.py` enregistre les anciennes valeurs comme fixture ; contrôle négatif fait (l'ancien comportement fait échouer le test) ; 368 vérifications.
 
+## 0.32.0 — Départ et retour de chez soi, lignes de repère — livré, à valider sur appareil
+Demande de l'utilisateur (3 novembre 2026) : « à l'inverse du temps passé au travail », un « Je pars / Je rentre » (départ de chez lui, retour chez lui) qui n'affiche qu'une **ligne** comme Lever et Coucher ; mêmes lignes pour l'arrivée au travail, le départ du travail, le début et la fin de la pause. Décisions (réponses aux cinq questions) : deux boutons avec l'heure du moment et correction à la main, sur la page du Jour ; arrivée, pauses et départ du travail viennent de la présence existante (pas de nouvel enregistrement) ; les lignes coexistent avec les blocs (aucun trajet par défaut) ; **seulement réelles** (pas d'heure prévue dans les profils) ; frise **et** Récap (semaine réelle), pas d'export Calendrier ; aucun rattrapage du passé.
+Réalisé : carte repliable « Départ et retour » (boutons **« Je pars de chez moi »** et **« Je rentre chez moi »**, champs de correction, vide = ligne retirée) ; champ additif `trip: { leave, home }` par jour ; `dayMarks` fournit les six lignes triées ; sur la frise la plage s'étend aux lignes et deux libellés trop proches sont décalés.
+**Point de nom** : la carte « Présence au travail » a déjà un bouton « Je pars » qui enregistre le **départ du travail** ; les nouveaux boutons portent donc « de chez moi » pour ne pas être confondus. À valider ou à renommer.
+Fini quand, sur l'iPhone : j'appuie sur « Je pars de chez moi », la ligne « Départ de chez moi HH:MM » apparaît sur la frise ; mes arrivée, pauses et départ du travail y apparaissent aussi ; « Je rentre chez moi » ajoute la dernière ligne ; le Récap du jour montre les mêmes lignes ; une heure corrigée à la main se redessine. Tests : `tests/test_reperes.py` (33 vérifications), quatre contrôles négatifs faits (4, 1, 1 et 3 échecs) ; 401 vérifications.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -284,5 +290,6 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.30.0 : nom d'un passage (dossier) saisi au ▶, Stats par nom. Livré.
 - 0.31.0 : temps restant avant le coucher sur la ligne « maintenant », Récap rattrapé à l'ouverture et au retour dans l'app. Livré.
 - 0.31.1 : app vierge dès le premier lancement (plus de valeurs de départ). Livré.
+- 0.32.0 : départ et retour de chez soi, lignes de repère sur la frise et dans le Récap. Livré.
 - À venir (décidé) : détection des événements disparus du plan (notification).
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

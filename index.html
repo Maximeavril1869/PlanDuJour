@@ -344,7 +344,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.31.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.32.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -537,7 +537,7 @@ function blankSettings() {
     activities: []
   };
 }
-function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {}, presence: null, kidsDone: {} }; }
+function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {}, presence: null, kidsDone: {}, trip: null }; }
 // Présence au travail : un chrono à part, qui tourne en parallèle des activités. { start, end|null, pauses:[{start,end|null}] }
 function cleanPresence(p) {
   if (!p || typeof p !== 'object' || !isMinute(p.start)) return null;
@@ -562,6 +562,31 @@ function presenceNet(p, now) {
   let m = w[1] - w[0];
   p.pauses.forEach((g) => { const a = Math.max(g.start, w[0]), b = Math.min(g.end !== null ? g.end : w[1], w[1]); if (b > a) m -= b - a; });
   return Math.max(0, m);
+}
+// Départ de chez soi / retour chez soi (0.32.0) : { leave, home }, minutes ou null ; null si rien n'est renseigné. Un retour qui n'est pas après le départ est écarté.
+function cleanTrip(t) {
+  if (!t || typeof t !== 'object') return null;
+  const leave = isMinute(t.leave) ? t.leave : null;
+  const home = isMinute(t.home) && (leave === null || t.home > leave) ? t.home : null;
+  return leave === null && home === null ? null : { leave: leave, home: home };
+}
+// Lignes de repère d'un jour (0.32.0), seulement à partir des heures réellement enregistrées : départ de chez soi, arrivée et départ du travail
+// (présence), début et fin de chaque pause, retour chez soi. Triées par heure. Rien n'est prévu à l'avance : pas d'heure, pas de ligne.
+function dayMarks(day) {
+  const out = [];
+  if (!day) return out;
+  const t = day.trip, p = day.presence;
+  if (t && t.leave !== null) out.push({ at: t.leave, label: 'Départ de chez moi' });
+  if (p) {
+    out.push({ at: p.start, label: 'Arrivée au travail' });
+    p.pauses.forEach((g) => {
+      out.push({ at: g.start, label: 'Début de pause' });
+      if (g.end !== null) out.push({ at: g.end, label: 'Fin de pause' });
+    });
+    if (p.end !== null) out.push({ at: p.end, label: 'Départ du travail' });
+  }
+  if (t && t.home !== null) out.push({ at: t.home, label: 'Retour chez moi' });
+  return out.sort((a, b) => a.at - b.at);
 }
 function emptyDays() { return { version: DAYS_VERSION, days: {} }; }
 
@@ -797,6 +822,7 @@ function sanitizeDays(raw) {
       });
       if (typeof d.profile === 'string') day.profile = d.profile;
       day.presence = cleanPresence(d.presence);
+      day.trip = cleanTrip(d.trip);
       if (d.review && typeof d.review === 'object') Object.keys(d.review).forEach((key) => { const r = cleanReview(d.review[key]); if (r) day.review[key] = r; });
     }
     out.days[k] = day;
@@ -1514,10 +1540,12 @@ function renderRecap(s, status) {
   b.gaps.forEach((g) => {
     entries.push({ at: g.from + 0.1, html: '<li class="gapli"><span class="t">' + formatDuration(g.minutes) + '</span><span class="dot"></span><span class="what">disponible' + (g.last ? ' avant le coucher' : '') + '</span></li>' });
   });
+  const dayMk = real ? dayMarks(daysData.days[recapDate]) : [];       // lignes de repère (0.32.0) : heures réellement enregistrées, semaine réelle seulement
+  dayMk.forEach((m) => entries.push({ at: m.at - 0.3, html: '<li class="mark"><span class="t">' + formatTime(m.at) + '</span><span class="dot"></span><span class="what">' + esc(m.label) + '</span></li>' }));
   if (b.profile.bedtime !== null) entries.push({ at: 99999, html: '<li class="mark"><span class="t">' + formatTime(b.profile.bedtime) + '</span><span class="dot"></span><span class="what">Coucher</span></li>' });
   recapNowShown = null;
   if (real && recapDate === dateKey(new Date())) {   // ligne « maintenant » : seulement dans la plage de la journée
-    const n = nowMinutes(), starts = b.spans.map((x) => x.start), ends = b.spans.map((x) => x.end);
+    const n = nowMinutes(), starts = b.spans.map((x) => x.start).concat(dayMk.map((m) => m.at)), ends = b.spans.map((x) => x.end).concat(dayMk.map((m) => m.at));
     const first = b.profile.wake !== null ? b.profile.wake : (starts.length ? Math.min.apply(null, starts) : null);
     const last = b.profile.bedtime !== null ? b.profile.bedtime : (ends.length ? Math.max.apply(null, ends) : null);
     if (first !== null && last !== null && n >= first && n <= last) {
@@ -1739,6 +1767,23 @@ function presenceHtml(wd1) {
     '<button type="button" class="btn small" data-action="pres-addpause">Ajouter la pause</button>' +
     '<p class="hours-help">La présence compte comme du travail, en parallèle de tes activités (rien n’est compté deux fois).</p></details>';
 }
+// Départ de chez soi / retour chez soi (0.32.0) : deux boutons (heure du moment, aujourd'hui seulement) et deux champs pour corriger ou saisir un autre jour.
+function tripHtml() {
+  const day = daysData.days[selectedDate] || emptyDay(), t = day.trip || { leave: null, home: null }, now = dayNow();
+  let status;
+  if (t.leave === null && t.home === null) status = now !== null ? 'Rien d’enregistré aujourd’hui.' : 'Rien d’enregistré ce jour-là.';
+  else status = (t.leave !== null ? 'Parti de chez toi à ' + formatTime(t.leave) : 'Départ non renseigné') + ' · ' + (t.home !== null ? 'rentré à ' + formatTime(t.home) : 'retour non renseigné') + '.';
+  let btns = '';
+  if (now !== null) {
+    if (t.leave === null) btns += '<button type="button" class="btn small primary" data-action="trip-leave">Je pars de chez moi</button> ';
+    if (t.home === null) btns += '<button type="button" class="btn small primary" data-action="trip-home">Je rentre chez moi</button>';
+  }
+  return '<details class="card fold" data-fid="card-trip"' + (tripOpen ? ' open' : '') + '><summary><h2>Départ et retour</h2></summary>' +
+    '<p class="hours-help" style="margin:0 0 6px">' + esc(status) + '</p>' + (btns ? '<div class="btnrow">' + btns + '</div>' : '') +
+    '<div class="rowgrid"><label class="field"><span class="lbl">Départ de chez moi</span><input ' + TIME_ATTRS + ' data-trip="leave" value="' + (t.leave !== null ? formatTime(t.leave) : '') + '"></label>' +
+    '<label class="field"><span class="lbl">Retour chez moi</span><input ' + TIME_ATTRS + ' data-trip="home" value="' + (t.home !== null ? formatTime(t.home) : '') + '"></label></div>' +
+    '<p class="hours-help">Ces heures s’affichent comme des lignes sur la frise et dans le Récap, avec l’arrivée, les pauses et le départ du travail. Vide = pas de ligne.</p></details>';
+}
 function renderDay() {
   renderBackupBanner();
   const build = buildSelected();
@@ -1757,7 +1802,7 @@ function renderDay() {
   if (loadStatus === 'empty') head += '<div class="banner info">App vierge : ajoute tes activités et enregistre-les dans l’onglet Réglages.</div>';
 
   const wrk = workReport(daysData.days, current, selectedDate, selectedDate, selectedDate, dayNow()), wd1 = wrk.days[0];
-  head += presenceHtml(wd1);
+  head += presenceHtml(wd1) + tripHtml();
   if (wrk.enabled && (wd1.target > 0 || wd1.minutes > 0)) {
     head += '<div class="workbar' + (wd1.target && wd1.minutes > wd1.target ? ' over' : '') + '"><span>Présence du jour<small>' + (dayNow() !== null && (daysData.days[selectedDate] || {}).presence && !daysData.days[selectedDate].presence.end ? 'présence en cours' : 'présence au travail') + '</small></span><strong>' + formatDuration(wd1.minutes) +
       (wd1.target ? ' / ' + formatDuration(wd1.target) : '') + '</strong></div>' +
@@ -1807,8 +1852,9 @@ function renderDay() {
     const o = sp.owner, c = sp.seg ? o.children.find((x) => x.id === sp.seg.cid) : null;
     return Object.assign({}, o, { start: sp.start, end: sp.end, state: sp.seg ? (sp.open ? 'running' : 'done') : o.state, shift: sp.seg ? 0 : o.shift, subs: sp.seg ? [] : o.subs, label: o.name + (c ? ' · ' + c.name : (sp.seg && sp.seg.name ? ' · ' + sp.seg.name : '')) });
   });
-  let lo = Math.min.apply(null, (t.wake !== null ? [t.wake] : []).concat(items.map((b) => b.start)));
-  let hi = Math.max.apply(null, (t.bedtime !== null ? [t.bedtime] : []).concat(items.map((b) => b.end)));
+  const marks = dayMarks(daysData.days[selectedDate]);
+  let lo = Math.min.apply(null, (t.wake !== null ? [t.wake] : []).concat(items.map((b) => b.start), marks.map((m) => m.at)));
+  let hi = Math.max.apply(null, (t.bedtime !== null ? [t.bedtime] : []).concat(items.map((b) => b.end), marks.map((m) => m.at)));
   if (!isFinite(lo)) lo = 360;          // journée vide sans lever : repères par défaut
   if (!isFinite(hi)) hi = 1200;
   const lo0 = lo, hi0 = hi;            // plage réelle de la journée (lever → coucher ou derniers blocs) : la ligne « maintenant » n'en sort pas
@@ -1820,6 +1866,12 @@ function renderDay() {
   for (let m = lo; m <= hi; m += 60) html += '<div class="hline" style="top:' + y(m) + 'px"><span>' + pad2(m / 60) + ':00</span></div>';
   if (t.wake !== null) html += '<div class="marker" style="top:' + y(t.wake) + 'px"><span>Lever ' + formatTime(t.wake) + '</span></div>';
   if (t.bedtime !== null) html += '<div class="marker" style="top:' + y(t.bedtime) + 'px"><span>Coucher ' + formatTime(t.bedtime) + '</span></div>';
+  let labelBottom = -Infinity;          // lignes de repère (0.32.0) : un libellé trop proche du précédent est décalé vers le bas pour rester lisible
+  marks.forEach((m) => {
+    const top = y(m.at), off = Math.max(2, labelBottom - top + 2);
+    labelBottom = top + off + 15;
+    html += '<div class="marker mk-day" style="top:' + top + 'px" data-mark="' + esc(m.label) + '"><span style="top:' + off + 'px">' + esc(m.label) + ' ' + formatTime(m.at) + '</span></div>';
+  });
   build.gaps.forEach((g) => {
     const h = g.minutes * PX;
     html += '<div class="gap" style="top:' + y(g.from) + 'px;height:' + h + 'px">' + (h >= 18 ? formatDuration(g.minutes) + (g.last ? ' avant le coucher' : ' disponible') : '') + '</div>';
@@ -1950,6 +2002,7 @@ let current = null;     // réglages enregistrés (ou valeurs de départ)
 let loadStatus = 'empty';
 let dirty = false;
 let daysData = emptyDays();   // heures réelles et blocs ponctuels, par date
+let tripOpen = false;          // carte « Départ et retour » dépliée (mémoire seulement ; repliée au départ)
 let presOpen = false;          // carte « Présence au travail » dépliée (mémoire seulement ; repliée au départ)
 let sansOpen = false;          // carte « Sans heure » de la page du jour dépliée (mémoire seulement ; repliée au départ)
 const sansCatOpen = new Set(); // catégories dépliées dans « Sans heure » (mémoire seulement ; toutes repliées au départ)
@@ -1988,6 +2041,27 @@ function presenceAction(a, data) {
     if (s0 === null || e0 === null || e0 <= s0) { showToast('Pause : début et fin valides (fin après début)', 'err'); return; }
     day.presence.pauses.push({ start: s0, end: e0 });
   } else return;
+  persistDays(); renderDay();
+}
+function tripAction(a) {
+  const now = dayNow(), day = ensureDay(), t = day.trip || { leave: null, home: null };
+  if (now === null) return;
+  if (a === 'trip-leave' && t.leave === null) {
+    if (t.home !== null && now >= t.home) { showToast('Le départ doit être avant le retour', 'err'); return; }
+    t.leave = now;
+  } else if (a === 'trip-home' && t.home === null) {
+    t.home = t.leave !== null ? Math.min(1439, Math.max(now, t.leave + 1)) : now;
+  } else return;
+  day.trip = cleanTrip(t);
+  persistDays(); renderDay();
+}
+function tripEdit(which, text) {
+  const day = ensureDay(), t = day.trip || { leave: null, home: null }, v = text.trim() === '' ? null : parseTime(text);
+  if (text.trim() !== '' && v === null) { showToast('Heure invalide (HH:MM)', 'err'); renderDay(); return; }
+  if (which === 'leave' && v !== null && t.home !== null && t.home <= v) { showToast('Le départ doit être avant le retour', 'err'); renderDay(); return; }
+  if (which === 'home' && v !== null && t.leave !== null && v <= t.leave) { showToast('Le retour doit être après le départ', 'err'); renderDay(); return; }
+  t[which] = v;
+  day.trip = cleanTrip(t);
   persistDays(); renderDay();
 }
 function presenceEdit(which, text) {
@@ -2663,6 +2737,7 @@ function bindDayEvents() {
       else if (a === 'child-go') toggleChild(act.dataset.key, act.dataset.cid);
       else if (a === 'stop') stopNow(act.dataset.key);
       else if (a.indexOf('pres-') === 0) presenceAction(a, act.dataset);
+      else if (a.indexOf('trip-') === 0) tripAction(a);
       else if (a === 'confirm-done') {
         const it = buildSelected().toConfirm.find((x) => x.key === act.dataset.key);
         if (it) { ensureDay().real[it.key] = { start: it.start, end: it.end }; persistDays(); renderDay(); }
@@ -2738,7 +2813,7 @@ function bindDayEvents() {
   });
   panel.addEventListener('toggle', (e) => {
     const f = e.target.dataset && e.target.dataset.fid;
-    if (f === 'card-pres') presOpen = e.target.open; else if (f === 'card-sansheure') sansOpen = e.target.open;
+    if (f === 'card-pres') presOpen = e.target.open; else if (f === 'card-trip') tripOpen = e.target.open; else if (f === 'card-sansheure') sansOpen = e.target.open;
     else if (f && f.indexOf('sans-') === 0) { if (e.target.open) sansCatOpen.add(f); else sansCatOpen.delete(f); }
   }, true);
   document.addEventListener('input', (e) => {          // nom du prochain passage (Sans heure)
@@ -2756,6 +2831,7 @@ function bindDayEvents() {
   });
   panel.addEventListener('change', (e) => {
     if (e.target.dataset && e.target.dataset.pres && ['start', 'end'].includes(e.target.dataset.pres)) { presenceEdit(e.target.dataset.pres, e.target.value); return; }
+    if (e.target.dataset && e.target.dataset.trip && ['leave', 'home'].includes(e.target.dataset.trip)) { tripEdit(e.target.dataset.trip, e.target.value); return; }
     if (e.target.id === 'day-profile') {
       const day = ensureDay();
       day.profile = e.target.value || null;
@@ -3042,7 +3118,7 @@ function init() {
   }, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshRecapNow(); renderBackupBanner(); } });   // retour dans l'app après une mise en veille : l'heure affichée est rattrapée tout de suite
   window.addEventListener('pageshow', () => { refreshRecapNow(); });
-  window.PDJ = { shortcutPayload: shortcutPayload, calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree };   // point d'accès pour les tests
+  window.PDJ = { shortcutPayload: shortcutPayload, calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree, dayMarks: dayMarks, cleanTrip: cleanTrip };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });

@@ -4,9 +4,9 @@ Journal daté de toutes les opérations sur le projet, pour savoir où il en est
 
 Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECTURE.md), [CONVENTIONS.md](CONVENTIONS.md).
 
-## Où en est le projet (2 novembre 2026)
+## Où en est le projet (3 novembre 2026)
 
-- Version **0.31.0**, poussée sur GitHub Pages (à valider sur appareil : 0.30.0 et 0.31.0). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.32.0**, poussée sur GitHub Pages (à valider sur appareil : 0.30.0, 0.31.0, 0.31.1 et 0.32.0). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -19,17 +19,18 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 361 vérifications (16 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 401 vérifications (17 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 3 novembre 2026 (suite)
 
-### Session de reprise après la 0.31.0 (lignes de repère, 0.32.0 en préparation)
+### Session de reprise après la 0.31.0 (app vierge 0.31.1, lignes de repère 0.32.0)
 - Dépôt cloné, docs relues. Versions `index.html` et `sw.js` : 0.31.0, 16 fichiers de tests (suite pas relancée à ce stade).
 - Questions posées une à une avant tout code. Réponses : (1) saisie par deux boutons « Je pars » / « Je rentre » sur la page du Jour, heure du moment, correction manuelle possible ; (2) les lignes arrivée, départ et pauses se calculent à partir de la présence au travail existante, sans nouveau bouton ; (3) les valeurs de départ (dont les blocs de trajet) ont été abandonnées : il n'y a pas de trajet par défaut, les lignes s'ajoutent donc sans toucher aux blocs.
 - Documentation : `STATUS.md` mis à jour (valeurs de départ abandonnées depuis la 0.19.0, points « à valider » correspondants marqués obsolètes).
 - Constat : `defaultSettings()` existait toujours dans le code (premier lancement, migrations). Décision de l'utilisateur : **app vierge** dès le premier lancement (c'est pour cela qu'il avait demandé « Réinitialiser… »), il règle tout lui-même. Une première lecture de ma part (laisser les valeurs) était fausse.
 - Réponses suivantes : (4) lignes **seulement réelles** (pas de profil prévu) ; (5) frise **et** Récap comme Lever et Coucher, pas d'export Calendrier ; « on ajuste pour l'avenir » : aucun rattrapage du passé.
 - `0eced96` **0.31.1** : app vierge au premier lancement (voir CONVENTIONS §49). Migration d'anciennes données non touchée (iPad). `test_calendrier.py` réécrit pour le premier lancement, `test_temps_restant.py` enregistre les anciennes valeurs en fixture ; contrôle négatif fait ; 368 vérifications.
+- **0.32.0** : départ et retour de chez soi (carte « Départ et retour », boutons « Je pars de chez moi » / « Je rentre chez moi », champs de correction) et lignes de repère sur la frise et dans le Récap, à partir des heures réellement enregistrées (départ de chez soi, arrivée, pauses, départ du travail, retour). Nom des boutons précisé « de chez moi » car « Je pars » existe déjà pour le départ du travail (à valider). `tests/test_reperes.py` (33 vérifications), quatre contrôles négatifs faits ; captures iPhone clair et sombre vérifiées ; 401 vérifications.
 
 ### Session de la 0.31.0 (temps restant, Récap rattrapé)
 - Retours de l'utilisateur : il a quitté le travail et valide les versions demain (rappel demandé) ; le témoin du Récap est resté bloqué à 13 h 52 ; il veut, sur « Jour », le temps restant entre l'heure exacte et le coucher « avec l'heure ».

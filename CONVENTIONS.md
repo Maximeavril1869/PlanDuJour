@@ -390,3 +390,12 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - **Inchangé** : la migration de réglages anciens (versions 1 et 2) et la lecture d'exports sans catégories gardent `defaultSettings()` (l'iPad contient d'anciennes données). `defaultSettings()` reste exposée par `window.PDJ` : les tests s'en servent comme fixture (`seed_defaults` dans `tests/test_calendrier.py`). Ne pas la ressusciter comme valeur de démarrage.
 - Les valeurs d'origine citées dans `STATUS.md` (« Décisions prises ») sont historiques.
 - Tests : `tests/test_calendrier.py` (premier lancement vierge, réglages illisibles).
+
+## 50. Départ et retour de chez soi, lignes de repère (0.32.0)
+
+- Champ additif par jour : `trip: { leave, home }` (minutes ou `null`), `null` si rien n'est renseigné ; `cleanTrip` écarte un retour qui n'est pas après le départ. Pas de changement de version des jours.
+- Saisie : carte repliable `card-trip` « Départ et retour » (fermée au départ, état `tripOpen` en mémoire). Boutons `trip-leave` « Je pars de chez moi » et `trip-home` « Je rentre chez moi » seulement pour **aujourd'hui** (heure du moment, `dayNow`) ; un bouton disparaît quand son heure est prise. Champs `[data-trip=leave|home]` pour corriger ou saisir un autre jour ; vide = retire l'heure ; une heure invalide ou un retour avant le départ est refusé avec un message, sans rien changer. **Nom des boutons** : « Je pars » seul reste le départ du **travail** de la carte Présence (§ 0.14.0).
+- Lignes : `dayMarks(day)` = départ de chez soi, arrivée au travail, début de chaque pause, fin de chaque pause (si terminée), départ du travail (si terminé), retour chez soi, triées. **Seulement des heures réellement enregistrées** : aucune ligne prévue, aucun champ dans les profils.
+- Frise : lignes `.marker.mk-day` (même style que Lever et Coucher) ; la plage de la frise (`lo`, `hi`) s'étend aux lignes ; deux libellés à moins de ~10 minutes sont décalés vers le bas (15 px par libellé) pour rester lisibles. Récap : entrées `li.mark` de la semaine **réelle** seulement (rien en semaine type) ; elles comptent dans la plage de la ligne « maintenant ».
+- Pas d'export Calendrier ni d'envoi vers Raccourcis pour ces lignes (décision de l'utilisateur). Aucun effet sur le calcul de la journée, la présence nette ou les Stats.
+- Tests : `tests/test_reperes.py` (33 vérifications).
