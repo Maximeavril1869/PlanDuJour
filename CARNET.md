@@ -23,6 +23,14 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## 3 novembre 2026 (suite)
 
+### Session de validation du raccourci (aucun code modifié, version toujours 0.28.0)
+- Le raccourci iPhone « Plan du jour » est construit et **validé de bout en bout sur appareil avec le JSON de test** : lecture des dates ISO sans décalage (Début 00:00, Fin 23:59), suppression de l'événement de test, événements recréés aux bonnes heures, pas de doublon au second lancement, aucune demande d'autorisation Calendrier. Procédure détaillée dans `RACCOURCI.md`.
+- Pièges consignés dans `RACCOURCI.md` : après un « Définir la variable », l'action suivante ne reprend plus le dictionnaire par défaut (le choisir à la main) ; chaque bloc (Début, Fin) doit avoir sa propre action « Obtenir les dates de ».
+- Le lien `shortcuts://` depuis l'app installée lance le raccourci tout seul, mais avec une confirmation système à chaque fois (non supprimable, à ne pas supposer).
+- Limite constatée : « supprimer puis recréer » efface à chaque envoi les réglages faits à la main dans Calendrier (alertes, lieu, délai de route). Piste 0.29.0 (à valider avec l'utilisateur avant de coder) : identifiant stable par événement dans le JSON, écrit dans les Notes par le raccourci ; mise à jour de l'événement retrouvé, création sinon ; événement disparu du plan non supprimé mais signalé par une notification.
+- Reste à confirmer sur appareil : second envoi sans doublon avec le vrai envoi depuis l'app ; lecture sur iPhone des versions 0.25.3 à 0.28.0 ; validation iPad avant la 1.0.
+- Questions ouvertes : « Jour » après minuit (afficher le jour courant ? réponse ambiguë, à reconfirmer) ; nommer les passages ou s'en tenir aux sous-tâches libres.
+
 ### Session de la 0.28.0 (envoi vers Raccourcis)
 - Retour de l'utilisateur : l'export `.ics` (partage direct ou Fichiers) ne propose pas Calendrier ; plan B = Raccourcis, pas via le Mac. Réponses : agenda « Plan du jour » existant ; rappel à l'heure de l'événement.
 - **0.28.0** : `doShortcutSend`, `shortcutPayload`, `calPeriod`, `copyText`, `openLink` ; `RACCOURCI.md` (procédure du raccourci). `tests/test_raccourcis.py` (14 vérifications), deux contrôles négatifs faits ; 329 vérifications OK. Vérifié dans Apple Support : lien `shortcuts://run-shortcut?name=…&input=clipboard|text`.

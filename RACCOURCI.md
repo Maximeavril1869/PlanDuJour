@@ -11,28 +11,33 @@ Le bouton « Envoyer vers Raccourcis » (Réglages › Calendrier) copie dans le
 
 Heures locales, sans fuseau. `events` peut être vide : le raccourci vide alors seulement la période.
 
-## Construction du raccourci (à faire une fois, dans l'app Raccourcis)
+## Construction du raccourci (à faire une fois, dans l'app Raccourcis, en français)
 
-Nom du raccourci : `Plan du jour` (exactement). L'agenda « Plan du jour » doit exister dans Calendrier. Les libellés ci-dessous sont indicatifs : chercher l'action par son nom dans la recherche d'actions.
+Nom du raccourci : `Plan du jour` (exactement). L'agenda « Plan du jour » doit exister dans Calendrier. Les libellés ci-dessous sont ceux de l'app en français ; chercher l'action par son nom dans la recherche d'actions.
 
-Principe : « Définir la variable » range le résultat de l'action précédente sous un nom (champ « Nom de la variable »). L'action suivante prend ensuite ce résultat comme entrée : **dans chaque action « Obtenir la valeur du dictionnaire », il faut donc choisir à la main le dictionnaire** (toucher le champ « Dictionnaire » de l'action et choisir la variable `donnees`, ou `element` dans la boucle).
+Procédure **validée de bout en bout sur iPhone** avec le JSON de test (action « Texte » contenant le JSON de test, à la place du presse-papiers) :
 
-1. **Obtenir le presse-papiers**
-2. **Obtenir le dictionnaire à partir de l'entrée** (entrée : Presse-papiers), puis **Définir la variable** `donnees`
-3. **Obtenir la valeur du dictionnaire** : clé `from`, dictionnaire = variable `donnees` ; puis **Obtenir des dates à partir de l'entrée** ; puis **Définir la variable** `debutPeriode`
-4. Idem avec la clé `to` (dictionnaire = `donnees`), variable `finPeriode`
-5. **Rechercher des événements de calendrier** : Calendrier = « Plan du jour » ; Date de début est entre `debutPeriode` et `finPeriode`
-6. **Supprimer les événements** (entrée : les événements trouvés)
-7. **Obtenir la valeur du dictionnaire** : clé `events`, dictionnaire = variable `donnees`
-8. **Répéter avec chaque élément** (de la liste obtenue à l'étape 7), et dedans, en commençant par **Définir la variable** `element` (entrée : Élément répété) :
-   1. Obtenir la valeur du dictionnaire : clé `title`, dictionnaire = `element`, puis Définir la variable `titre`
-   2. Obtenir la valeur du dictionnaire : clé `start`, dictionnaire = `element`, puis Obtenir des dates à partir de l'entrée, puis Définir la variable `debut`
-   3. Idem avec la clé `end`, variable `fin`
-   4. **Ajouter un nouvel événement** : titre = `titre`, début = `debut`, fin = `fin`, calendrier = « Plan du jour », alerte = à l'heure de l'événement
-9. (facultatif) **Afficher la notification** « Calendrier à jour »
+1. **Texte** (le JSON) → **Obtenir le dictionnaire** → **Définir la variable** `Données`.
+2. Bloc **Début période** : **Obtenir la valeur pour la clé** `from` dans `Données` → **Obtenir les dates de** → **Définir la variable** `Début période` sur « Dates ».
+3. Bloc **Fin période** : idem avec la clé `to`, variable `Fin période`. **Chaque bloc a sa propre action « Obtenir les dates de »**.
+4. **Rechercher des événements de calendrier** : Calendrier = « Plan du jour » ; Date de début est entre `Début période` et `Fin période` → **Supprimer les événements**.
+5. **Obtenir la valeur pour la clé** `events` dans `Données` → **Répéter avec chaque élément** → **Définir la variable** `element` ; dedans, lire `title`, `start` et `end` dans `element` (dates converties pour `start` et `end`) → **Ajouter un nouvel événement** dans « Plan du jour », alerte à l'heure de l'événement.
+
+Pour l'usage réel, l'entrée du raccourci est le presse-papiers (`input=clipboard`) : remplacer l'action « Texte » par **Obtenir le presse-papiers**. Cette variante avec le vrai envoi depuis l'app n'a pas encore été confirmée sur appareil.
+
+### Vérifié sur appareil (JSON de test)
+
+- Les dates ISO sont lues sans décalage (Début 00:00, Fin 23:59).
+- L'événement de test « Test suppression » est supprimé ; les événements recréés ont les bonnes heures.
+- Pas de doublon au second lancement ; aucune demande d'autorisation Calendrier.
+
+## Pièges
+
+- **Après un « Définir la variable », l'action suivante ne reprend plus le dictionnaire par défaut** : dans chaque action « Obtenir la valeur pour la clé », toucher le champ du dictionnaire et choisir la variable à la main (`Données`, ou `element` dans la boucle).
+- **Une action « Obtenir les dates de » par bloc** : le bloc Fin lisait par erreur celle du bloc Début. Vérifier que chaque bloc a la sienne.
 
 ## Limites
 
 - Pas de rappel différent par bloc : un rappel fixe, à l'heure de l'événement.
-- Un événement ajouté à la main dans l'agenda « Plan du jour » sur la période est supprimé à l'envoi suivant : y réserver les événements de l'app.
-- Le fonctionnement du lien `shortcuts://` depuis l'app installée sur l'écran d'accueil est à confirmer sur appareil ; sinon lancer le raccourci à la main (il lit le presse-papiers).
+- « Supprimer puis recréer » efface à chaque envoi les réglages faits à la main dans Calendrier (alertes, lieu, délai de route…) et tout événement ajouté à la main dans l'agenda « Plan du jour » sur la période. Piste : 0.29.0 (identifiant stable par événement, mise à jour au lieu de recréer).
+- Le lien `shortcuts://` depuis l'app installée sur l'écran d'accueil lance le raccourci tout seul, mais iOS demande une **confirmation à chaque fois** (confirmation système, à ne pas supposer supprimable).
