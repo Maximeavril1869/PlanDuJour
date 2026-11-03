@@ -1,6 +1,6 @@
 """Tests : rappel de sauvegarde (0.25.0).
 
-Un bandeau sur la page Jour apparaît quand des modifications ne sont pas sauvegardées depuis au moins N jours (réglable dans Réglages > Sauvegarde,
+Un bandeau, en tête de tous les onglets, apparaît quand des modifications ne sont pas sauvegardées depuis au moins N jours (réglable dans Réglages > Sauvegarde,
 7 par défaut, 0 = jamais). L'état est propre à l'appareil (clé `plandujour.sauvegarde`) et n'entre pas dans l'export.
 Lancer depuis la racine du dépôt :  PYTHONDONTWRITEBYTECODE=1 python3 tests/test_sauvegarde.py
 Aucune donnée réelle : libellés inventés.
@@ -73,6 +73,39 @@ def test_affichage(browser):
     check('rappel reporté à demain : caché aujourd’hui', not banner(pg))
     set_backup(pg, since=-8, snooze=0)
     check('rappel reporté jusqu’à aujourd’hui : de retour', banner(pg))
+    check('aucune erreur JavaScript', not pg.errors, pg.errors)
+    pg.close()
+
+
+def test_tous_les_onglets(browser):
+    print('Le bandeau est sur tous les onglets')
+    pg = new_page(browser)
+    set_backup(pg, since=-8)
+    for tab in ('#tab-day', '#tab-recap', '#tab-stats', '#tab-settings'):
+        pg.click(tab)
+        check('bandeau visible sur ' + tab, pg.locator('#backup-banner').is_visible())
+    check('un seul bandeau à la fois', pg.locator('#backup-banner').count() == 1)
+    pg.click('#tab-stats')
+    pg.click('[data-action=backup-later]')
+    ok = True
+    for tab in ('#tab-day', '#tab-recap', '#tab-stats', '#tab-settings'):
+        pg.click(tab)
+        ok = ok and pg.locator('#backup-banner').count() == 0
+    check('« Plus tard » depuis Stats le cache partout', ok)
+    set_backup(pg, since=-8)
+    pg.click('#tab-recap')
+    no_download(pg)
+    with pg.expect_download():
+        pg.click('[data-action=backup-now]')
+    ok = True
+    for tab in ('#tab-day', '#tab-recap', '#tab-stats', '#tab-settings'):
+        pg.click(tab)
+        ok = ok and pg.locator('#backup-banner').count() == 0
+    check('« Exporter maintenant » depuis Récapitulatif le cache partout', ok and stored(pg)['since'] is None, stored(pg))
+    pg.click('#tab-settings')
+    pg.evaluate("([k, v]) => localStorage.setItem(k, JSON.stringify(v))", [KEY, {'since': day_offset(pg, -8)}])
+    pg.select_option('#backup-every', '0')
+    check('changer le délai dans Réglages met à jour le bandeau tout de suite', pg.locator('#backup-banner').count() == 0)
     check('aucune erreur JavaScript', not pg.errors, pg.errors)
     pg.close()
 
@@ -230,6 +263,7 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
         test_affichage(browser)
+        test_tous_les_onglets(browser)
         test_donnees_invalides(browser)
         test_plus_tard(browser)
         test_export(browser)

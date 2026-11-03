@@ -264,6 +264,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 </header>
 
 <main>
+  <div id="backup-slot"></div>
   <section id="panel-day" role="tabpanel" aria-labelledby="tab-day">
     <div id="day-head"></div>
     <form id="block-panel" class="card" hidden novalidate autocomplete="off">
@@ -336,7 +337,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.25.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.25.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1713,8 +1714,9 @@ function presenceHtml(wd1) {
     '<p class="hours-help">La présence compte comme du travail, en parallèle de tes activités (rien n’est compté deux fois).</p></details>';
 }
 function renderDay() {
+  renderBackupBanner();
   const build = buildSelected();
-  let head = backupBannerHtml() + '<input type="search" id="day-search" placeholder="Rechercher une tâche…" autocomplete="off" value="' + esc(searchQ) + '" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:transparent;color:inherit"><div id="day-search-res">' + (searchQ ? searchResultsHtml() : '') + '</div>' +
+  let head = '<input type="search" id="day-search" placeholder="Rechercher une tâche…" autocomplete="off" value="' + esc(searchQ) + '" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:transparent;color:inherit"><div id="day-search-res">' + (searchQ ? searchResultsHtml() : '') + '</div>' +
     '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
     '<div class="daylabel">' + esc(fmtDateLabel(selectedDate)) + '</div>' +
     '<button type="button" class="icon-btn" data-day-nav="1" aria-label="Jour suivant">›</button></div>' +
@@ -1831,6 +1833,7 @@ function switchTab(name) {
   $('#subtitle').textContent = { day: 'Ton plan, recalé selon la réalité.', recap: 'Ta semaine type et le temps disponible.', stats: 'Le temps réel passé, par activité.', settings: 'Modifie, puis enregistre.' }[name];
   if (name === 'day') renderDay();
   if (name === 'stats') renderStats();
+  renderBackupBanner();
   window.scrollTo(0, 0);
 }
 
@@ -2150,10 +2153,18 @@ function backupSettingsHtml() {
     '<label class="field" data-nodirty><span class="lbl">Me rappeler quand des modifications ne sont pas sauvegardées depuis</span><select id="backup-every">' +
     BACKUP_EVERY.map((n) => '<option value="' + n + '"' + (n === every ? ' selected' : '') + '>' + (n === 0 ? 'Jamais (pas de rappel)' : plural(n, 'jour', 'jours')) + '</option>').join('') + '</select></label>';
 }
-function refreshBackupUi() {     // après un export, un report ou un changement de délai : bandeau de la page Jour et résumé de Réglages
+// Le bandeau est commun à tous les onglets (0.25.1) : un emplacement unique en tête de la page, réécrit seulement si son contenu change.
+let backupShown = null;
+function renderBackupBanner() {
+  const slot = $('#backup-slot'), h = backupBannerHtml();
+  if (!slot || h === backupShown) return;
+  backupShown = h;
+  slot.innerHTML = h;
+}
+function refreshBackupUi() {     // après un export, un report ou un changement de délai : bandeau et résumé de Réglages
   const info = $('#backup-info');
   if (info) info.innerHTML = backupInfoHtml();
-  renderDay();
+  renderBackupBanner();
 }
 function backupLater() { const b = readBackup(); b.snooze = addDays(dateKey(new Date()), 1); writeBackup(b); refreshBackupUi(); showToast('Je te le rappellerai demain'); }
 // Lit et valide un fichier d'export ; retourne null s'il n'est pas reconnu. Rien n'est écrit.
@@ -2486,6 +2497,11 @@ function savePanel() {
 }
 
 function bindDayEvents() {
+  $('#backup-slot').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    if (btn.dataset.action === 'backup-now') doExport(); else if (btn.dataset.action === 'backup-later') backupLater();
+  });
   const panel = $('#panel-day');
   panel.addEventListener('click', (e) => {
     const nav = e.target.closest('[data-day-nav]');
@@ -2504,8 +2520,6 @@ function bindDayEvents() {
     if (act) {
       const a = act.dataset.action;
       if (a === 'add-block') openPanel(null);
-      else if (a === 'backup-now') doExport();
-      else if (a === 'backup-later') backupLater();
       else if (a === 'open-block') openPanel(act.dataset.key);
       else if (a === 'start') startNow(act.dataset.key);
       else if (a === 'child-go') toggleChild(act.dataset.key, act.dataset.cid);
@@ -2868,6 +2882,7 @@ function init() {
   switchTab('day');
   // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
+    renderBackupBanner();                                  // le bandeau suit le changement de jour, quel que soit l'onglet
     if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && document.activeElement.id !== 'day-search' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
   window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree };   // point d'accès pour les tests

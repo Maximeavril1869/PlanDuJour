@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.25.0**.
+Version décrite : **0.25.1**.
 
 ## 1. Principe
 
@@ -133,7 +133,7 @@ flowchart TD
 
 | Flux | Sens | Format | Détail |
 |---|---|---|---|
-| Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » ; un bandeau sur la page du jour rappelle d'exporter après N jours de modifications non sauvegardées (0.25.0) |
+| Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » ; un bandeau en tête de tous les onglets rappelle d'exporter après N jours de modifications non sauvegardées (0.25.0) |
 | Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-p-<id>` ou `pdj-<date>-<clé>`, code dans les Notes) | Jours suivants seulement ; **uniquement les blocs dont la case « Exporter vers Calendrier » (`toCal`) est cochée** ; rappel `VALARM` facultatif ; à ajouter dans un calendrier dédié « Plan du jour » |
 
 L'app est la source unique : **il n'y a plus d'import depuis le calendrier** (retiré en 0.20.0). Un bloc n'est exporté que si la case est cochée, par défaut décochée.
