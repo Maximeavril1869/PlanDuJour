@@ -92,12 +92,14 @@ Vérifié côté code (navigateur automatisé, écran d'iPhone, mode sombre, hor
 - Nom du dépôt : `PlanDuJour`, public. Hébergement : GitHub Pages.
 - Fichiers : `index.html` (code, style et script), `manifest.json`, `sw.js`, icônes.
 - **Un seul modèle d'activité** (voir CONVENTIONS §13) : plus d'éditeurs séparés pour le saxophone, le ménage ou les rendez-vous réguliers. Le mensuel et le « tous les N jours » sont abandonnés.
-- Valeurs de départ : trajet aller 06:30–07:30, trajet retour 16:00–17:15 (lun.–ven., heure fixe) ; cours de saxophone mercredi 19:00 et orchestre vendredi 19:30 (1 h supposée, heure fixe) ; saxophone 15 min à 17:15 (souple, tous les jours sauf mercredi et vendredi) ; ménage 30 min à 17:30 (souple, lundi et jeudi) ; concentration 1 h 30 sans heure (lun.–ven.). Tout se modifie.
+- **Valeurs de départ abandonnées par l'utilisateur** (3 novembre 2026) : depuis la 0.19.0 il a réinitialisé l'app (réglages vierges : aucune activité, un profil « Journée » à heures libres) et ne s'en sert plus. Il n'y a donc **pas de blocs de trajet par défaut** dans son usage ; ses activités sont celles qu'il crée lui-même. Pour mémoire, les valeurs d'origine étaient : trajet aller 06:30–07:30, trajet retour 16:00–17:15 (lun.–ven., heure fixe) ; cours de saxophone mercredi 19:00 et orchestre vendredi 19:30 (1 h supposée, heure fixe) ; saxophone 15 min à 17:15 (souple, tous les jours sauf mercredi et vendredi) ; ménage 30 min à 17:30 (souple, lundi et jeudi) ; concentration 1 h 30 sans heure (lun.–ven.). Le code garde `defaultSettings()` pour un tout premier lancement (voir CARNET du 3 novembre 2026).
 - Le week-end est géré comme les autres jours (les activités choisissent leurs jours).
 - Un bloc « sans heure » n'a pas de place dans la timeline tant qu'il n'est pas lancé ; il est listé avec le plus grand temps disponible. Le chrono est un chrono qui monte, avec la durée prévue en repère.
 - Un seul bloc tourne à la fois : en démarrer un arrête le précédent.
 
 ## À valider
+
+*Les points ci-dessous qui parlent de valeurs de départ ou « inventées » (lever du télétravail, coucher du dimanche, durée du ménage, durée du cours de saxophone et de l'orchestre, jours et heure du ménage) sont obsolètes depuis la 0.19.0 : l'utilisateur a réinitialisé l'app et règle lui-même ses valeurs.*
 
 - Congé : « dernier jour de travail » = dernier jour du lundi au vendredi avant le début de la période ; « reprise » = premier lundi–vendredi après la fin. Les jours fériés ne sont pas connus de l'app.
 - Dernier lever et coucher de reprise du profil Congé : 05:45 et 22:00 pour démarrer (à régler).

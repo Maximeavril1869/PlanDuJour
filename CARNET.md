@@ -23,6 +23,13 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## 3 novembre 2026 (suite)
 
+### Session de reprise après la 0.31.0 (lignes de repère, 0.32.0 en préparation)
+- Dépôt cloné, docs relues. Versions `index.html` et `sw.js` : 0.31.0, 16 fichiers de tests (suite pas relancée à ce stade).
+- Questions posées une à une avant tout code. Réponses : (1) saisie par deux boutons « Je pars » / « Je rentre » sur la page du Jour, heure du moment, correction manuelle possible ; (2) les lignes arrivée, départ et pauses se calculent à partir de la présence au travail existante, sans nouveau bouton ; (3) les valeurs de départ (dont les blocs de trajet) ont été abandonnées : il n'y a pas de trajet par défaut, les lignes s'ajoutent donc sans toucher aux blocs.
+- Documentation : `STATUS.md` mis à jour (valeurs de départ abandonnées depuis la 0.19.0, points « à valider » correspondants marqués obsolètes).
+- Constat à trancher : `defaultSettings()` existe toujours dans le code (premier lancement, migrations) alors que l'utilisateur ne s'en sert plus ; question posée.
+- Questions restantes avant de coder : lignes prévues puis remplacées par l'heure réelle, ou seulement réelles ; Récap et export Calendrier ou frise seule.
+
 ### Session de la 0.31.0 (temps restant, Récap rattrapé)
 - Retours de l'utilisateur : il a quitté le travail et valide les versions demain (rappel demandé) ; le témoin du Récap est resté bloqué à 13 h 52 ; il veut, sur « Jour », le temps restant entre l'heure exacte et le coucher « avec l'heure ».
 - Cause probable du Récap : pas de rafraîchissement à l'ouverture de l'onglet ni au retour dans l'app (seule la minuterie de 15 s). Corrigé (`refreshRecapNow`). Le blocage exact vu sur iPhone n'a pas été reproduit : à confirmer.
