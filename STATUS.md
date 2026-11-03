@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.30.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.31.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -254,6 +254,12 @@ Fini quand, sur l'iPhone : le raccourci est reconstruit selon `RACCOURCI.md` ; u
 Demande de l'utilisateur (3 novembre 2026) : relancer une tâche « sans heure » pour des dossiers différents et pouvoir les distinguer (il y mettra un identifiant d'entreprise). Décisions : nom saisi **à l'activation (▶)**, facultatif, texte libre ; **pas de liste de suggestions** (trop de noms) ; temps cumulé **par nom dans les Stats**, rangé sous la tâche ; titre Calendrier « Tâche · Nom » ; nom corrigeable après coup dans le panneau du bloc ; les sous-tâches ne changent pas (elles restent pour décomposer finement une tâche).
 Fini quand, sur l'iPhone : un champ « Dossier (facultatif) » est sous « ▶ Démarrer » dans « Sans heure » ; le nom s'affiche pendant le chrono et dans la frise ; Stats › la tâche › le nom avec son temps ; l'événement envoyé à Raccourcis s'appelle « Tâche · Nom » ; le panneau du bloc permet de corriger ou de vider le nom d'un passage. Les noms ne sont pas fusionnés au-delà des espaces superposés (« Dossier A » et « dossier a » restent deux lignes). Tests : `tests/test_noms_passages.py` (17 vérifications), trois contrôles négatifs faits (le premier avait révélé un test trop faible, renforcé) ; 351 vérifications.
 
+## 0.31.0 — Temps restant avant le coucher et Récap rattrapé — livré, à valider sur appareil
+Demandes de l'utilisateur (3 novembre 2026) : (1) dans le Récap, le témoin d'avancement de la journée est resté bloqué à 13 h 52 ; (2) sur « Jour », faire apparaître, avec l'heure, le temps restant entre l'heure exacte et le coucher.
+(1) Cause identifiée dans le code : le Récap n'était rafraîchi que par la minuterie de 15 secondes et pas à l'ouverture de l'onglet ni au retour dans l'app après une mise en veille ; il montrait donc l'heure de son dernier affichage. Correctif : `refreshRecapNow` appelée à l'ouverture de l'onglet, au retour dans l'app (`visibilitychange`, `pageshow`) et par la minuterie. Cause du blocage constaté sur iPhone **non reproduite** : à confirmer sur appareil.
+(2) Étiquette « 5 h 08 avant le coucher » sur la ligne « maintenant » de la frise, à côté de l'heure ; rien si le coucher est libre ou dépassé. Emplacement choisi par moi (la demande ne le précisait pas) : à valider.
+Fini quand, sur l'iPhone : la ligne « maintenant » du Jour affiche l'heure et le temps restant jusqu'au coucher et il diminue ; le Récap montre l'heure courante dès qu'on ouvre l'onglet ou qu'on revient dans l'app. Tests : `tests/test_temps_restant.py` (10 vérifications), trois contrôles négatifs faits (le troisième refait, un premier motif n'avait rien modifié) ; 361 vérifications.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -269,5 +275,6 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.28.0 : envoi vers Raccourcis (agenda dédié). Livré.
 - 0.29.0 : id stable par événement, mise à jour au lieu de recréer. Livré (raccourci à reconstruire).
 - 0.30.0 : nom d'un passage (dossier) saisi au ▶, Stats par nom. Livré.
+- 0.31.0 : temps restant avant le coucher sur la ligne « maintenant », Récap rattrapé à l'ouverture et au retour dans l'app. Livré.
 - À venir (décidé) : détection des événements disparus du plan (notification).
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

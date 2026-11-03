@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.30.0**, poussée sur GitHub Pages (à valider sur appareil). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.31.0**, poussée sur GitHub Pages (à valider sur appareil : 0.30.0 et 0.31.0). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -19,9 +19,14 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 351 vérifications (15 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 361 vérifications (16 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 3 novembre 2026 (suite)
+
+### Session de la 0.31.0 (temps restant, Récap rattrapé)
+- Retours de l'utilisateur : il a quitté le travail et valide les versions demain (rappel demandé) ; le témoin du Récap est resté bloqué à 13 h 52 ; il veut, sur « Jour », le temps restant entre l'heure exacte et le coucher « avec l'heure ».
+- Cause probable du Récap : pas de rafraîchissement à l'ouverture de l'onglet ni au retour dans l'app (seule la minuterie de 15 s). Corrigé (`refreshRecapNow`). Le blocage exact vu sur iPhone n'a pas été reproduit : à confirmer.
+- `0.31.0` : étiquette « X avant le coucher » sur la ligne « maintenant » (emplacement choisi sans lui demander : à valider) ; `tests/test_temps_restant.py` (10 vérifications) ; `test_maintenant.py` adapté (heure lue dans le `span`) ; trois contrôles négatifs faits ; 361 vérifications OK ; captures iPhone clair et sombre vérifiées.
 
 ### Session de la 0.30.0 (nom d'un passage)
 - Réponses de l'utilisateur : nom saisi **à l'activation (▶)** ; pas de suggestions (« beaucoup trop de noms ») ; Stats par nom voulues ; il mettra un identifiant d'entreprise comme nom (aucun faux doublon à craindre) ; les sous-tâches ne servent plus que pour décomposer très finement une tâche (non modifiées). La notion de « passage » lui était floue : expliquée par un exemple (un ▶ puis ■ = un passage) ; confusion levée entre sous-tâche (propre au jour, sans temps), sous-activité (permanente, créée dans Réglages) et passage nommé.

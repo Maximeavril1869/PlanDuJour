@@ -376,3 +376,9 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Affichage : barre « en cours », libellé de la frise (`Tâche · Nom`). Calendrier : titre `Tâche · Nom` (modes plan et réel) ; l'`id` envoyé à Raccourcis (§46) ne contient jamais le nom. Stats : le nom joue le rôle de la sous-activité (`child`) ; le temps sans nom tombe dans « Sans détail ».
 - Choix assumé : pas de suggestions, pas de fusion au-delà des espaces (la casse compte) ; l'utilisateur y met un identifiant d'entreprise. Le nom part dans le titre Calendrier et dans les exports de sauvegarde : rien de réel dans le dépôt public (noms inventés dans les tests et la doc).
 - Tests : `tests/test_noms_passages.py` (17 vérifications).
+
+## 48. Temps restant avant le coucher et rafraîchissement du Récap (0.31.0)
+
+- Ligne « maintenant » de la frise : `<em>` « X avant le coucher » (`formatDuration(bedtime − maintenant)`), seulement si le coucher du profil n'est pas libre et pas dépassé. L'heure reste dans le `<span>` (les tests la lisent là).
+- `refreshRecapNow` (Récap de la journée courante en semaine réelle, minute différente de `recapNowShown`) est appelée par la minuterie de 15 s, à l'ouverture de l'onglet Récap (`switchTab`), au retour dans l'app (`visibilitychange`) et à `pageshow` : une app mise en veille rattrape l'heure tout de suite.
+- Tests : `tests/test_temps_restant.py` ; l'heure qui passe sans minuterie se simule avec `page.clock.set_system_time`.

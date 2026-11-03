@@ -182,6 +182,7 @@ button { font: inherit; }
 .b-running { outline: 2px solid var(--accent); }
 .nowline { position: absolute; left: 0; right: 0; border-top: 2px solid var(--now); z-index: 3; pointer-events: none; }
 .nowline span { position: absolute; left: -46px; top: -11px; width: 42px; text-align: center; font-size: 12px; font-weight: 700; color: #fff; background: var(--now); border-radius: 6px; line-height: 20px; font-variant-numeric: tabular-nums; }
+.nowline em { position: absolute; right: 2px; top: -21px; padding: 0 6px; font-style: normal; font-size: 11px; font-weight: 700; line-height: 18px; color: #fff; background: var(--now); border-radius: 6px; font-variant-numeric: tabular-nums; }
 .nowline::before { content: ""; position: absolute; left: -4px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--now); }
 .tl li.nowli .t, .tl li.nowli .what { color: var(--now); font-weight: 700; }
 .tl li.nowli .dot::after { background: var(--now); }
@@ -343,7 +344,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.30.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.31.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1478,6 +1479,9 @@ let recapMode = 'reel';   // 'reel' : semaine réelle (profil, congés, blocs po
 let recapDate = null;    // un jour de la semaine réelle affichée
 let recapDay = 1;   // jour de semaine affiché dans le récapitulatif
 
+function refreshRecapNow() {                          // la ligne « maintenant » du Récap suit l'heure (0.31.0 : aussi à l'ouverture de l'onglet et au retour dans l'app)
+  if (!$('#panel-recap').hidden && recapMode === 'reel' && recapDate === dateKey(new Date()) && nowMinutes() !== recapNowShown) renderRecap(current, loadStatus);
+}
 let recapNowShown = null;   // minute affichée par la ligne « maintenant » du Récap (null : pas de ligne)
 function renderRecap(s, status) {
   let html = '';
@@ -1834,7 +1838,7 @@ function renderDay() {
       '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.label) + '</span><span class="bt">' + (b.mode === 'free' && b.state !== 'done' ? formatTime(b.start) : formatTime(b.start) + '–' + formatTime(b.end) + ' (' + formatDuration(b.end - b.start) + ')') + esc(note) + '</span></button>';
   });
   const nowM = dayNow();
-  if (nowM !== null && nowM >= lo0 && nowM <= hi0) html += '<div class="nowline" style="top:' + y(nowM) + 'px"><span>' + formatTime(nowM) + '</span></div>';
+  if (nowM !== null && nowM >= lo0 && nowM <= hi0) html += '<div class="nowline" style="top:' + y(nowM) + 'px"><span>' + formatTime(nowM) + '</span>' + (t.bedtime !== null && t.bedtime > nowM ? '<em>' + formatDuration(t.bedtime - nowM) + ' avant le coucher</em>' : '') + '</div>';   // temps restant entre l'heure exacte et le coucher (0.31.0)
   html += '</div></div>';
   $('#day-timeline').innerHTML = html;
 }
@@ -1864,6 +1868,7 @@ function switchTab(name) {
   $('#subtitle').textContent = { day: 'Ton plan, recalé selon la réalité.', recap: 'Ta semaine type et le temps disponible.', stats: 'Le temps réel passé, par activité.', settings: 'Modifie, puis enregistre.' }[name];
   if (name === 'day') renderDay();
   if (name === 'stats') renderStats();
+  if (name === 'recap') refreshRecapNow();
   renderBackupBanner();
   window.scrollTo(0, 0);
 }
@@ -3032,9 +3037,11 @@ function init() {
   // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
     renderBackupBanner();                                  // le bandeau suit le changement de jour, quel que soit l'onglet
-    if (!$('#panel-recap').hidden && recapMode === 'reel' && recapDate === dateKey(new Date()) && nowMinutes() !== recapNowShown) renderRecap(current, loadStatus);   // la ligne « maintenant » avance
+    refreshRecapNow();                                     // la ligne « maintenant » avance
     if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && document.activeElement.id !== 'day-search' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshRecapNow(); renderBackupBanner(); } });   // retour dans l'app après une mise en veille : l'heure affichée est rattrapée tout de suite
+  window.addEventListener('pageshow', () => { refreshRecapNow(); });
   window.PDJ = { shortcutPayload: shortcutPayload, calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
