@@ -25,7 +25,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ### Session de la 0.25.3 (passages d'une tâche sans heure)
 - Réponses de l'utilisateur : oui à « la tâche reste dans Sans heure après ■, ▶ ouvre un nouveau passage, chaque passage visible dans la frise et cumulé dans les Stats » ; nommer = sous-tâches libres existantes ; vaut pour toutes les tâches sans heure, sans case à régler ; pas de case « fait » (le chrono prouve que c'est fait) ; pas de tâche à sous-activités pour l'instant.
-- **0.25.3** : passages = entrées de `segs` à `cid` vide ; `isPlain`, `passesText`, `toPasses` ; `startNow`, `buildDay` (`reopen`), `timeEntries`, `markKidDone`, panneau, `savePanel`, effacement adaptés. `tests/test_passages.py` (31 vérifications), deux contrôles négatifs faits (la fonction rendue fausse, puis la tâche non reproposée : échecs), 273 vérifications OK. Captures iPhone clair et sombre vérifiées.
+- `6f21131` **0.25.3** : passages = entrées de `segs` à `cid` vide ; `isPlain`, `passesText`, `toPasses` ; `startNow`, `buildDay` (`reopen`), `timeEntries`, `markKidDone`, panneau, `savePanel`, effacement adaptés. `tests/test_passages.py` (31 vérifications), deux contrôles négatifs faits (la fonction rendue fausse, puis la tâche non reproposée : échecs), 273 vérifications OK. Captures iPhone clair et sombre vérifiées.
 - Limite à rappeler : un passage ne porte pas de nom ; le temps par dossier n'existe pas.
 
 ## 2 novembre 2026
