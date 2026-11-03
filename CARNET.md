@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.25.1**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.25.2**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -14,12 +14,19 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Statuts Travail / Perso / Hors (0.23.1) : portés par la racine, hérités par les sous-catégories ; Réglages en trois menus de statut contenant un menu par catégorie, imbriqués. 
 - Stats en arbre (0.24.0) : trois menus Travail / Perso / Hors, catégories imbriquées, activités et sous-activités au bout ; un total à chaque niveau ; fermé au départ.
 - Rappel de sauvegarde (0.25.0) : bandeau en tête de tous les onglets (0.25.1) après N jours (7 par défaut) de modifications non sauvegardées ; résumé et délai dans Réglages › Sauvegarde ; état propre à l'appareil.
+- Stockage persistant (0.25.2) : demandé au démarrage, résultat affiché dans Réglages › Sauvegarde.
+- Tâches « sans heure » sans sous-activités : elles quittent la liste « Sans heure » après ■ (un seul créneau par jour) ; l'utilisateur veut pouvoir les relancer plusieurs fois dans la journée pour des dossiers différents. Conception **à préciser avant de coder** (voir la session de la 0.25.2).
 - Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 228 vérifications (9 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 242 vérifications (10 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 2 novembre 2026
+
+### Session de la 0.25.2 (stockage persistant)
+- Retours de l'utilisateur : tests iPhone faits, « ça semble fonctionner correctement » ; l'app est ouverte depuis l'icône de l'écran d'accueil (iPhone et iPad) ; oui à la demande de stockage persistant ; hypothèse « iPhone validé jusqu'à la 0.23.1 » confirmée ; **on garde les deux cartes** « Par catégorie » et « Par activité ». Le délai de 7 jours du rappel n'a pas été discuté (toujours à confirmer). Le bandeau (au moins 3 jours) n'a pas pu être vu apparaître.
+- **0.25.2** : `requestPersistence` (`persisted()` puis `persist()`), état `persistState`, paragraphe `#persist-info` dans Réglages › Sauvegarde. `tests/test_stockage.py` (14 vérifications, système simulé), contrôle négatif fait (un refus affiché « accordée » : 1 échec) ; 242 vérifications OK.
+- Retour sur l'usage : « les tâches sans heure disparaissent une fois qu'on appuie sur stop, cependant je peux les utiliser plusieurs fois dans une journée pour des dossiers différents ». Constat dans le code : une activité sans heure **sans sous-activités** n'a qu'un créneau par jour (`real[clé] = { start, end }`) et sort de la liste « Sans heure » à l'arrêt (état `done`) ; seule une activité **avec** sous-activités reste proposée (`reopen`, créneaux multiples dans `segs`). Conception en attente des réponses de l'utilisateur (relancer le même chrono plusieurs fois ? nommer chaque passage ? toutes les tâches sans heure ou seulement certaines ?).
 
 ### Session de la 0.25.1 (bandeau sur tous les onglets)
 - Retours de l'utilisateur sur la 0.25.0 : le bandeau doit être sur toutes les pages ; liste de contrôles appareil acceptée ; réponse sur « Par catégorie » / « Par activité » reportée à l'enregistrement de vraies activités. Question posée par l'utilisateur : « l'iPhone peut vider les données, à quelle fréquence ? » (je n'avais pas dit ça dans cette conversation). Vérifié sur les sources de WebKit : dans Safari (onglet), le stockage d'un site est supprimé après 7 jours d'usage de Safari sans interaction avec le site ; une app ajoutée à l'écran d'accueil a son propre compteur, remis à zéro à chaque usage, et WebKit ne s'attend pas à supprimer ses données ; depuis iOS 17, tout reste « au mieux » (suppression possible sous pression de stockage ou après une longue inactivité, des plus anciens aux plus récents) sauf demande de stockage persistant, accordée selon des critères dont l'ouverture depuis l'écran d'accueil. Aucune fréquence fixe n'est donnée pour ces suppressions. Question ouverte : l'utilisateur ouvre-t-il l'app depuis l'icône de l'écran d'accueil ? Piste proposée, non faite : demander le stockage persistant au démarrage.

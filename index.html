@@ -337,7 +337,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.25.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.25.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -2150,8 +2150,30 @@ function backupInfoHtml() {
 function backupSettingsHtml() {
   const every = readBackup().every;
   return '<p class="help" id="backup-info" data-nodirty>' + backupInfoHtml() + '</p>' +
+    '<p class="help" id="persist-info" data-nodirty>' + persistInfoHtml() + '</p>' +
     '<label class="field" data-nodirty><span class="lbl">Me rappeler quand des modifications ne sont pas sauvegardées depuis</span><select id="backup-every">' +
     BACKUP_EVERY.map((n) => '<option value="' + n + '"' + (n === every ? ' selected' : '') + '>' + (n === 0 ? 'Jamais (pas de rappel)' : plural(n, 'jour', 'jours')) + '</option>').join('') + '</select></label>';
+}
+// ---- Stockage persistant (0.25.2) ----
+// Au démarrage, l'app demande au système de ne pas supprimer ses données pour faire de la place (navigator.storage.persist) ; WebKit accorde la demande
+// selon des critères, dont l'ouverture depuis l'écran d'accueil. Ce n'est pas une garantie : l'état est affiché dans Réglages > Sauvegarde, l'export reste la vraie sauvegarde.
+let persistState = 'pending';          // 'pending' | 'granted' | 'denied' | 'na' (interface absente ou en erreur)
+function persistInfoHtml() {
+  if (persistState === 'granted') return 'Protection du stockage : accordée. Le système ne devrait pas supprimer les données de cette app pour faire de la place.';
+  if (persistState === 'denied') return 'Protection du stockage : non accordée par le système. Tes données peuvent être supprimées si l’appareil manque de place ou après une longue inactivité : exporte régulièrement.';
+  if (persistState === 'na') return 'Protection du stockage : non disponible sur cet appareil. Exporte régulièrement.';
+  return 'Protection du stockage : vérification en cours…';
+}
+function requestPersistence() {
+  const done = (state) => { persistState = state; const el = $('#persist-info'); if (el) el.innerHTML = persistInfoHtml(); };
+  try {
+    const st = navigator.storage;
+    if (!st || typeof st.persist !== 'function') { done('na'); return; }
+    (typeof st.persisted === 'function' ? st.persisted() : Promise.resolve(false))
+      .then((already) => (already ? true : st.persist()))
+      .then((granted) => done(granted === true ? 'granted' : 'denied'))
+      .catch(() => done('na'));
+  } catch (e) { done('na'); }
 }
 // Le bandeau est commun à tous les onglets (0.25.1) : un emplacement unique en tête de la page, réécrit seulement si son contenu change.
 let backupShown = null;
@@ -2880,6 +2902,7 @@ function init() {
   setDirty(false);
   bindEvents();
   switchTab('day');
+  requestPersistence();
   // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
     renderBackupBanner();                                  // le bandeau suit le changement de jour, quel que soit l'onglet

@@ -318,3 +318,10 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Affichage (`backupDue`) : le bandeau `#backup-banner` (classe `banner warn`, jamais replié car c'est une alerte), placé dans l'emplacement unique `#backup-slot` en tête de **tous les onglets** depuis la 0.25.1 (`renderBackupBanner`, appelée au changement d'onglet, par `renderDay`, par `refreshBackupUi` et toutes les 15 secondes ; le contenu n'est réécrit que s'il change, pour ne pas remplacer un bouton sous le doigt) apparaît si `every > 0`, `since` rempli, `snooze` absent ou passé (`snooze` = aujourd'hui compte comme passé) et `aujourd'hui − since ≥ every`. « Plus tard » règle `snooze` à demain. Boutons, gérés par l'écouteur de `#backup-slot` : `backup-now` (appelle `doExport`, qui refuse tant que Réglages a des modifications non enregistrées) et `backup-later`.
 - Réglages › Sauvegarde : résumé `#backup-info` et choix `#backup-every` (dans un bloc `data-nodirty` : il s'applique tout de suite et ne rend pas le formulaire « modifié »). `refreshBackupUi` remet à jour le résumé et le bandeau.
 - Test : `tests/test_sauvegarde.py`.
+
+## 41. Stockage persistant (0.25.2)
+
+- `requestPersistence` est appelée une fois à l'ouverture (après le premier rendu) : `navigator.storage.persisted()` d'abord, puis `persist()` si ce n'est pas déjà accordé. Résultat dans `persistState` : `pending`, `granted`, `denied` ou `na` (interface absente, ou erreur : le rejet est attrapé, rien n'est affiché comme erreur).
+- Affichage : paragraphe `#persist-info` dans la carte Réglages › Sauvegarde, sous le résumé de la dernière sauvegarde ; il est réécrit à l'arrivée de la réponse et à chaque rendu de Réglages. Rien n'est stocké (l'état se redemande à chaque ouverture) et rien n'est exporté.
+- Le système décide : WebKit accorde la demande selon des critères, dont l'ouverture depuis l'écran d'accueil ; ce n'est pas une garantie. Le texte « accordée » dit « ne devrait pas supprimer » et « non accordée » renvoie à l'export régulier (§40).
+- Test : `tests/test_stockage.py` (le système est simulé par un script d'initialisation).

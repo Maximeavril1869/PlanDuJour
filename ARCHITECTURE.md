@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.25.1**.
+Version décrite : **0.25.2**.
 
 ## 1. Principe
 
@@ -143,6 +143,8 @@ flowchart LR
   A[Bloc de l'app<br/>case Exporter cochée] -->|export .ics<br/>code PDJ dans les Notes| C[(Calendrier<br/>« Plan du jour »)]
   B[Bloc non coché] -. reste dans l'app .-> B
 ```
+
+Au démarrage, l'app demande au système la protection du stockage (`navigator.storage.persist`, §41) et affiche le résultat dans Réglages › Sauvegarde.
 
 Aucune donnée n'est envoyée à un serveur : GitHub ne reçoit que le code.
 
