@@ -343,3 +343,11 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Rafraîchissement : la frise suit l'intervalle de 15 secondes existant ; le Récap est redessiné seulement si la minute a changé et que l'onglet est visible.
 - Défilement : `scrollToNow` (ligne à 35 % de la hauteur de l'écran) est appelé **uniquement** à l'ouverture, au retour sur aujourd'hui et au toucher de l'onglet « Jour » (bouton « Aujourd'hui » ou navigation qui y arrive). Jamais dans le rafraîchissement : l'utilisateur doit pouvoir défiler librement. Depuis la 0.26.1, toucher l'onglet « Jour » (gestionnaire des boutons de la barre d'onglets) appelle aussi `scrollToNow`, y compris quand on y est déjà : c'est le geste volontaire pour se recentrer après un long moment en arrière-plan. Les autres changements d'onglet ne défilent pas.
 - Test : `tests/test_maintenant.py` (horloge du navigateur simulée avec `page.clock`).
+
+## 44. Export du jour même vers Calendrier (0.27.0)
+
+- Remplace la mise à jour 0.13.3 (§ calendrier) : `doCalExport` propose `today`, `tomorrow`, `week0` (aujourd'hui + 6 jours) et `week` (demain + 6 jours). Contenu toujours = plan, seuls les blocs `toCal`.
+- `calendarEvents` passe l'heure courante à `buildDay` pour le jour d'aujourd'hui seulement : un bloc en cours se termine à maintenant, les blocs recalés ont leur heure recalée. Les autres jours gardent `null`.
+- Tâche sans heure sans sous-activité à passages (`isPlain` + `segs`) : un événement par passage (UID `pdj-<jour>-<clé>-<n>` ou `pdj-p-<id>-<n>`, code `PDJ-a-<id>-<jour>-<n>` ou `PDJ-p-<id>-<n>`), passage en cours jusqu'à maintenant, sans rappel. Les autres blocs gardent un événement par bloc.
+- Les identifiants ne changent pas d'un export à l'autre : c'est ce qui doit permettre à Calendrier de mettre à jour au lieu de dupliquer (à confirmer sur iOS). Un bloc retiré du plan n'est pas supprimé de Calendrier.
+- Test : `tests/test_export_jour.py` (heure simulée, téléchargement forcé).

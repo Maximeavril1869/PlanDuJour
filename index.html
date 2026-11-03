@@ -342,7 +342,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.26.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.27.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1451,8 +1451,8 @@ function renderForm(s) {
       '<div id="tpls-list">' + tplListHtml(s.templates || [], s.categories) + '</div>' +
       '<button type="button" class="btn" data-action="add-tpl">+ Ajouter une tâche habituelle</button></details>' +
     '<details class="card fold" data-fid="card-cal"' + (foldClosed.has('card-cal') ? '' : ' open') + '><summary><h2>Calendrier</h2></summary><div data-nodirty>' +
-      '<p class="help">N’exporte que les blocs pour lesquels tu as coché « Exporter vers Calendrier » (dans l’activité, la tâche habituelle ou le bloc ponctuel). Génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier ». Le rappel est facultatif.</p>' +
-      '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="tomorrow">Demain</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
+      '<p class="help">N’exporte que les blocs pour lesquels tu as coché « Exporter vers Calendrier » (dans l’activité, la tâche habituelle ou le bloc ponctuel). Génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier ». Le rappel est facultatif. Pour aujourd’hui, le plan exporté est celui de l’app à cet instant (heures réelles, blocs recalés) ; réexporter met à jour les événements déjà ajoutés, mais un bloc retiré du plan reste dans Calendrier.</p>' +
+      '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="today">Aujourd’hui</option><option value="tomorrow">Demain</option><option value="week0">7 jours à partir d’aujourd’hui</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
       '<button type="button" class="btn primary" data-action="cal-export">Exporter vers Calendrier</button></div></details>' +
     '<div class="card"><h2>Sauvegarde</h2>' +
       '<p class="help">Un seul fichier avec tes réglages et tous tes jours. Sert à sauvegarder, ou à passer de l’iPhone à l’iPad : enregistre-le dans Fichiers (iCloud Drive), puis importe-le sur l’autre appareil.</p>' +
@@ -2076,7 +2076,7 @@ function calendarEvents(daysMap, settings, from, to, mode) {
   const today = dateKey(new Date()), out = [];
   const catName = (id) => { const c = (settings.categories || []).find((x) => x.id === id); return c ? c.name : ''; };
   for (let k = from; k <= to; k = addDays(k, 1)) {
-    const b = buildDay(settings, daysMap[k] || emptyDay(), isoWeekday(k), null, k < today, k);
+    const b = buildDay(settings, daysMap[k] || emptyDay(), isoWeekday(k), k === today ? nowMinutes() : null, k < today, k);   // aujourd'hui : un bloc en cours va jusqu'à maintenant
     b.placed.forEach((it) => {
       if (!it.toCal) return;                         // seuls les blocs cochés « Exporter vers Calendrier »
       const cat = catName(it.cat);
@@ -2090,6 +2090,13 @@ function calendarEvents(daysMap, settings, from, to, mode) {
           return;
         }
         if (it.state !== 'done') return;
+      }
+      if (mode === 'plan' && isPlain(it) && it.segs.length) {   // sans heure à passages : un événement par passage, pas un grand créneau qui couvrirait les vides
+        it.segs.forEach((g, i) => {
+          const end = g.end !== null ? g.end : Math.max(g.start + 1, k === today ? nowMinutes() : g.start + 1);
+          out.push({ uid: it.kind === 'p' ? 'pdj-p-' + it.id + '-' + i : 'pdj-' + k + '-' + it.key + '-' + i, code: it.kind === 'p' ? 'PDJ-p-' + it.id + '-' + i : 'PDJ-a-' + it.id + '-' + k + '-' + i, date: k, start: g.start, end: end, title: it.name, cat: cat, alarm: null });
+        });
+        return;
       }
       // Code unique : un bloc ponctuel garde le même code quel que soit son jour (il peut donc être retrouvé s'il change de jour, d'heure ou de nom) ; une occurrence d'activité porte son jour.
       const isP = it.kind === 'p';
@@ -2113,7 +2120,7 @@ function buildIcs(events) {
 }
 async function doCalExport() {
   const per = $('#cal-period').value, today = dateKey(new Date());
-  const from = addDays(today, 1), to = per === 'week' ? addDays(today, 7) : from;   // jamais le jour même : on exporte le plan des jours suivants
+  const from = per === 'today' || per === 'week0' ? today : addDays(today, 1), to = per === 'week' || per === 'week0' ? addDays(from, 6) : from;   // le jour même est exportable (depuis la 0.27.0) : le plan est recalé dans l'app
   const events = calendarEvents(daysData.days, current, from, to, 'plan');
   if (!events.length) { showToast('Aucun bloc à exporter sur cette période : coche « Exporter vers Calendrier » sur un bloc', 'err'); return; }
   const text = buildIcs(events), name = 'plandujour-' + from + (to !== from ? '_' + to : '') + '.ics';

@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.26.1**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.27.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -19,9 +19,14 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 298 vérifications (12 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 315 vérifications (13 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 3 novembre 2026 (suite)
+
+### Session de la 0.27.0 (export du jour même)
+- Demande : exporter aussi le jour même (« tout actualisation se fait dans l'app »). Réponses : périodes ajoutées (Aujourd'hui, 7 jours dès aujourd'hui) ; Réglages seulement ; plan actuel ; un événement par passage ; réexport accepté avec la limite (bloc retiré = reste dans Calendrier).
+- **0.27.0** : `doCalExport` (4 périodes), `calendarEvents` (heure courante pour aujourd'hui, événements par passage). `tests/test_export_jour.py` (17 vérifications, heure simulée), deux contrôles négatifs faits ; 315 vérifications OK.
+- À confirmer sur iOS : un réexport met bien à jour les événements existants.
 
 ### Session de la 0.26.1 (recentrage par l'onglet Jour)
 - Demande : l'app reste ouverte, toucher « Jour » doit recentrer sur la ligne. **0.26.1** : le gestionnaire des onglets appelle `scrollToNow` pour « Jour » (aujourd'hui seulement). 3 vérifications ajoutées (`test_maintenant.py`, 25 au total), contrôle négatif fait (geste retiré : échecs), 298 vérifications OK.

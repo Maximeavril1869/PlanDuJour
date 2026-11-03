@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.26.1**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.27.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -237,6 +237,10 @@ Fini quand, sur l'iPhone : une ligne rouge avec l'heure suit le temps sur la fri
 ## 0.26.1 — Toucher « Jour » recentre sur la ligne — livré, à valider sur appareil
 Demande de l'utilisateur (3 novembre 2026) : l'app reste ouverte des heures ; toucher l'onglet « Jour » doit recentrer l'écran sur la ligne « maintenant ». Vaut depuis un autre onglet comme depuis « Jour » lui-même, seulement si le jour affiché est aujourd'hui.
 
+## 0.27.0 — Export vers Calendrier du jour même — livré, à valider sur appareil
+Demande de l'utilisateur (3 novembre 2026) : tout se met à jour dans l'app, donc le jour même doit aussi être exportable (la 0.13.3 l'avait retiré). Décisions : périodes « Aujourd'hui » et « 7 jours à partir d'aujourd'hui » ajoutées à « Demain » et « 7 jours à partir de demain » ; uniquement dans Réglages › Calendrier ; contenu = plan actuel de l'app (blocs terminés à leurs heures réelles, bloc en cours jusqu'à maintenant, blocs à venir à leur heure recalée), seuls les blocs cochés ; une tâche sans heure à passages = un événement par passage ; réexporter doit mettre à jour (mêmes identifiants), un bloc retiré du plan reste dans Calendrier.
+Fini quand, sur l'iPhone : exporter « Aujourd'hui », l'ajouter à Calendrier, changer un bloc dans l'app, réexporter : l'événement est mis à jour et non dupliqué (**à confirmer sur iOS**, non testable ici).
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -248,4 +252,5 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.25.3 : tâches sans heure refaisables plusieurs fois par jour (passages). Livré.
 - 0.26.0 : ligne « maintenant » sur la frise et dans le Récap. Livré.
 - 0.26.1 : toucher « Jour » recentre sur la ligne. Livré.
+- 0.27.0 : export Calendrier du jour même, un événement par passage. Livré.
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.
