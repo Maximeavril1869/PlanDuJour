@@ -15,16 +15,18 @@ Heures locales, sans fuseau. `events` peut être vide : le raccourci vide alors 
 
 Nom du raccourci : `Plan du jour` (exactement). L'agenda « Plan du jour » doit exister dans Calendrier. Les libellés ci-dessous sont indicatifs : chercher l'action par son nom dans la recherche d'actions.
 
+Principe : « Définir la variable » range le résultat de l'action précédente sous un nom (champ « Nom de la variable »). L'action suivante prend ensuite ce résultat comme entrée : **dans chaque action « Obtenir la valeur du dictionnaire », il faut donc choisir à la main le dictionnaire** (toucher le champ « Dictionnaire » de l'action et choisir la variable `donnees`, ou `element` dans la boucle).
+
 1. **Obtenir le presse-papiers**
-2. **Obtenir le dictionnaire à partir de l'entrée** (entrée : Presse-papiers)
-3. **Obtenir la valeur du dictionnaire** : clé `from` du Dictionnaire, puis **Obtenir des dates à partir de l'entrée**, puis **Définir la variable** `debutPeriode`
-4. Idem avec la clé `to`, variable `finPeriode`
+2. **Obtenir le dictionnaire à partir de l'entrée** (entrée : Presse-papiers), puis **Définir la variable** `donnees`
+3. **Obtenir la valeur du dictionnaire** : clé `from`, dictionnaire = variable `donnees` ; puis **Obtenir des dates à partir de l'entrée** ; puis **Définir la variable** `debutPeriode`
+4. Idem avec la clé `to` (dictionnaire = `donnees`), variable `finPeriode`
 5. **Rechercher des événements de calendrier** : Calendrier = « Plan du jour » ; Date de début est entre `debutPeriode` et `finPeriode`
 6. **Supprimer les événements** (entrée : les événements trouvés)
-7. **Obtenir la valeur du dictionnaire** : clé `events` du Dictionnaire
-8. **Répéter avec chaque élément** (de la liste obtenue à l'étape 7), et dedans :
-   1. Obtenir la valeur du dictionnaire : clé `title` de l'Élément répété, puis Définir la variable `titre`
-   2. Obtenir la valeur du dictionnaire : clé `start` de l'Élément répété, puis Obtenir des dates à partir de l'entrée, puis Définir la variable `debut`
+7. **Obtenir la valeur du dictionnaire** : clé `events`, dictionnaire = variable `donnees`
+8. **Répéter avec chaque élément** (de la liste obtenue à l'étape 7), et dedans, en commençant par **Définir la variable** `element` (entrée : Élément répété) :
+   1. Obtenir la valeur du dictionnaire : clé `title`, dictionnaire = `element`, puis Définir la variable `titre`
+   2. Obtenir la valeur du dictionnaire : clé `start`, dictionnaire = `element`, puis Obtenir des dates à partir de l'entrée, puis Définir la variable `debut`
    3. Idem avec la clé `end`, variable `fin`
    4. **Ajouter un nouvel événement** : titre = `titre`, début = `debut`, fin = `fin`, calendrier = « Plan du jour », alerte = à l'heure de l'événement
 9. (facultatif) **Afficher la notification** « Calendrier à jour »
