@@ -15,7 +15,7 @@ Heures locales, sans fuseau. `id` = code stable de l'événement, déjà entour�
 
 ## Construction du raccourci (app Raccourcis, en français)
 
-Nom du raccourci : `Plan du jour` (exactement). Les libellés ci-dessous sont ceux de l'app ; chercher l'action par son nom dans la recherche d'actions. Construit et utilisé sur iPhone le 3 novembre 2026 (l'utilisateur confirme que « tout fonctionne » ; voir plus bas ce qui reste à confirmer).
+Nom du raccourci : `Plan du jour` (exactement). Les libellés ci-dessous sont ceux de l'app ; chercher l'action par son nom dans la recherche d'actions. **Validé sur iPhone le 3 novembre 2026** : second envoi après changement dans l'app = mise à jour sans doublon ; alerte et lieu réglés à la main conservés.
 
 Avant la boucle (validé en 0.28.0) :
 1. **Obtenir le presse-papiers** (pendant les essais : une action « Texte » contenant le JSON de test) → **Obtenir le dictionnaire** → **Définir la variable** `Données`.
@@ -37,7 +37,7 @@ La boucle : **Répéter avec chaque élément** (dans la valeur du dictionnaire 
 8. **Sinon** : **Ajouter un nouvel événement** : titre `Titre`, début `Début`, fin `Fin`, Position vide, Calendrier **Travail**, Toute la journée non coché, Alerte **à l'heure de l'événement**, Notes = `Id`.
 9. **Terminer si**, **Fin de la répétition**.
 
-Après la boucle, l'utilisateur a mis **Ouvrir Calendrier**.
+Après la boucle : **Ouvrir Calendrier** (voulu : l'utilisateur y règle ensuite un second rappel ou l'adresse à la main).
 
 ### Pièges
 
@@ -50,14 +50,12 @@ Après la boucle, l'utilisateur a mis **Ouvrir Calendrier**.
 ## Limites
 
 - Pas de rappel différent par bloc : un rappel fixe, à l'heure de l'événement.
-- Le plan de l'app l'emporte sur le titre et les heures : un titre ou une heure changé à la main dans Calendrier est remis comme dans l'app au prochain envoi. Alertes, lieu et délai de route faits à la main sont conservés (à confirmer sur appareil).
+- Le plan de l'app l'emporte sur le titre et les heures : un titre ou une heure changé à la main dans Calendrier est remis comme dans l'app au prochain envoi. Alertes et lieu faits à la main sont conservés (validé sur appareil).
 - Un bloc retiré du plan **reste** dans Calendrier ; la détection et une notification sont prévues dans une version suivante.
-- Le filtre « date de début entre `Début période` et `Fin période` » limite la recherche à la période envoyée : un bloc ponctuel déplacé **hors** de cette période serait recréé au lieu d'être mis à jour (l'id ne contient pas le jour). Retirer ce filtre le retrouverait partout (décision à prendre).
-- Les événements créés avec la 0.28.0 n'ont pas d'id dans les Notes : ils ne sont jamais retrouvés. Les supprimer à la main (ils sont dans l'ancien agenda « Plan du jour »).
+- Le filtre « date de début entre `Début période` et `Fin période` » limite la recherche à la période envoyée : un bloc ponctuel déplacé **hors** de cette période serait recréé au lieu d'être mis à jour (l'id ne contient pas le jour). Le filtre est **obligatoire** (précision de l'utilisateur : l'action de recherche l'exige) ; pour limiter le risque, envoyer une période plus large (« 7 jours à partir d'aujourd'hui »).
+- Les événements créés avec la 0.28.0 n'ont pas d'id dans les Notes : ils ne sont jamais retrouvés. Supprimés à la main par l'utilisateur, ainsi que l'ancien agenda « Plan du jour ».
 - Le lien `shortcuts://` depuis l'app installée sur l'écran d'accueil lance le raccourci tout seul, mais iOS demande une **confirmation à chaque fois** (confirmation système, à ne pas supposer supprimable).
 
 ## À confirmer sur appareil
 
-- Un second envoi après changement d'heure ou de titre dans l'app met l'événement à jour sans doublon.
-- Une alerte, un lieu ou un délai de route réglé à la main dans Calendrier survit à l'envoi suivant.
-- Le bloc ponctuel déplacé d'un jour à l'autre (voir Limites).
+- Le bloc ponctuel déplacé d'un jour à l'autre, hors de la période envoyée (voir Limites) : comportement non testé, doublon attendu.
