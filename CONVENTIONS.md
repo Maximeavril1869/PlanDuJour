@@ -368,3 +368,11 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Le raccourci ne supprime plus rien (et ne doit **jamais** recevoir d'action « Supprimer » : l'agenda cible est désormais « Travail », décision du 3 novembre 2026) : un bloc retiré du plan reste dans Calendrier (détection et notification : version à venir). Aucun événement coché : `doShortcutSend` n'ouvre pas le raccourci (toast « rien à envoyer »).
 - Le plan de l'app l'emporte sur le titre et les heures ; alertes, lieu et délai de route faits à la main dans Calendrier sont conservés.
 - Tests : `tests/test_raccourcis.py` (19 vérifications : ids, unicité, non-inclusion, stabilité après changement de titre et d'heure, envoi vide).
+
+## 47. Nom d'un passage (0.30.0)
+
+- Un passage (entrée de `segs` de `cid` vide) peut porter `name` : texte libre facultatif, `cleanPassName` (espaces superposés réduits, 60 caractères). `cleanSegs` le conserve pour les passages seulement (pas pour une sous-activité). Champ additif : pas de changement de version des jours.
+- Saisie : champ `[data-passname]` « Dossier (facultatif) » sous « ▶ Démarrer » dans « Sans heure » ; la valeur vit dans `passDraft[clé]` (elle survit aux réaffichages de la page) et est consommée par `startNow`. Correction après coup : champ `[data-seg-name]` de chaque passage dans le panneau du bloc (vide = nom retiré).
+- Affichage : barre « en cours », libellé de la frise (`Tâche · Nom`). Calendrier : titre `Tâche · Nom` (modes plan et réel) ; l'`id` envoyé à Raccourcis (§46) ne contient jamais le nom. Stats : le nom joue le rôle de la sous-activité (`child`) ; le temps sans nom tombe dans « Sans détail ».
+- Choix assumé : pas de suggestions, pas de fusion au-delà des espaces (la casse compte) ; l'utilisateur y met un identifiant d'entreprise. Le nom part dans le titre Calendrier et dans les exports de sauvegarde : rien de réel dans le dépôt public (noms inventés dans les tests et la doc).
+- Tests : `tests/test_noms_passages.py` (17 vérifications).

@@ -213,6 +213,7 @@ button { font: inherit; }
 .cat-row .catkind select { flex: 1; min-width: 0; }
 .cat-row .err { flex-basis: 100%; }
 .kidbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.passname { width: 100%; margin-top: 6px; font-size: 16px; }
 .kidrow { display: inline-flex; align-items: center; gap: 2px; }
 .kidchk { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; }
 .kidchk input, .kidlbl input { width: 22px; height: 22px; }
@@ -342,7 +343,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.29.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.30.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -455,12 +456,16 @@ function cleanChildren(list) {
   return out;
 }
 // Temps chronométrés dans un bloc : [{ cid, start, end|null }].
+// Nom d'un passage (0.30.0) : texte libre facultatif (un dossier), espaces superposés réduits, 60 caractères au plus.
+function cleanPassName(s) { return typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slice(0, 60) : ''; }
 function cleanSegs(list) {
   const out = [];
   (Array.isArray(list) ? list : []).forEach((g) => {
     if (!g || typeof g.cid !== 'string' || !isMinute(g.start)) return;
-    const e = isMinute(g.end) && g.end > g.start ? g.end : null;
-    out.push({ cid: g.cid, start: g.start, end: e });
+    const e = isMinute(g.end) && g.end > g.start ? g.end : null, n = g.cid === '' ? cleanPassName(g.name) : '';
+    const o = { cid: g.cid, start: g.start, end: e };
+    if (n) o.name = n;
+    out.push(o);
   });
   return out.sort((a, b) => a.start - b.start);
 }
@@ -959,7 +964,7 @@ function timeEntries(daysMap, settings, from, to) {
     Object.keys(d.real).concat(Object.keys(segs).filter((x) => !(x in d.real))).forEach((key) => {
       const name = nm[key] || 'Activité supprimée', cat = ct[key] || null;
       if (segs[key] && segs[key].length) {
-        segs[key].forEach((g) => { if (g.end !== null) out.push({ date: k, key: key, name: name, cat: cat, child: g.cid === '' ? null : (childNames[g.cid] || 'Sous-activité supprimée'), minutes: g.end - g.start, start: g.start, end: g.end }); });
+        segs[key].forEach((g) => { if (g.end !== null) out.push({ date: k, key: key, name: name, cat: cat, child: g.cid === '' ? (g.name || null) : (childNames[g.cid] || 'Sous-activité supprimée'), minutes: g.end - g.start, start: g.start, end: g.end }); });
         return;
       }
       const r = d.real[key];
@@ -1763,7 +1768,7 @@ function renderDay() {
   if (build.running) {
     const r = build.running;
     const rseg = r.segs.find((g) => g.end === null), rkid = rseg && r.children.find((c) => c.id === rseg.cid), since = rseg ? rseg.start : r.start;
-    head += '<div class="runbar"><div><strong>' + esc(r.name) + (rkid ? ' · ' + esc(rkid.name) : '') + '</strong><small>en cours depuis ' + formatTime(since) + ' · ' + formatDuration(Math.max(0, dayNow() - since)) +
+    head += '<div class="runbar"><div><strong>' + esc(r.name) + (rkid ? ' · ' + esc(rkid.name) : (rseg && rseg.name ? ' · ' + esc(rseg.name) : '')) + '</strong><small>en cours depuis ' + formatTime(since) + ' · ' + formatDuration(Math.max(0, dayNow() - since)) +
       (r.mode === 'free' ? '' : ' (prévu ' + formatDuration(r.minutes) + ')') + '</small></div><button type="button" class="btn" data-action="stop" data-key="' + esc(r.key) + '">■ Arrêter</button></div>';
   }
   if (build.running && build.running.children.length) {
@@ -1775,7 +1780,7 @@ function renderDay() {
     const sansList = build.pending.concat(build.reopen);
     const sansLi = (it) =>
       '<li><span>' + esc(it.name) + ' <span class="v">' + (it.state === 'done' ? '· ' + passesText(it) : '') + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.children.length ? ' · ' + kidsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
-      (it.children.length ? '<div class="kidbtns">' + it.children.map((c) => kidRowHtml(it, c, dayNow() !== null)).join('') + '</div>' : '') + '</span><span>' +
+      (it.children.length ? '<div class="kidbtns">' + it.children.map((c) => kidRowHtml(it, c, dayNow() !== null)).join('') + '</div>' : (dayNow() !== null ? '<div><input type="text" class="passname" data-passname="' + esc(it.key) + '" maxlength="60" placeholder="Dossier (facultatif)" aria-label="Dossier du prochain passage de ' + esc(it.name) + '" value="' + esc(passDraft[it.key] || '') + '"></div>' : '')) + '</span><span>' +
       (dayNow() !== null && !it.children.length ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
       '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>';
     head += '<details class="card fold" data-fid="card-sansheure"' + (sansOpen ? ' open' : '') + '><summary><h2>Sans heure · ' + sansList.length + '</h2></summary>' +
@@ -1796,7 +1801,7 @@ function renderDay() {
   const t = build.profile;
   const items = build.spans.map((sp) => {
     const o = sp.owner, c = sp.seg ? o.children.find((x) => x.id === sp.seg.cid) : null;
-    return Object.assign({}, o, { start: sp.start, end: sp.end, state: sp.seg ? (sp.open ? 'running' : 'done') : o.state, shift: sp.seg ? 0 : o.shift, subs: sp.seg ? [] : o.subs, label: o.name + (c ? ' · ' + c.name : '') });
+    return Object.assign({}, o, { start: sp.start, end: sp.end, state: sp.seg ? (sp.open ? 'running' : 'done') : o.state, shift: sp.seg ? 0 : o.shift, subs: sp.seg ? [] : o.subs, label: o.name + (c ? ' · ' + c.name : (sp.seg && sp.seg.name ? ' · ' + sp.seg.name : '')) });
   });
   let lo = Math.min.apply(null, (t.wake !== null ? [t.wake] : []).concat(items.map((b) => b.start)));
   let hi = Math.max.apply(null, (t.bedtime !== null ? [t.bedtime] : []).concat(items.map((b) => b.end)));
@@ -2027,6 +2032,7 @@ function closeRunning(day, now, exceptKey) {
   });
   Object.keys(day.segs).forEach((k) => day.segs[k].forEach((g) => { if (g.end === null) { g.end = Math.min(1439, Math.max(now, g.start + 1)); markKidDone(day, k, g.cid); } }));
 }
+const passDraft = {};                              // nom saisi pour le prochain passage, par bloc (survit aux réaffichages de la page)
 function startNow(key) {
   const now = dayNow();
   if (now === null) return;
@@ -2035,7 +2041,10 @@ function startNow(key) {
     closeRunning(day, now, null);
     toPasses(day, key);
     if (!day.segs[key]) day.segs[key] = [];
-    day.segs[key].push({ cid: '', start: now, end: null });
+    const nm = cleanPassName(passDraft[key]), pass = { cid: '', start: now, end: null };
+    if (nm) pass.name = nm;
+    delete passDraft[key];
+    day.segs[key].push(pass);
     persistDays();
     renderDay();
     return;
@@ -2086,7 +2095,7 @@ function calendarEvents(daysMap, settings, from, to, mode) {
           it.segs.forEach((g, i) => {
             if (g.end === null) return;
             const c = (it.children || []).find((x) => x.id === g.cid);
-            out.push({ uid: 'pdj-' + k + '-' + it.key + '-' + i, date: k, start: g.start, end: g.end, title: it.name + (c ? ' · ' + c.name : ''), cat: cat });
+            out.push({ uid: 'pdj-' + k + '-' + it.key + '-' + i, date: k, start: g.start, end: g.end, title: it.name + (c ? ' · ' + c.name : (g.name ? ' · ' + g.name : '')), cat: cat });
           });
           return;
         }
@@ -2095,7 +2104,7 @@ function calendarEvents(daysMap, settings, from, to, mode) {
       if (mode === 'plan' && isPlain(it) && it.segs.length) {   // sans heure à passages : un événement par passage, pas un grand créneau qui couvrirait les vides
         it.segs.forEach((g, i) => {
           const end = g.end !== null ? g.end : Math.max(g.start + 1, k === today ? nowMinutes() : g.start + 1);
-          out.push({ uid: it.kind === 'p' ? 'pdj-p-' + it.id + '-' + i : 'pdj-' + k + '-' + it.key + '-' + i, code: it.kind === 'p' ? 'PDJ-p-' + it.id + '-' + i : 'PDJ-a-' + it.id + '-' + k + '-' + i, date: k, start: g.start, end: end, title: it.name, cat: cat, alarm: null });
+          out.push({ uid: it.kind === 'p' ? 'pdj-p-' + it.id + '-' + i : 'pdj-' + k + '-' + it.key + '-' + i, code: it.kind === 'p' ? 'PDJ-p-' + it.id + '-' + i : 'PDJ-a-' + it.id + '-' + k + '-' + i, date: k, start: g.start, end: end, title: it.name + (g.name ? ' · ' + g.name : ''), cat: cat, alarm: null });
         });
         return;
       }
@@ -2475,7 +2484,8 @@ function renderChildren() {
   if (plain) {
     const ps = ((day && day.segs[panelKey]) || []).slice();
     $('#bp-seg-list').innerHTML = ps.map((g, i) => '<li><span>Passage ' + (i + 1) + ' <span class="v">· ' + (g.end === null ? 'depuis ' + formatTime(g.start) + ' · en cours' :
-      formatTime(g.start) + '–' + formatTime(g.end) + ' (' + formatDuration(g.end - g.start) + ')') + '</span></span>' +
+      formatTime(g.start) + '–' + formatTime(g.end) + ' (' + formatDuration(g.end - g.start) + ')') + '</span>' +
+      '<input type="text" class="passname" data-seg-name="' + i + '" maxlength="60" placeholder="Dossier" aria-label="Dossier du passage ' + (i + 1) + '" value="' + esc(g.name || '') + '"></span>' +
       '<button type="button" class="icon-btn" data-seg-del="' + i + '" aria-label="Supprimer ce passage">✕</button></li>').join('');
     return;
   }
@@ -2726,6 +2736,19 @@ function bindDayEvents() {
     if (f === 'card-pres') presOpen = e.target.open; else if (f === 'card-sansheure') sansOpen = e.target.open;
     else if (f && f.indexOf('sans-') === 0) { if (e.target.open) sansCatOpen.add(f); else sansCatOpen.delete(f); }
   }, true);
+  document.addEventListener('input', (e) => {          // nom du prochain passage (Sans heure)
+    const t = e.target;
+    if (t && t.dataset && t.dataset.passname !== undefined) passDraft[t.dataset.passname] = t.value;
+  });
+  document.addEventListener('change', (e) => {          // renommer un passage dans le panneau du bloc
+    const t = e.target;
+    if (!t || !t.dataset || t.dataset.segName === undefined || !panelKey) return;
+    const day = ensureDay(), g = (day.segs[panelKey] || [])[Number(t.dataset.segName)];
+    if (!g) return;
+    const n = cleanPassName(t.value);
+    if (n) g.name = n; else delete g.name;
+    persistDays(); renderDay();
+  });
   panel.addEventListener('change', (e) => {
     if (e.target.dataset && e.target.dataset.pres && ['start', 'end'].includes(e.target.dataset.pres)) { presenceEdit(e.target.dataset.pres, e.target.value); return; }
     if (e.target.id === 'day-profile') {

@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.29.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.30.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -250,6 +250,10 @@ Constat de l'utilisateur (3 novembre 2026) : le raccourci « supprimer puis recr
 Décision de l'utilisateur (3 novembre 2026, en construisant le raccourci) : l'agenda cible est **Travail** (plus d'agenda séparé « Plan du jour » pour les exports) ; l'étape « supprimer » a été retirée du raccourci (elle aurait effacé les vrais rendez-vous). Raccourci reconstruit et validé sur iPhone (3 novembre 2026) : second envoi sans doublon après changement dans l'app, alerte et lieu réglés à la main conservés. Le filtre de date de la recherche est obligatoire (l'utilisateur) : un bloc ponctuel déplacé hors de la période envoyée serait recréé (non testé). L'action « Ouvrir Calendrier » en fin de raccourci est voulue (réglage manuel d'un second rappel ou de l'adresse).
 Fini quand, sur l'iPhone : le raccourci est reconstruit selon `RACCOURCI.md` ; un envoi crée les événements avec leur id dans les Notes ; un second envoi après changement d'heure ou de titre dans l'app met l'événement à jour sans doublon ; une alerte ou un lieu réglé à la main dans Calendrier survit à l'envoi suivant. **Migration** : les événements créés par la 0.28.0 (ancien agenda « Plan du jour », sans id) sont à supprimer à la main. Tests : `tests/test_raccourcis.py` (19 vérifications), deux contrôles négatifs faits ; 334 vérifications.
 
+## 0.30.0 — Nom d'un passage (dossier) — livré, à valider sur appareil
+Demande de l'utilisateur (3 novembre 2026) : relancer une tâche « sans heure » pour des dossiers différents et pouvoir les distinguer (il y mettra un identifiant d'entreprise). Décisions : nom saisi **à l'activation (▶)**, facultatif, texte libre ; **pas de liste de suggestions** (trop de noms) ; temps cumulé **par nom dans les Stats**, rangé sous la tâche ; titre Calendrier « Tâche · Nom » ; nom corrigeable après coup dans le panneau du bloc ; les sous-tâches ne changent pas (elles restent pour décomposer finement une tâche).
+Fini quand, sur l'iPhone : un champ « Dossier (facultatif) » est sous « ▶ Démarrer » dans « Sans heure » ; le nom s'affiche pendant le chrono et dans la frise ; Stats › la tâche › le nom avec son temps ; l'événement envoyé à Raccourcis s'appelle « Tâche · Nom » ; le panneau du bloc permet de corriger ou de vider le nom d'un passage. Les noms ne sont pas fusionnés au-delà des espaces superposés (« Dossier A » et « dossier a » restent deux lignes). Tests : `tests/test_noms_passages.py` (17 vérifications), trois contrôles négatifs faits (le premier avait révélé un test trop faible, renforcé) ; 351 vérifications.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -264,5 +268,6 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.27.0 : export Calendrier du jour même, un événement par passage. Livré.
 - 0.28.0 : envoi vers Raccourcis (agenda dédié). Livré.
 - 0.29.0 : id stable par événement, mise à jour au lieu de recréer. Livré (raccourci à reconstruire).
-- À venir (décidé) : nom saisi par passage d'une tâche sans heure (titre de l'événement dans Calendrier) ; détection des événements disparus du plan.
+- 0.30.0 : nom d'un passage (dossier) saisi au ▶, Stats par nom. Livré.
+- À venir (décidé) : détection des événements disparus du plan (notification).
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

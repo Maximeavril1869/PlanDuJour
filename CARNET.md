@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.29.0**, poussée sur GitHub Pages (à valider sur appareil ; le raccourci doit être reconstruit selon `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.30.0**, poussée sur GitHub Pages (à valider sur appareil). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -19,9 +19,15 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 334 vérifications (14 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 351 vérifications (15 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 3 novembre 2026 (suite)
+
+### Session de la 0.30.0 (nom d'un passage)
+- Réponses de l'utilisateur : nom saisi **à l'activation (▶)** ; pas de suggestions (« beaucoup trop de noms ») ; Stats par nom voulues ; il mettra un identifiant d'entreprise comme nom (aucun faux doublon à craindre) ; les sous-tâches ne servent plus que pour décomposer très finement une tâche (non modifiées). La notion de « passage » lui était floue : expliquée par un exemple (un ▶ puis ■ = un passage) ; confusion levée entre sous-tâche (propre au jour, sans temps), sous-activité (permanente, créée dans Réglages) et passage nommé.
+- `0.30.0` : `cleanPassName`, `cleanSegs` conserve `name`, `passDraft`, champ `[data-passname]`, champ `[data-seg-name]` dans le panneau, libellés (barre, frise, Calendrier), `timeEntries` (le nom comme détail dans les Stats). `tests/test_noms_passages.py` (17 vérifications) ; trois contrôles négatifs faits (le premier, nom non relu au chargement, n'était pas détecté : test renforcé, puis échec attendu) ; 351 vérifications OK ; captures iPhone 390 px clair et sombre vérifiées.
+- Point signalé à l'utilisateur : un identifiant d'entreprise dans le titre part dans l'agenda Travail (peut-être synchronisé) et dans les exports de sauvegarde ; à lui de juger au regard du secret professionnel. Rien de réel dans le dépôt public.
+- À valider sur appareil : le champ « Dossier » sous « ▶ Démarrer », le nom dans la frise, les Stats par nom, l'événement « Tâche · Nom » via Raccourcis.
 
 ### Session de la 0.29.0 (id stable par événement)
 - Réponses de l'utilisateur : second envoi avec le vrai envoi de l'app sans doublon (0.28.0 validée) ; « Jour » doit ramener au jour courant mais « pas besoin, il y a déjà Aujourd'hui en haut » (rien à coder) ; aucune note écrite à la main dans l'agenda « Plan du jour » ; filtre Notes du raccourci : se termine par / commence par / ne contient pas / contient / n'est pas / est ; détection des événements disparus du plan : après ; format d'id validé ; migration : il veut être guidé ; **nom par passage : oui, il veut pouvoir détailler** (version à part, questions de conception en suspens).
