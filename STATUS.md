@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.25.2**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.25.3**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -226,6 +226,10 @@ Décision de l'utilisateur (3 novembre 2026). Fini quand le bandeau « Pense à 
 Décision de l'utilisateur (3 novembre 2026), après vérification des sources de WebKit : l'app est ouverte depuis l'icône de l'écran d'accueil sur l'iPhone et l'iPad (donc hors du plafond de 7 jours de Safari). Fini quand, au démarrage, l'app demande au système de ne pas supprimer ses données pour faire de la place, et que **Réglages › Sauvegarde** affiche le résultat : « accordée », « non accordée par le système » (avec le conseil d'exporter régulièrement) ou « non disponible sur cet appareil ». La demande n'est faite qu'une fois par ouverture, sans action de l'utilisateur ; une erreur ou l'absence de l'interface ne casse rien. Ce n'est pas une garantie (WebKit accorde selon des critères) : l'export reste la vraie sauvegarde. Tests : `tests/test_stockage.py` (14 vérifications, système simulé), contrôle négatif fait ; au total 242 vérifications passent.
 À valider sur l'iPhone et l'iPad : quel état s'affiche (accordée ou non).
 
+## 0.25.3 — Tâches « sans heure » refaisables plusieurs fois par jour — livré, à valider sur appareil
+Décisions de l'utilisateur (3 novembre 2026) : après ■, la tâche reste dans « Sans heure » avec le temps fait aujourd'hui ; chaque ▶ ouvre un nouveau passage ; chaque passage a son créneau dans la frise et se cumule dans les Stats ; ça vaut pour **toutes** les tâches sans heure sans sous-activité (activités de Réglages et blocs ponctuels), sans case à cocher à régler ; pas de case « fait » (le chrono prouve que c'est fait) : on affiche « N passages · durée ». Pour nommer un passage (ex. le dossier traité), on utilise les sous-tâches libres du jour, qui n'ont pas de temps propre. Les tâches à sous-activités gardent leur fonctionnement (l'utilisateur n'en a pas pour l'instant).
+Fini quand, sur l'iPhone : ▶ puis ■ sur une tâche sans heure la laisse dans « Sans heure » avec sa durée ; un second ▶ crée un second passage (« 2 passages ») ; la frise montre un créneau par passage ; Stats additionne ; Détails permet d'ajouter ou supprimer un passage à la main et « Effacer les passages ».
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -234,4 +238,5 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.25.0 : rappel de sauvegarde. Livré.
 - 0.25.1 : le bandeau de sauvegarde sur tous les onglets. Livré.
 - 0.25.2 : demande de stockage persistant au démarrage. Livré.
+- 0.25.3 : tâches sans heure refaisables plusieurs fois par jour (passages). Livré.
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

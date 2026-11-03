@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.25.2**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.25.3**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -15,11 +15,18 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Stats en arbre (0.24.0) : trois menus Travail / Perso / Hors, catégories imbriquées, activités et sous-activités au bout ; un total à chaque niveau ; fermé au départ.
 - Rappel de sauvegarde (0.25.0) : bandeau en tête de tous les onglets (0.25.1) après N jours (7 par défaut) de modifications non sauvegardées ; résumé et délai dans Réglages › Sauvegarde ; état propre à l'appareil.
 - Stockage persistant (0.25.2) : demandé au démarrage, résultat affiché dans Réglages › Sauvegarde.
-- Tâches « sans heure » sans sous-activités : elles quittent la liste « Sans heure » après ■ (un seul créneau par jour) ; l'utilisateur veut pouvoir les relancer plusieurs fois dans la journée pour des dossiers différents. Conception **à préciser avant de coder** (voir la session de la 0.25.2).
+- Tâches « sans heure » refaisables plusieurs fois par jour : livré en 0.25.3 (passages). Les sous-tâches libres nomment le travail mais n'ont pas de temps propre (pas de temps par dossier dans les Stats).
 - Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 242 vérifications (10 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 273 vérifications (11 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+
+## 3 novembre 2026 (suite)
+
+### Session de la 0.25.3 (passages d'une tâche sans heure)
+- Réponses de l'utilisateur : oui à « la tâche reste dans Sans heure après ■, ▶ ouvre un nouveau passage, chaque passage visible dans la frise et cumulé dans les Stats » ; nommer = sous-tâches libres existantes ; vaut pour toutes les tâches sans heure, sans case à régler ; pas de case « fait » (le chrono prouve que c'est fait) ; pas de tâche à sous-activités pour l'instant.
+- **0.25.3** : passages = entrées de `segs` à `cid` vide ; `isPlain`, `passesText`, `toPasses` ; `startNow`, `buildDay` (`reopen`), `timeEntries`, `markKidDone`, panneau, `savePanel`, effacement adaptés. `tests/test_passages.py` (31 vérifications), deux contrôles négatifs faits (la fonction rendue fausse, puis la tâche non reproposée : échecs), 273 vérifications OK. Captures iPhone clair et sombre vérifiées.
+- Limite à rappeler : un passage ne porte pas de nom ; le temps par dossier n'existe pas.
 
 ## 2 novembre 2026
 

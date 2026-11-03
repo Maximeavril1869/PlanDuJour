@@ -276,10 +276,10 @@ input[type=date] { min-width: 0; max-width: 100%; }
         <label class="field"><span class="lbl">Fin réelle</span><input type="text" id="bp-real-end" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
       </div>
       <div id="bp-children" hidden>
-        <h3 class="subh">Sous-activités</h3>
+        <h3 class="subh" id="bp-children-h">Sous-activités</h3>
         <div class="childbtns" id="bp-child-btns"></div>
         <ul class="subs" id="bp-seg-list"></ul>
-        <label class="field"><span class="lbl">Ajouter un temps à la main</span><select id="seg-child"></select></label>
+        <label class="field" id="seg-child-field"><span class="lbl">Ajouter un temps à la main</span><select id="seg-child"></select></label>
         <div class="grid2">
           <label class="field"><span class="lbl">Début</span><input type="text" id="seg-start" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
           <label class="field"><span class="lbl">Fin</span><input type="text" id="seg-end" inputmode="numeric" autocomplete="off" placeholder="HH:MM" data-kind="time"></label>
@@ -337,7 +337,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.25.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.25.3';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -898,7 +898,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     it.shift = it.plannedStart !== null && r.start === null && start > it.plannedStart ? start - it.plannedStart : 0;
     cursor = Math.max(cursor, end);
     if (state === 'running') out.running = it;
-    if (state === 'done' && it.mode === 'free' && it.children.length) out.reopen.push(it);   // sans heure à sous-activités : reste proposé pour enchaîner la suivante
+    if (state === 'done' && it.mode === 'free') out.reopen.push(it);   // sans heure terminé : reste proposé (nouveau passage, ou sous-activité suivante)
     if (it.confirm && state === 'planned' && (past === true || (nowMin !== null && end <= nowMin))) out.toConfirm.push(it);
   });
 
@@ -954,7 +954,7 @@ function timeEntries(daysMap, settings, from, to) {
     Object.keys(d.real).concat(Object.keys(segs).filter((x) => !(x in d.real))).forEach((key) => {
       const name = nm[key] || 'Activité supprimée', cat = ct[key] || null;
       if (segs[key] && segs[key].length) {
-        segs[key].forEach((g) => { if (g.end !== null) out.push({ date: k, key: key, name: name, cat: cat, child: childNames[g.cid] || 'Sous-activité supprimée', minutes: g.end - g.start, start: g.start, end: g.end }); });
+        segs[key].forEach((g) => { if (g.end !== null) out.push({ date: k, key: key, name: name, cat: cat, child: g.cid === '' ? null : (childNames[g.cid] || 'Sous-activité supprimée'), minutes: g.end - g.start, start: g.start, end: g.end }); });
         return;
       }
       const r = d.real[key];
@@ -1757,7 +1757,7 @@ function renderDay() {
   if (build.pending.length || build.reopen.length) {
     const sansList = build.pending.concat(build.reopen);
     const sansLi = (it) =>
-      '<li><span>' + esc(it.name) + ' <span class="v">' + (it.state === 'done' ? '· ' + formatDuration(it.segs.reduce((t, g) => t + (g.end !== null ? g.end - g.start : 0), 0)) + ' faites' : '') + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.children.length ? ' · ' + kidsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
+      '<li><span>' + esc(it.name) + ' <span class="v">' + (it.state === 'done' ? '· ' + passesText(it) : '') + (it.subs.length ? '· ' + subsProgress(it) : '') + (it.children.length ? ' · ' + kidsProgress(it) : '') + (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + '</span>' +
       (it.children.length ? '<div class="kidbtns">' + it.children.map((c) => kidRowHtml(it, c, dayNow() !== null)).join('') + '</div>' : '') + '</span><span>' +
       (dayNow() !== null && !it.children.length ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
       '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>';
@@ -1976,7 +1976,20 @@ function persistDays() {
 // ---- Chrono ----
 // Un seul chrono à la fois : arrête tous les blocs et toutes les sous-activités en cours (sauf le bloc `exceptKey`).
 // Une sous-activité dont le chrono s'arrête (ou dont on saisit un temps) est cochée « faite » d'office ; on peut la décocher à la main, son temps reste.
+// Tâche « sans heure » sans sous-activité : on peut la refaire plusieurs fois dans la journée. Chaque passage est un temps chronométré dont `cid` est vide ('').
+function isPlain(it) { return !!it && it.mode === 'free' && !it.children.length; }
+function passesText(it) {
+  const closed = it.segs.filter((g) => g.end !== null), total = closed.reduce((t, g) => t + (g.end - g.start), 0);
+  if (it.children.length) return formatDuration(total) + ' faites';
+  return (closed.length > 1 ? closed.length + ' passages · ' : '') + formatDuration(total);
+}
+// Un ancien temps réel unique (début/fin) devient le premier passage, pour pouvoir en ajouter d'autres.
+function toPasses(day, key) {
+  const r = day.real[key];
+  if (r && !r.missed && r.start !== null && r.end !== null && !(day.segs[key] && day.segs[key].length)) { day.segs[key] = [{ cid: '', start: r.start, end: r.end }]; delete day.real[key]; }
+}
 function markKidDone(day, key, cid) {
+  if (!cid) return;                                  // un passage n'a pas de sous-activité à cocher
   if (!day.kidsDone) day.kidsDone = {};
   if (!day.kidsDone[key]) day.kidsDone[key] = {};
   day.kidsDone[key][cid] = true;
@@ -1992,6 +2005,15 @@ function startNow(key) {
   const now = dayNow();
   if (now === null) return;
   const day = ensureDay();
+  if (isPlain(findItem(key))) {                      // sans heure : un nouveau passage à chaque démarrage
+    closeRunning(day, now, null);
+    toPasses(day, key);
+    if (!day.segs[key]) day.segs[key] = [];
+    day.segs[key].push({ cid: '', start: now, end: null });
+    persistDays();
+    renderDay();
+    return;
+  }
   closeRunning(day, now, key);
   day.real[key] = { start: now, end: null };
   persistDays();
@@ -2380,9 +2402,20 @@ function renderChildren() {
   const day = daysData.days[selectedDate];
   const it = panelKey ? findItem(panelKey) : null;
   const box = $('#bp-children');
-  box.hidden = !(it && it.children.length);
+  const plain = isPlain(it);
+  box.hidden = !(it && (it.children.length || plain));
   if (box.hidden) return;
   const today = dayNow() !== null;
+  $('#bp-children-h').textContent = plain ? 'Passages' : 'Sous-activités';
+  $('#bp-child-btns').hidden = plain;
+  $('#seg-child-field').hidden = plain;
+  if (plain) {
+    const ps = ((day && day.segs[panelKey]) || []).slice();
+    $('#bp-seg-list').innerHTML = ps.map((g, i) => '<li><span>Passage ' + (i + 1) + ' <span class="v">· ' + (g.end === null ? 'depuis ' + formatTime(g.start) + ' · en cours' :
+      formatTime(g.start) + '–' + formatTime(g.end) + ' (' + formatDuration(g.end - g.start) + ')') + '</span></span>' +
+      '<button type="button" class="icon-btn" data-seg-del="' + i + '" aria-label="Supprimer ce passage">✕</button></li>').join('');
+    return;
+  }
   const segs = ((day && day.segs[panelKey]) || []).slice();
   const run = segs.find((g) => g.end === null);
   const kd = (day && day.kidsDone && day.kidsDone[panelKey]) || {};
@@ -2408,8 +2441,9 @@ function addSeg() {
   const st = parseTime(sEl.value), en = parseTime(eEl.value);
   if (st === null) { sEl.setAttribute('aria-invalid', 'true'); sEl.focus(); return; }
   if (en === null || en <= st) { eEl.setAttribute('aria-invalid', 'true'); eEl.focus(); return; }
-  const cid = $('#seg-child').value;
-  if (!cid || !panelKey) return;
+  const cid = isPlain(findItem(panelKey)) ? '' : $('#seg-child').value;
+  if (!panelKey || (cid === '' && !isPlain(findItem(panelKey)))) return;
+  if (cid === '') toPasses(day, panelKey);
   if (!day.segs[panelKey]) day.segs[panelKey] = [];
   day.segs[panelKey].push({ cid: cid, start: st, end: en });
   day.segs[panelKey].sort((a, b) => a.start - b.start);
@@ -2458,13 +2492,16 @@ function openPanel(key) {
     : (it.mode === 'free' ? 'Sans heure' : 'Prévu : ' + formatTime(it.plannedStart) + '–' + formatTime(it.plannedStart + it.minutes) + ' · ' + MODE_TAG[it.mode]) +
       (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + (it.kind === 'act' ? ' · à modifier dans Réglages' : '');
   const kids = !!(it && it.children.length);
-  $('#bp-real').hidden = !it || kids;
+  const plain = isPlain(it);
+  $('#bp-real').hidden = !it || kids || plain;
   const real = it ? it.real : { start: null, end: null };
   $('#bp-real-start').value = real.start === null ? '' : formatTime(real.start);
   $('#bp-real-end').value = real.end === null ? '' : formatTime(real.end);
-  $('#bp-start').hidden = !(it && !kids && today && real.start === null);
+  $('#bp-start').hidden = !(it && !kids && today && (plain ? !(real.start !== null && real.end === null) : real.start === null));
   $('#bp-stop').hidden = !(it && !kids && today && real.start !== null && real.end === null);
   $('#bp-clear').hidden = !(it && !kids && (real.start !== null || real.end !== null));
+  $('#bp-clear').textContent = plain ? 'Effacer les passages' : 'Effacer les heures réelles';
+  $('#bp-start').textContent = plain && real.start !== null ? '▶ Nouveau passage' : '▶ Démarrer maintenant';
   $('#bp-del').hidden = !(it && isP);
   $('#bp-save').textContent = it ? 'Enregistrer' : 'Ajouter';
   $('#bp-subs').hidden = !it;
@@ -2490,7 +2527,7 @@ function savePanel() {
   let edited = null;
   if (isP) { edited = readActRow($('#bp-edit .act-row'), errors); }
   let rs = null, re = null;
-  const kidsBlock = !!(it && it.children.length);
+  const kidsBlock = !!(it && (it.children.length || isPlain(it)));   // heures gérées par les sous-activités ou par les passages
   if (it && !kidsBlock) {
     const sEl = $('#bp-real-start'), eEl = $('#bp-real-end');
     if (sEl.value.trim() !== '') { rs = parseTime(sEl.value); if (rs === null) flag(sEl, 'Heure invalide', errors); }
@@ -2601,7 +2638,7 @@ function bindDayEvents() {
     else if (what === 'stop' && panelKey) { const key = panelKey; closePanel(); stopNow(key); }
     else if (what === 'add-sub') addSub();
     else if (what === 'add-seg') addSeg();
-    else if (what === 'clear' && panelKey) { delete ensureDay().real[panelKey]; persistDays(); closePanel(); renderDay(); }
+    else if (what === 'clear' && panelKey) { const dd = ensureDay(); delete dd.real[panelKey]; if (isPlain(findItem(panelKey))) delete dd.segs[panelKey]; persistDays(); closePanel(); renderDay(); }
     else if (what === 'delete' && panelKey) {
       const day = ensureDay();
       day.ponctuels = day.ponctuels.filter((p) => 'p:' + p.id !== panelKey);

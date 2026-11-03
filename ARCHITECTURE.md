@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.25.2**.
+Version décrite : **0.25.3**.
 
 ## 1. Principe
 
@@ -93,7 +93,7 @@ erDiagram
   JOUR ||--o| PRESENCE : "presence"
 ```
 
-Un jour (`emptyDay`) : `{ real, ponctuels, subtasks, review, profile, segs, presence, kidsDone }`. `kidsDone[clé du bloc][idSousActivité] = true` : sous-activités cochées « faites » ce jour-là (0.22.0, voir CONVENTIONS §36).
+Un jour (`emptyDay`) : `{ real, ponctuels, subtasks, review, profile, segs, presence, kidsDone }`. `kidsDone[clé du bloc][idSousActivité] = true` : sous-activités cochées « faites » ce jour-là (0.22.0, voir CONVENTIONS §36). Dans `segs`, une entrée de `cid` vide est un **passage** d'une tâche sans heure sans sous-activité (0.25.3, CONVENTIONS §42).
 
 Clé d'un bloc : `act:<id>` pour une activité de Réglages, `p:<id>` pour un bloc ponctuel du jour.
 
@@ -125,7 +125,7 @@ flowchart TD
 ```
 
 - **Profil du jour** : choix manuel pour le jour, sinon congé (si la date est dans une période), sinon le profil dont les jours contiennent le jour de la semaine, sinon le premier.
-- **Comportement d'un bloc** : `fixed` (heure fixe), `flex` (glisse si ce qui précède déborde), `free` (sans heure, lancé au chrono).
+- **Comportement d'un bloc** : `fixed` (heure fixe), `flex` (glisse si ce qui précède déborde), `free` (sans heure, lancé au chrono ; sans sous-activité, refaisable plusieurs fois par jour en « passages »).
 - **Chrono** : un seul chrono d'activité à la fois (`closeRunning`) ; la présence au travail est un chrono à part, en parallèle.
 - **Temps de travail** : uniquement la présence nette des pauses, comparée à la cible (462 min = 7 h 42), du lundi au vendredi hors congés.
 

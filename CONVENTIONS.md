@@ -325,3 +325,13 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Affichage : paragraphe `#persist-info` dans la carte Réglages › Sauvegarde, sous le résumé de la dernière sauvegarde ; il est réécrit à l'arrivée de la réponse et à chaque rendu de Réglages. Rien n'est stocké (l'état se redemande à chaque ouverture) et rien n'est exporté.
 - Le système décide : WebKit accorde la demande selon des critères, dont l'ouverture depuis l'écran d'accueil ; ce n'est pas une garantie. Le texte « accordée » dit « ne devrait pas supprimer » et « non accordée » renvoie à l'export régulier (§40).
 - Test : `tests/test_stockage.py` (le système est simulé par un script d'initialisation).
+
+## 42. Passages d'une tâche sans heure (0.25.3)
+
+- Une tâche `free` **sans sous-activité** (`isPlain`) se refait plusieurs fois par jour. Chaque passage est une entrée de `day.segs[clé]` avec `cid: ''` (chaîne vide, acceptée par `cleanSegs`). Pas de nouvelle clé de données, pas de migration de version.
+- `startNow` sur une telle tâche : ferme le chrono en cours, convertit d'abord un ancien temps réel terminé (`day.real[clé]`) en premier passage (`toPasses`), puis ajoute `{ cid: '', start: maintenant, end: null }`. Les autres blocs gardent `day.real`.
+- `buildDay` : toute tâche `free` terminée entre dans `reopen` (elle reste dans « Sans heure ») ; la frise a un créneau par passage (`spans`, déjà un par segment). `timeEntries` donne `child: null` pour un passage, donc les Stats additionnent par activité sans sous-activité inventée.
+- `markKidDone` ignore un `cid` vide : un passage ne coche jamais rien. Pas de case « fait » pour ces tâches ; `passesText` affiche « N passages · durée » (rien avant 2 passages).
+- Panneau du bloc : titre « Passages », liste numérotée, saisie à la main sans choix de sous-activité, bouton « Nouveau passage », « Effacer les passages » ; `savePanel` n'écrit pas de temps réel pour ces tâches (comme pour les sous-activités).
+- Une tâche à sous-activités n'est pas concernée. Les sous-tâches libres nomment le travail fait mais n'ont pas de temps propre : le temps par dossier n'existe pas dans les Stats.
+- Test : `tests/test_passages.py`.
