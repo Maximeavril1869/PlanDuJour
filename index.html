@@ -186,6 +186,13 @@ button { font: inherit; }
 .subh { margin: 14px 0 6px; font-size: 15px; }
 .child-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .child-row input { flex: 1; min-width: 0; }
+/* Stats en arbre (0.24.0) : nom à gauche, total à droite à chaque niveau */
+.stree details > summary > span:first-child { flex: 1; min-width: 0; }
+.stree details > summary .stdur { margin-left: 12px; font-weight: 700; text-transform: none; letter-spacing: 0; color: var(--ink); }
+.stree details > summary::after { margin-left: 0; }
+.stree details.nokids > summary { pointer-events: none; }
+.stree details.nokids > summary::after { content: ""; padding: 0; }
+.stree .catbody .rows { margin: 2px 0 6px; }
 .stsub { list-style: none; margin: 4px 0 2px; padding: 0 0 0 14px; font-size: 14px; color: var(--muted); }
 .stsub li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; border: 0; }
 .kids { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
@@ -329,7 +336,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.23.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.24.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -972,13 +979,10 @@ function timeEntries(daysMap, settings, from, to) {
 // Statistiques : temps réel par nom d'activité (avec le détail par sous-activité) et par catégorie.
 function statsFor(daysMap, settings, from, to) {
   const entries = timeEntries(daysMap, settings, from, to);
-  const catList = settings.categories || [];
-  const totals = {}, detail = {}, ctot = {}, dates = {};
+  const totals = {}, detail = {}, dates = {};
   entries.forEach((e) => {
     totals[e.name] = (totals[e.name] || 0) + e.minutes;
     if (e.child !== null) { detail[e.name] = detail[e.name] || {}; detail[e.name][e.child] = (detail[e.name][e.child] || 0) + e.minutes; }
-    const cid = e.cat && catList.some((c) => c.id === e.cat) ? e.cat : '_none';
-    ctot[cid] = (ctot[cid] || 0) + e.minutes;
     dates[e.date] = true;
   });
   const rows = Object.keys(totals).map((n) => {
@@ -987,9 +991,36 @@ function statsFor(daysMap, settings, from, to) {
     if (kids.length && rest > 0) kids.push({ name: 'Sans détail', minutes: rest });
     return { name: n, minutes: totals[n], children: kids };
   }).sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
-  const cats = Object.keys(ctot).map((id) => { const c = catList.find((x) => x.id === id); return { id: id, name: c ? catPath(catList, c.id) : 'Sans catégorie', work: !!(c && c.work), kind: c ? c.kind : null, minutes: ctot[id] }; })
-    .sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name, 'fr'));
-  return { rows: rows, cats: cats, total: rows.reduce((t, r) => t + r.minutes, 0), daysUsed: Object.keys(dates).length };
+  return { rows: rows, kinds: statsTree(entries, settings), total: rows.reduce((t, r) => t + r.minutes, 0), daysUsed: Object.keys(dates).length };
+}
+// Arbre des Stats (0.24.0) : le temps est compté au niveau le plus fin (activité, sous-activité) ; chaque catégorie de l'arbre porte le total de ce qu'elle contient
+// (ses activités et ses sous-catégories), et chaque statut (Travail, Perso, Hors) la somme de ses catégories de niveau supérieur. Une activité sans catégorie
+// (ou dont la catégorie a été supprimée) est « Hors ». Les catégories sans temps sur la période n'apparaissent pas.
+function statsTree(entries, settings) {
+  const cats = settings.categories || [], byCat = {};
+  entries.forEach((e) => {
+    const cid = e.cat && cats.some((c) => c.id === e.cat) ? e.cat : '_none';
+    const g = byCat[cid] = byCat[cid] || {};
+    const a = g[e.name] = g[e.name] || { name: e.name, minutes: 0, kids: {} };
+    a.minutes += e.minutes;
+    if (e.child !== null) a.kids[e.child] = (a.kids[e.child] || 0) + e.minutes;
+  });
+  const byTime = (x, y) => y.minutes - x.minutes || x.name.localeCompare(y.name, 'fr', { sensitivity: 'base' });
+  const acts = (cid) => Object.keys(byCat[cid] || {}).map((n) => {
+    const a = byCat[cid][n], kids = Object.keys(a.kids).map((k) => ({ name: k, minutes: a.kids[k] })).sort(byTime), rest = a.minutes - kids.reduce((t, k) => t + k.minutes, 0);
+    if (kids.length && rest > 0) kids.push({ name: 'Sans détail', minutes: rest });
+    return { name: a.name, minutes: a.minutes, children: kids };
+  }).sort(byTime);
+  const node = (c) => {
+    const own = acts(c.id), subs = cats.filter((k) => k.parent === c.id).map(node).filter((n) => n.minutes > 0).sort(byTime);
+    return { id: c.id, name: c.name, kind: c.kind, acts: own, kids: subs, minutes: own.reduce((t, x) => t + x.minutes, 0) + subs.reduce((t, x) => t + x.minutes, 0) };
+  };
+  const out = {};
+  KIND_ORDER.forEach((k) => { out[k] = { kind: k, nodes: cats.filter((c) => !c.parent && c.kind === k).map(node).filter((n) => n.minutes > 0).sort(byTime), minutes: 0 }; });
+  const none = acts('_none');
+  if (none.length) out.hors.nodes.push({ id: 'none', name: 'Sans catégorie', kind: 'hors', acts: none, kids: [], minutes: none.reduce((t, x) => t + x.minutes, 0) });
+  KIND_ORDER.forEach((k) => { out[k].minutes = out[k].nodes.reduce((t, n) => t + n.minutes, 0); });
+  return out;
 }
 // Suivi du temps de travail : minutes travaillées (catégories marquées « travail ») jour par jour, face à la cible (lundi–vendredi, hors congé).
 function workReport(daysMap, settings, from, to, today, nowMin) {
@@ -1507,11 +1538,8 @@ function renderStats() {
     if (statsMode !== 'day') html += '<p class="help" style="margin:8px 0 0">Week-end travaillé : ' + (wr.weekendDays ? plural(wr.weekendDays, 'jour', 'jours') + ' · ' + formatDuration(wr.weekendMinutes) : 'aucun') + '.</p>';
     html += '</div>';
   }
-  if (st.cats.length) {
-    const cmax = st.cats[0].minutes;
-    html += '<div class="card"><h2>Par catégorie</h2><ul class="rows">' + st.cats.map((c) => '<li class="strow"><div class="stline"><span>' + esc(c.name) + (c.kind === 'work' ? ' <span class="v">· travail</span>' : c.kind === 'hors' ? ' <span class="v">· hors</span>' : '') + '</span><strong>' + formatDuration(c.minutes) + '</strong></div>' +
-      '<div class="bar"><span style="width:' + Math.max(2, Math.round(c.minutes / cmax * 100)) + '%"></span></div></li>').join('') + '</ul></div>';
-  }
+  if (st.rows.length) html += '<div class="card stree"><h2>Par catégorie</h2>' + KIND_ORDER.map((k) => statsKindHtml(st.kinds[k])).join('') +
+    '<p class="help" style="margin:10px 0 0">Le statut (Travail, Perso, Hors) vient des catégories de Réglages ; une activité sans catégorie est « Hors ». Chaque niveau affiche le total de ce qu’il contient. Ce temps est celui des activités, pas la présence au travail.</p></div>';
   if (!st.rows.length) {
     html += '<div class="card"><p class="help" style="margin:0">Aucune heure réelle sur cette période. Les heures viennent du chrono ou des heures réelles saisies sur la page du jour.</p></div>';
   } else {
@@ -1522,6 +1550,24 @@ function renderStats() {
       '<p class="help" style="margin:10px 0 0">Un bloc en cours n’est compté qu’une fois arrêté. Un bloc à heure fixe passé, sans « à confirmer », compte à sa durée prévue même sans chrono (marque-le « Raté » s’il n’a pas eu lieu). Les blocs ratés ne comptent pas. Regroupement par nom d’activité.</p></div>';
   }
   $('#panel-stats').innerHTML = html;
+}
+
+// Stats en arbre (0.24.0) : un menu par statut puis un menu par catégorie, tous fermés au départ ; l'état déplié vit dans `statsOpen` (mémoire seulement).
+const statsOpen = new Set();
+function statsActHtml(a, total) {
+  return '<li class="strow"><div class="stline"><span>' + esc(a.name) + '</span><strong>' + formatDuration(a.minutes) + '</strong></div>' +
+    (a.children.length ? '<ul class="stsub">' + a.children.map((c) => '<li><span>' + esc(c.name) + '</span><span>' + formatDuration(c.minutes) + '</span></li>').join('') + '</ul>' : '') +
+    '<div class="bar"><span style="width:' + Math.max(2, Math.round(a.minutes / total * 100)) + '%"></span></div></li>';
+}
+function statsNodeHtml(n) {
+  const fid = 'stn-' + n.id;
+  return '<details class="catnode" data-fid="' + esc(fid) + '" data-status="' + n.kind + '"' + (statsOpen.has(fid) ? ' open' : '') + '><summary><span>' + esc(n.name) + '</span><strong class="stdur">' + formatDuration(n.minutes) + '</strong></summary>' +
+    '<div class="catbody">' + n.kids.map(statsNodeHtml).join('') + (n.acts.length ? '<ul class="rows">' + n.acts.map((a) => statsActHtml(a, n.minutes)).join('') + '</ul>' : '') + '</div></details>';
+}
+function statsKindHtml(k) {
+  const fid = 'stk-' + k.kind, head = '<summary><span>' + KINDS[k.kind] + '</span><strong class="stdur">' + formatDuration(k.minutes) + '</strong></summary>';
+  return '<details class="grp' + (k.nodes.length ? '' : ' nokids') + '" data-fid="' + fid + '" data-status="' + k.kind + '"' + (k.nodes.length && statsOpen.has(fid) ? ' open' : '') + '>' + head +
+    '<div class="grpbody">' + k.nodes.map(statsNodeHtml).join('') + '</div></details>';
 }
 
 // ---- Vue du jour ----
@@ -2540,6 +2586,10 @@ function bindEvents() {
   const form = $('#settings-form');
 
   $$('.tabbar button').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  $('#panel-stats').addEventListener('toggle', (e) => {       // mémorise les menus dépliés tant que l'app reste ouverte
+    const f = e.target.dataset && e.target.dataset.fid;
+    if (f && (f.indexOf('stn-') === 0 || f.indexOf('stk-') === 0)) { if (e.target.open) statsOpen.add(f); else statsOpen.delete(f); }
+  }, true);
   $('#panel-stats').addEventListener('click', (e) => {
     const m = e.target.closest('[data-stats-mode]');
     if (m) { statsMode = m.dataset.statsMode; renderStats(); return; }
@@ -2754,7 +2804,7 @@ function init() {
   setInterval(() => {
     if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && document.activeElement.id !== 'day-search' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
-  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind };   // point d'accès pour les tests
+  window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });

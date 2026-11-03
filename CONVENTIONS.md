@@ -299,5 +299,13 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Une ligne modifiée (« Dans », statut) **reste en place jusqu'à l'enregistrement**, puis le formulaire est redessiné et la range (comme au §35). En attendant, `refreshCatTree` met à jour le statut hérité affiché (liste grisée pour une sous-catégorie, modifiable pour une racine), les titres, les compteurs et la couleur du menu.
 - « + Catégorie » crée une racine `perso` dans le menu Perso (ouvert, curseur sur le nom). Supprimer une catégorie laisse ses sous-catégories dans le menu parent, un niveau plus haut (leurs « Dans » et statuts sont recalculés).
 - Couleurs : `--k-work`, `--k-perso`, `--k-hors` (clair et sombre) ; pastille dans le titre et trait vertical par niveau. L'attribut s'appelle `data-status` (et non `data-kind`, déjà utilisé par les champs de saisie).
-- Stats « Par catégorie » : étiquette « · travail » ou « · hors » (rien pour Perso ni pour « Sans catégorie »). Les totaux Travail / Perso / Hors et l'arbre des Stats arrivent en 0.24.0.
+- Stats : l'étiquette « · travail » / « · hors » de la 0.23.1 est remplacée par l'arbre des Stats (§39).
 - Test : `tests/test_statuts.py` ; `test_arborescence.py` ouvre les menus avant de saisir.
+
+## 39. Stats en arbre (0.24.0)
+
+- `statsTree(entries, settings)` (appelée par `statsFor`, qui renvoie `kinds` à la place de l'ancienne liste plate `cats`) construit trois statuts `{ kind, nodes, minutes }`. Le temps est compté **au niveau le plus fin** (activité, sous-activité) ; chaque nœud-catégorie `{ id, name, kind, acts, kids, minutes }` vaut ses activités plus ses sous-catégories ; chaque statut vaut la somme de ses racines. Un temps n'est donc jamais compté deux fois : Travail + Perso + Hors = total des activités.
+- Une activité sans catégorie, ou dont la catégorie n'existe plus, va dans un nœud « Sans catégorie » de **Hors**, placé en dernier. Les nœuds sans temps sur la période sont omis ; les trois statuts sont toujours affichés (0 min, sans rien à déplier : classe `nokids`).
+- Affichage (`statsKindHtml`, `statsNodeHtml`, `statsActHtml`) : `details.grp` par statut puis `details.catnode` imbriqués (mêmes styles que Réglages, §38, `data-status`), nom à gauche et **total à droite à chaque niveau** (`.stdur`), tout fermé au départ ; l'état déplié (`stk-<statut>`, `stn-<id>`) vit dans `statsOpen`, en mémoire seulement (§32). Les barres des activités sont leur part de la catégorie.
+- Inchangés : la carte « Présence au travail » (le temps de travail réel reste la présence, §27) et la carte « Par activité » (classement à plat par nom). Le statut ne sert qu'à l'étiquette et au regroupement.
+- Test : `tests/test_stats_arbre.py`.

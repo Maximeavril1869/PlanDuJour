@@ -6,18 +6,25 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.23.1**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.24.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
 - Catégories en arbre (0.23.0) : un seul parent, jusqu'à 8 niveaux, chemin « A › B » affiché.
-- Statuts Travail / Perso / Hors (0.23.1) : portés par la racine, hérités par les sous-catégories ; Réglages en trois menus de statut contenant un menu par catégorie, imbriqués. Prochain lot : **0.24.0**, Stats en arbre repliable avec un total à chaque niveau et les totaux Travail / Perso / Hors.
-- Avant la 1.0 : 0.24.0, rappel de sauvegarde, validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
+- Statuts Travail / Perso / Hors (0.23.1) : portés par la racine, hérités par les sous-catégories ; Réglages en trois menus de statut contenant un menu par catégorie, imbriqués. 
+- Stats en arbre (0.24.0) : trois menus Travail / Perso / Hors, catégories imbriquées, activités et sous-activités au bout ; un total à chaque niveau ; fermé au départ.
+- Avant la 1.0 : rappel de sauvegarde, validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 146 vérifications (7 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 169 vérifications (8 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 2 novembre 2026
+
+### Session de la 0.24.0 (Stats en arbre)
+- Retours de l'utilisateur sur la 0.23.1 : tout fonctionnait sur l'appareil ; on garde les catégories sans sous-catégorie derrière leur menu (un tap de plus), pas de ligne directe. Feu vert pour la 0.24.0.
+- **0.24.0** : `statsTree` (totaux par statut et par catégorie, activités et sous-activités au bout, « Sans catégorie » en Hors), `statsFor` renvoie `kinds` à la place de la liste plate `cats`, rendu en menus imbriqués (`statsKindHtml`, `statsNodeHtml`), état déplié gardé en mémoire (`statsOpen`). `tests/test_stats_arbre.py` (25 vérifications) ; l'ancien test d'étiquette de `test_statuts.py` est retiré (34 vérifications). Contrôle négatif fait (7 échecs quand les sous-catégories sont oubliées dans les totaux) ; captures vérifiées sur écran d'iPhone (390 px, clair et sombre) ; 169 vérifications OK. Une erreur de calcul de ma part dans le premier jeu de test (280 min et non 290) a été corrigée dans le test, pas dans le code.
+- Choix par défaut, à confirmer à l'usage : l'arbre remplace la carte « Par catégorie » ; « Par activité » (à plat) est gardée telle quelle ; les trois statuts sont toujours affichés, même à 0 ; les barres sont la part de la catégorie.
+- Questions ouvertes : lisibilité de l'arbre sur une semaine réelle ; garder ou non « Par activité » ; rappel de sauvegarde et liste de contrôles appareil toujours à livrer ; validation iPad.
 
 ### Session de la 0.23.1 (statuts et menus imbriqués)
 - Reprise : dépôt cloné à `194b330`, documents relus, 110 vérifications OK (Chrome du système, Playwright n'ayant pas pu télécharger le sien ; rien ajouté au dépôt).

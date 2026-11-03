@@ -9,8 +9,7 @@ import sys
 from playwright.sync_api import sync_playwright
 
 from test_arborescence import open_cats, page_with, stored_cats
-from test_calendrier import RESULTS, check, day_offset, new_page
-from test_regroupements import free_act
+from test_calendrier import RESULTS, check, new_page
 
 # Pro (travail) > RH ; Maison (perso) > Bricolage ; Trajets (hors). La sous-catégorie « RH » porte un statut contradictoire exprès : il doit être ignoré.
 CATS = [
@@ -140,23 +139,6 @@ def test_anciens_reglages(browser):
     pg.close()
 
 
-def test_stats(browser):
-    print('Stats : étiquette de statut par catégorie')
-    cats = [{'id': 'w', 'name': 'Pro', 'kind': 'work'}, {'id': 'h', 'name': 'Trajets', 'kind': 'hors'}, {'id': 'p', 'name': 'Maison', 'kind': 'perso'}]
-    acts = [free_act('a1', 'Dossier test', 'w'), free_act('a2', 'Train test', 'h'), free_act('a3', 'Bricolage test', 'p')]
-    pg = page_with(browser, cats, acts)
-    today = day_offset(pg, 0)
-    real = {'act:a%d' % i: {'start': 480 + 60 * i, 'end': 520 + 60 * i} for i in (1, 2, 3)}
-    day = {'real': real, 'ponctuels': [], 'subtasks': {}, 'review': {}, 'profile': None, 'segs': {}, 'presence': None}
-    pg.evaluate("(d) => localStorage.setItem('plandujour.jours', JSON.stringify(d))", {'version': 2, 'days': {today: day}})
-    pg.reload()
-    pg.click('#tab-stats')
-    lines = pg.evaluate("() => [...document.querySelectorAll('.strow .stline span')].map((e) => e.textContent)")
-    check('Pro est marquée travail, Trajets hors, Maison sans étiquette', 'Pro · travail' in lines and 'Trajets · hors' in lines and 'Maison' in lines, lines)
-    check('aucune erreur JavaScript', not pg.errors, pg.errors)
-    pg.close()
-
-
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -166,7 +148,6 @@ def main():
         test_ranger_sous(browser)
         test_ajout_suppression(browser)
         test_anciens_reglages(browser)
-        test_stats(browser)
         browser.close()
     bad = [n for n, ok in RESULTS if not ok]
     print('\n%d vérifications, %d échec(s)' % (len(RESULTS), len(bad)))

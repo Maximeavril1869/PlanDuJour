@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.23.1**.
+Version décrite : **0.24.0**.
 
 ## 1. Principe
 
@@ -23,7 +23,7 @@ flowchart LR
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Toute l'app (≈ 2 760 lignes) |
+| `index.html` | Toute l'app (≈ 2 800 lignes) |
 | `sw.js` | Service worker : cache `plandujour-<version>`, hors ligne |
 | `manifest.json` | Manifeste PWA (nom, icônes, plein écran) |
 | `icon-180.png`, `icon-192.png`, `icon-512.png` | Icônes |
@@ -60,10 +60,10 @@ Quatre onglets : **Jour**, **Récapitulatif**, **Stats**, **Réglages**.
 |---|---|---|
 | Jour | Plan de la journée en frise, chrono, présence, sous-tâches, revue du jour, recherche, « Sans heure » regroupé par catégorie | `renderDay` |
 | Récapitulatif | Semaine réelle (vrais profils, congés, reports) ou semaine type | `renderRecap` |
-| Stats | Jour / semaine / mois : travail (présence) face à 7 h 42, par catégorie, par activité | `renderStats` |
+| Stats | Jour / semaine / mois : travail (présence) face à 7 h 42, arbre Travail / Perso / Hors › catégories › activités avec un total à chaque niveau (0.24.0), puis par activité | `renderStats`, `statsTree` |
 | Réglages | Profils, congés, activités, catégories, tâches habituelles, sauvegarde, export calendrier | éditeurs de la section 6 |
 
-**Pliage.** Trois niveaux de menus repliables, tous fermés au départ, état conservé en mémoire seulement : les cartes (`details.card.fold`, état dans `foldClosed` pour Réglages), les lignes d'un éditeur (`details.rowfold`, `openRows`) et, depuis la 0.21.0, les groupes de catégorie (`details.grp`) dans « Sans heure » (`sansCatOpen`), « Activités » et « Tâches habituelles » (`openRows`). Voir CONVENTIONS §32 et §35. **Arbre des catégories** (0.23.0) : chaque catégorie porte un `parent` optionnel (un seul), profondeur ≤ 8, chemin « A › B » calculé par `catPath` ; voir CONVENTIONS §37. **Statuts** (0.23.1) : Travail / Perso / Hors portés par la racine et hérités par les descendantes (`catKind`) ; dans Réglages, trois menus de statut contenant un menu par catégorie, imbriqués (§38).
+**Pliage.** Trois niveaux de menus repliables, tous fermés au départ, état conservé en mémoire seulement : les cartes (`details.card.fold`, état dans `foldClosed` pour Réglages), les lignes d'un éditeur (`details.rowfold`, `openRows`) et, depuis la 0.21.0, les groupes de catégorie (`details.grp`) dans « Sans heure » (`sansCatOpen`), « Activités » et « Tâches habituelles » (`openRows`). Voir CONVENTIONS §32 et §35. **Arbre des catégories** (0.23.0) : chaque catégorie porte un `parent` optionnel (un seul), profondeur ≤ 8, chemin « A › B » calculé par `catPath` ; voir CONVENTIONS §37. **Statuts** (0.23.1) : Travail / Perso / Hors portés par la racine et hérités par les descendantes (`catKind`) ; dans Réglages, trois menus de statut contenant un menu par catégorie, imbriqués (§38). **Stats en arbre** (0.24.0) : `statsTree` renvoie trois statuts, leurs catégories imbriquées et un total à chaque niveau (§39).
 
 ## 5. Données
 
