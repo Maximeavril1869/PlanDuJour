@@ -136,7 +136,7 @@ flowchart TD
 |---|---|---|---|
 | Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » ; un bandeau en tête de tous les onglets rappelle d'exporter après N jours de modifications non sauvegardées (0.25.0) |
 | Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-p-<id>` ou `pdj-<date>-<clé>`, code dans les Notes) | Jours suivants seulement ; **uniquement les blocs dont la case « Exporter vers Calendrier » (`toCal`) est cochée** ; rappel `VALARM` facultatif ; à ajouter dans un calendrier dédié « Plan du jour » |
-| Envoi vers Raccourcis (0.28.0, id en 0.29.0) | app → Raccourcis → Calendrier | JSON `{from, to, events:[{id, title, start, end}]}` dans le presse-papiers, puis lien `shortcuts://run-shortcut?name=Plan%20du%20jour&input=clipboard` | `id` = code de l'export `.ics` entre crochets ; le raccourci cherche « Notes contient id » dans l'agenda « Plan du jour », met à jour (titre, heures) ou crée ; ne supprime rien ; confirmation système à chaque lancement du lien |
+| Envoi vers Raccourcis (0.28.0, id en 0.29.0) | app → Raccourcis → Calendrier | JSON `{from, to, events:[{id, title, start, end}]}` dans le presse-papiers, puis lien `shortcuts://run-shortcut?name=Plan%20du%20jour&input=clipboard` | `id` = code de l'export `.ics` entre crochets ; le raccourci cherche « Notes contient id » dans l'agenda « Travail », met à jour (titre, heures) ou crée ; ne supprime rien ; confirmation système à chaque lancement du lien |
 
 L'app est la source unique : **il n'y a plus d'import depuis le calendrier** (retiré en 0.20.0). Un bloc n'est exporté que si la case est cochée, par défaut décochée.
 
