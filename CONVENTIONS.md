@@ -335,3 +335,11 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Panneau du bloc : titre « Passages », liste numérotée, saisie à la main sans choix de sous-activité, bouton « Nouveau passage », « Effacer les passages » ; `savePanel` n'écrit pas de temps réel pour ces tâches (comme pour les sous-activités).
 - Une tâche à sous-activités n'est pas concernée. Les sous-tâches libres nomment le travail fait mais n'ont pas de temps propre : le temps par dossier n'existe pas dans les Stats.
 - Test : `tests/test_passages.py`.
+
+## 43. Ligne « maintenant » (0.26.0)
+
+- Frise du jour (`renderDay`) : `div.nowline` posée à `y(maintenant)` si `dayNow()` n'est pas nul (jour affiché = aujourd'hui) et si l'heure est dans la plage réelle de la journée (`lo0`/`hi0` : lever ou premier bloc → coucher ou dernier bloc, avant l'arrondi à l'heure). Elle ne reçoit pas les touches (`pointer-events: none`) et passe au-dessus des blocs. L'étiquette d'heure est dans la colonne des heures. Couleur : variable `--now` (clair et sombre).
+- Récap (`renderRecap`) : entrée `li.nowli` « Maintenant » triée par `at = minute + 0,2`, seulement en semaine réelle, pour la date du jour et dans la plage lever → coucher (ou premiers/derniers créneaux sans lever/coucher). `recapNowShown` mémorise la minute affichée.
+- Rafraîchissement : la frise suit l'intervalle de 15 secondes existant ; le Récap est redessiné seulement si la minute a changé et que l'onglet est visible.
+- Défilement : `scrollToNow` (ligne à 35 % de la hauteur de l'écran) est appelé **uniquement** à l'ouverture et au retour sur aujourd'hui (bouton « Aujourd'hui » ou navigation qui y arrive). Jamais dans le rafraîchissement : l'utilisateur doit pouvoir défiler librement. Un changement d'onglet ne défile pas non plus.
+- Test : `tests/test_maintenant.py` (horloge du navigateur simulée avec `page.clock`).

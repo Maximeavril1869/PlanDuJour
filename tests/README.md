@@ -26,6 +26,7 @@ Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le
 | `test_stats_arbre.py` | Stats en arbre : totaux par statut et par catégorie, activités et sous-activités, « Sans catégorie » en Hors, catégorie supprimée, période sans temps, absence de double compte, pliage conservé |
 | `test_sauvegarde.py` | Rappel de sauvegarde : bandeau présent sur les quatre onglets, quand il apparaît (délai, report, état illisible), « Exporter maintenant » (téléchargement, feuille de partage acceptée ou annulée), ce qui compte comme une modification, réglage du délai, import et réinitialisation |
 | `test_passages.py` | Passages d'une tâche sans heure : chrono répété, créneaux et Stats, panneau (saisie, suppression, effacement), ancien temps réel converti, bloc ponctuel, sous-activités inchangées |
+| `test_maintenant.py` | Ligne « maintenant » (horloge simulée) : position proportionnelle, avance seule, absente hors plage et sur un autre jour, défilement à l'ouverture sans reprise de la page, ligne dans le Récap |
 | `test_stockage.py` | Demande de stockage persistant : accordée, déjà accordée, refusée, en erreur, interface absente (système simulé) ; affichage dans Réglages |
 | `test_cochables.py` | Sous-activités cochables : cases à la main, coche d'office à l'arrêt du chrono et à la saisie d'un temps, panneau du bloc, jour passé, lecture de données invalides |
 | `test_calendrier.py` | Démarrage sans erreur, export vers Calendrier par case à cocher (`toCal`, codes, rappel facultatif, `.ics`), valeurs par défaut, case conservée après rechargement |

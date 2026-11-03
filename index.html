@@ -17,7 +17,7 @@
 :root {
   --bg: #f3f5f4; --card: #ffffff; --ink: #16211f; --muted: #5d6b68; --line: #dfe5e3;
   --accent: #0f766e; --accent-ink: #ffffff; --accent-soft: #e0f2ef;
-  --warn-bg: #fff6e0; --warn-ink: #7a4b00; --err: #b42318; --info-bg: #e8f1fb; --info-ink: #1d4670;
+  --now: #d92d20; --warn-bg: #fff6e0; --warn-ink: #7a4b00; --err: #b42318; --info-bg: #e8f1fb; --info-ink: #1d4670;
   --trip: #e6ebe9; --fix: #fde4bf; --fix-line: #e0a14a;
   --tabbar-h: 56px;
 }
@@ -25,7 +25,7 @@
   :root {
     --bg: #0e1514; --card: #172120; --ink: #e8f0ee; --muted: #9fb0ac; --line: #26332f;
     --accent: #2dd4bf; --accent-ink: #04201c; --accent-soft: #123a35;
-    --warn-bg: #2b2410; --warn-ink: #f5d58a; --err: #ff8a80; --info-bg: #14283a; --info-ink: #a9cdf0;
+    --now: #ff6b5e; --warn-bg: #2b2410; --warn-ink: #f5d58a; --err: #ff8a80; --info-bg: #14283a; --info-ink: #a9cdf0;
     --trip: #202c29; --fix: #4a3715; --fix-line: #d9992f;
   }
 }
@@ -180,6 +180,11 @@ button { font: inherit; }
 .b-done { opacity: .6; }
 .b-done .bn { text-decoration: line-through; }
 .b-running { outline: 2px solid var(--accent); }
+.nowline { position: absolute; left: 0; right: 0; border-top: 2px solid var(--now); z-index: 3; pointer-events: none; }
+.nowline span { position: absolute; left: -46px; top: -11px; width: 42px; text-align: center; font-size: 12px; font-weight: 700; color: #fff; background: var(--now); border-radius: 6px; line-height: 20px; font-variant-numeric: tabular-nums; }
+.nowline::before { content: ""; position: absolute; left: -4px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--now); }
+.tl li.nowli .t, .tl li.nowli .what { color: var(--now); font-weight: 700; }
+.tl li.nowli .dot::after { background: var(--now); }
 .hours-help { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
 .act-row .chk { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; }
 .chk input, .subchk input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
@@ -337,7 +342,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.25.3';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.26.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1467,6 +1472,7 @@ let recapMode = 'reel';   // 'reel' : semaine réelle (profil, congés, blocs po
 let recapDate = null;    // un jour de la semaine réelle affichée
 let recapDay = 1;   // jour de semaine affiché dans le récapitulatif
 
+let recapNowShown = null;   // minute affichée par la ligne « maintenant » du Récap (null : pas de ligne)
 function renderRecap(s, status) {
   let html = '';
   if (status === 'empty') html += '<div class="banner info">Valeurs de départ affichées. Rien n’est enregistré tant que tu n’as pas appuyé sur « Enregistrer » dans Réglages.</div>';
@@ -1499,6 +1505,16 @@ function renderRecap(s, status) {
     entries.push({ at: g.from + 0.1, html: '<li class="gapli"><span class="t">' + formatDuration(g.minutes) + '</span><span class="dot"></span><span class="what">disponible' + (g.last ? ' avant le coucher' : '') + '</span></li>' });
   });
   if (b.profile.bedtime !== null) entries.push({ at: 99999, html: '<li class="mark"><span class="t">' + formatTime(b.profile.bedtime) + '</span><span class="dot"></span><span class="what">Coucher</span></li>' });
+  recapNowShown = null;
+  if (real && recapDate === dateKey(new Date())) {   // ligne « maintenant » : seulement dans la plage de la journée
+    const n = nowMinutes(), starts = b.spans.map((x) => x.start), ends = b.spans.map((x) => x.end);
+    const first = b.profile.wake !== null ? b.profile.wake : (starts.length ? Math.min.apply(null, starts) : null);
+    const last = b.profile.bedtime !== null ? b.profile.bedtime : (ends.length ? Math.max.apply(null, ends) : null);
+    if (first !== null && last !== null && n >= first && n <= last) {
+      recapNowShown = n;
+      entries.push({ at: n + 0.2, html: '<li class="nowli"><span class="t">' + formatTime(n) + '</span><span class="dot"></span><span class="what">Maintenant</span></li>' });
+    }
+  }
   entries.sort((x, y) => x.at - y.at);
   html += '<div class="card"><h2>' + (real ? esc(fmtDateLabel(recapDate)) : DAY_NAMES[recapDay] + ' (semaine type)') + ' <span class="v">· profil ' + esc(b.profile.name) + '</span></h2><ul class="tl">' + entries.map((e) => e.html).join('') + '</ul>' +
     (b.placed.length ? '' : '<p class="help">Aucune activité ce jour-là.</p>') + '</div>';
@@ -1785,6 +1801,7 @@ function renderDay() {
   let hi = Math.max.apply(null, (t.bedtime !== null ? [t.bedtime] : []).concat(items.map((b) => b.end)));
   if (!isFinite(lo)) lo = 360;          // journée vide sans lever : repères par défaut
   if (!isFinite(hi)) hi = 1200;
+  const lo0 = lo, hi0 = hi;            // plage réelle de la journée (lever → coucher ou derniers blocs) : la ligne « maintenant » n'en sort pas
   lo = Math.floor(lo / 60) * 60;
   hi = Math.min(1440, Math.ceil(hi / 60) * 60);
   layoutColumns(items);
@@ -1810,8 +1827,16 @@ function renderDay() {
       '" data-action="open-block" data-key="' + esc(b.key) + '" style="top:' + y(b.start) + 'px;height:' + h + 'px;left:calc(' + b.col * w + '% + 1px);width:calc(' + w + '% - 3px)">' +
       '<span class="bn">' + (b.state === 'done' ? '✓ ' : '') + esc(b.label) + '</span><span class="bt">' + (b.mode === 'free' && b.state !== 'done' ? formatTime(b.start) : formatTime(b.start) + '–' + formatTime(b.end) + ' (' + formatDuration(b.end - b.start) + ')') + esc(note) + '</span></button>';
   });
+  const nowM = dayNow();
+  if (nowM !== null && nowM >= lo0 && nowM <= hi0) html += '<div class="nowline" style="top:' + y(nowM) + 'px"><span>' + formatTime(nowM) + '</span></div>';
   html += '</div></div>';
   $('#day-timeline').innerHTML = html;
+}
+// Place la page pour que la ligne « maintenant » soit visible (à l'ouverture et en revenant sur aujourd'hui) ; ensuite on défile librement.
+function scrollToNow() {
+  const el = document.querySelector('#day-timeline .nowline');
+  if (!el) return;
+  window.scrollTo(0, Math.max(0, window.scrollY + el.getBoundingClientRect().top - window.innerHeight * 0.35));
 }
 
 let toastTimer = null;
@@ -2571,6 +2596,7 @@ function bindDayEvents() {
       selectedDate = target;
       closePanel();
       renderDay();
+      if (target === dateKey(new Date())) scrollToNow();
       return;
     }
     const go = e.target.closest('[data-search-go]');
@@ -2939,10 +2965,12 @@ function init() {
   setDirty(false);
   bindEvents();
   switchTab('day');
+  scrollToNow();
   requestPersistence();
   // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
     renderBackupBanner();                                  // le bandeau suit le changement de jour, quel que soit l'onglet
+    if (!$('#panel-recap').hidden && recapMode === 'reel' && recapDate === dateKey(new Date()) && nowMinutes() !== recapNowShown) renderRecap(current, loadStatus);   // la ligne « maintenant » avance
     if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && document.activeElement.id !== 'day-search' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
   window.PDJ = { calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree };   // point d'accès pour les tests

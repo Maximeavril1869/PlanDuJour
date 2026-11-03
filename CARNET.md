@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.25.3**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.26.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -19,9 +19,13 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 273 vérifications (11 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 295 vérifications (12 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 3 novembre 2026 (suite)
+
+### Session de la 0.26.0 (ligne « maintenant »)
+- Demande : « un curseur d'avancement de temps, pour savoir où on en est dans la journée, qui défile à mesure que le temps passe ». Réponses : une ligne pour se situer par rapport aux blocs et temps libres (pas de barre de progression) ; page placée sur la ligne si on peut défiler librement ; rien hors plage ; pas de grisé ; aussi dans le Récap.
+- **0.26.0** : `div.nowline` sur la frise, `li.nowli` dans le Récap, `scrollToNow` à l'ouverture et au retour sur aujourd'hui. `tests/test_maintenant.py` (22 vérifications, horloge simulée) ; deux contrôles négatifs faits (filtre hors plage retiré : 3 échecs ; rafraîchissement qui défile : 1 échec) ; 295 vérifications OK ; captures iPhone clair et sombre vérifiées.
 
 ### Session de la 0.25.3 (passages d'une tâche sans heure)
 - Réponses de l'utilisateur : oui à « la tâche reste dans Sans heure après ■, ▶ ouvre un nouveau passage, chaque passage visible dans la frise et cumulé dans les Stats » ; nommer = sous-tâches libres existantes ; vaut pour toutes les tâches sans heure, sans case à régler ; pas de case « fait » (le chrono prouve que c'est fait) ; pas de tâche à sous-activités pour l'instant.
