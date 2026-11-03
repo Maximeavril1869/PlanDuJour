@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.31.0**.
+Version décrite : **0.31.1**.
 
 ## 1. Principe
 
@@ -93,6 +93,8 @@ erDiagram
   JOUR ||--o{ TRACE_REVUE : "review"
   JOUR ||--o| PRESENCE : "presence"
 ```
+
+**Premier lancement** (0.31.1) : rien d'enregistré, stockage illisible ou indisponible → `blankSettings()` (app vierge, voir CONVENTIONS §49). `defaultSettings()` ne sert plus qu'à lire d'anciennes données et de fixture aux tests.
 
 Un jour (`emptyDay`) : `{ real, ponctuels, subtasks, review, profile, segs, presence, kidsDone }`. `kidsDone[clé du bloc][idSousActivité] = true` : sous-activités cochées « faites » ce jour-là (0.22.0, voir CONVENTIONS §36). Dans `segs`, une entrée de `cid` vide est un **passage** d'une tâche sans heure sans sous-activité (0.25.3, CONVENTIONS §42) ; elle peut porter un `name` facultatif (0.30.0, CONVENTIONS §47), conservé par `cleanSegs` pour les passages seulement.
 

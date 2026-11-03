@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.31.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.31.1**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -262,6 +262,11 @@ Demandes de l'utilisateur (3 novembre 2026) : (1) dans le Récap, le témoin d'a
 (2) Étiquette « 5 h 08 avant le coucher » sur la ligne « maintenant » de la frise, à côté de l'heure ; rien si le coucher est libre ou dépassé. Emplacement choisi par moi (la demande ne le précisait pas) : à valider.
 Fini quand, sur l'iPhone : la ligne « maintenant » du Jour affiche l'heure et le temps restant jusqu'au coucher et il diminue ; le Récap montre l'heure courante dès qu'on ouvre l'onglet ou qu'on revient dans l'app. Tests : `tests/test_temps_restant.py` (10 vérifications), trois contrôles négatifs faits (le troisième refait, un premier motif n'avait rien modifié) ; 361 vérifications.
 
+## 0.31.1 — App vierge dès le premier lancement — livré, à valider sur appareil
+Demande de l'utilisateur (3 novembre 2026) : il ne veut **aucune valeur de départ** ; il avait demandé le bouton « Réinitialiser… » (0.19.0) parce que l'app n'était pas vierge. Au premier lancement (rien d'enregistré), si le stockage est illisible ou indisponible, l'app démarre maintenant avec `blankSettings()` (aucune activité, aucune catégorie, un profil « Journée » à heures libres), comme après « Réinitialiser… ». Messages adaptés : « App vierge… » (Jour et Récap) et « une app vierge est affichée » si les données sont illisibles.
+Non touché : la lecture d'anciennes données (réglages des versions 1 et 2, exports sans catégories), car l'iPad en contient encore et la migration est dans la checklist iPad ; `defaultSettings()` reste dans le code pour cela et sert de fixture aux tests (`window.PDJ.defaultSettings`).
+Fini quand, sur l'appareil : après « Réinitialiser… » **ou** sur une installation neuve, Réglages › Activités est vide, le Récap annonce « App vierge » et rien n'est enregistré avant d'appuyer sur « Enregistrer ». Tests : `tests/test_calendrier.py` (23 vérifications dont 2 pour des réglages illisibles ; 7 de plus qu’avant), `tests/test_temps_restant.py` enregistre les anciennes valeurs comme fixture ; contrôle négatif fait (l'ancien comportement fait échouer le test) ; 368 vérifications.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -278,5 +283,6 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.29.0 : id stable par événement, mise à jour au lieu de recréer. Livré (raccourci à reconstruire).
 - 0.30.0 : nom d'un passage (dossier) saisi au ▶, Stats par nom. Livré.
 - 0.31.0 : temps restant avant le coucher sur la ligne « maintenant », Récap rattrapé à l'ouverture et au retour dans l'app. Livré.
+- 0.31.1 : app vierge dès le premier lancement (plus de valeurs de départ). Livré.
 - À venir (décidé) : détection des événements disparus du plan (notification).
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

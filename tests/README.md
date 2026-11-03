@@ -33,10 +33,11 @@ Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le
 | `test_noms_passages.py` | Nom d'un passage : champ « Dossier » au ▶, nom dans la barre « en cours » et la frise, espaces réduits et 60 caractères, correction dans le panneau, relu au chargement, Stats par nom sous la tâche (« Sans détail »), titre Calendrier « Tâche · Nom », ids Raccourcis inchangés |
 | `test_stockage.py` | Demande de stockage persistant : accordée, déjà accordée, refusée, en erreur, interface absente (système simulé) ; affichage dans Réglages |
 | `test_cochables.py` | Sous-activités cochables : cases à la main, coche d'office à l'arrêt du chrono et à la saisie d'un temps, panneau du bloc, jour passé, lecture de données invalides |
-| `test_calendrier.py` | Démarrage sans erreur, export vers Calendrier par case à cocher (`toCal`, codes, rappel facultatif, `.ics`), valeurs par défaut, case conservée après rechargement |
+| `test_calendrier.py` | Démarrage sans erreur, export vers Calendrier par case à cocher (`toCal`, codes, rappel facultatif, `.ics`), premier lancement vierge (aucune activité, rien d'enregistré, bandeau, réglages illisibles), case conservée après rechargement ; fournit aussi `seed_defaults` (anciennes valeurs d'origine en fixture) |
 
 ## Règles
 
 - Aucune donnée réelle : libellés inventés (`Réunion test`, `Rdv app`).
+- Depuis la 0.31.1 l'app démarre **vierge** : un test qui a besoin des anciens profils ou activités les enregistre avec `seed_defaults(pg)` (`tests/test_calendrier.py`).
 - Les tests lisent le stockage du navigateur (`localStorage`) ; chaque test démarre avec un navigateur vierge.
 - Les anciens fichiers `test_lot*.js` cités dans `STATUS.md` et `CONVENTIONS.md` ne sont pas dans le dépôt ; ces tests-ci les remplacent progressivement, un domaine à la fois.

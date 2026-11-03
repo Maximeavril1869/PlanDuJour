@@ -11,7 +11,7 @@ from datetime import datetime
 
 from playwright.sync_api import sync_playwright
 
-from test_calendrier import RESULTS, URL, check
+from test_calendrier import RESULTS, URL, check, seed_defaults
 
 MARDI = datetime(2026, 11, 3)       # profil Semaine : lever 05:45, coucher 22:00
 VENDREDI = datetime(2026, 11, 6)    # profil Vendredi : coucher libre
@@ -23,6 +23,7 @@ def page(browser, day, h, m=0):
     pg.on('pageerror', lambda e: pg.errors.append(str(e)))
     pg.clock.install(time=day.replace(hour=h, minute=m))
     pg.goto(URL)
+    seed_defaults(pg)      # profils Semaine / Vendredi d'origine (fixture) : l'app démarre vierge depuis la 0.31.1
     return pg
 
 

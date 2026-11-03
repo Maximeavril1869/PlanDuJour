@@ -31,6 +31,12 @@ def new_page(browser, seed_days=None):
     return pg
 
 
+def seed_defaults(pg):
+    """Enregistre les anciennes valeurs d'origine (fixture de test) : depuis la 0.31.1 l'app démarre vierge."""
+    pg.evaluate("() => localStorage.setItem('plandujour.reglages', JSON.stringify(window.PDJ.defaultSettings()))")
+    pg.reload()
+
+
 def day_offset(pg, n):
     return pg.evaluate("""(n) => { const d = new Date(); d.setDate(d.getDate() + n); const z = (x) => String(x).padStart(2, '0');
       return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()); }""", n)
@@ -96,15 +102,31 @@ def test_export(browser):
 
 
 def test_par_defaut(browser):
-    print('Valeurs par défaut')
+    print('Premier lancement vierge (0.31.1)')
     pg = new_page(browser)
     d = day_offset(pg, 1)
     n = pg.evaluate("(d) => { const P = window.PDJ; return P.calendarEvents({}, P.defaultSettings(), d, d, 'plan').length; }", d)
     check('rien n’est exporté tant que rien n’est coché', n == 0, n)
+    check('l’app vierge le dit sur la page du jour', 'App vierge' in pg.inner_text('#panel-day'), pg.inner_text('#panel-day')[:200])
+    pg.click('#tab-recap')
+    check('l’app vierge le dit dans le Récap', 'App vierge' in pg.inner_text('#panel-recap'), pg.inner_text('#panel-recap')[:200])
     pg.click('#tab-settings')
+    pg.click('details[data-fid=card-acts] > summary')
+    check('aucune activité au premier lancement', pg.locator('[data-action=add-act]').count() == 1 and pg.locator('input[data-a=toCal]').count() == 0, pg.locator('input[data-a=toCal]').count())
+    stored = pg.evaluate("() => localStorage.getItem('plandujour.reglages')")
+    check('rien n’est enregistré tant que tu n’as pas enregistré', stored is None, stored)
     check('plus d’import dans Réglages', pg.locator('#cal-text').count() == 0 and pg.locator('[data-action=cal-import]').count() == 0)
     check('le bouton d’export est là', pg.locator('[data-action=cal-export]').count() == 1)
-    check('la case « Exporter vers Calendrier » existe dans les activités', pg.locator('input[data-a=toCal]').count() >= 1)
+    pg.click('[data-action=add-act]')
+    check('la case « Exporter vers Calendrier » existe dans une activité ajoutée', pg.locator('input[data-a=toCal]').count() >= 1)
+    check('aucune erreur JavaScript', not pg.errors, pg.errors)
+    pg.evaluate("() => localStorage.setItem('plandujour.reglages', '{pas du json')")
+    pg.reload()
+    pg.click('#tab-recap')
+    check('réglages illisibles : app vierge et message d’avertissement', 'illisibles' in pg.inner_text('#panel-recap') and 'une app vierge' in pg.inner_text('#panel-recap'), pg.inner_text('#panel-recap')[:200])
+    pg.click('#tab-settings')
+    pg.click('details[data-fid=card-acts] > summary')
+    check('réglages illisibles : aucune activité (pas de valeurs d’origine)', pg.locator('input[data-a=toCal]').count() == 0, pg.locator('input[data-a=toCal]').count())
     pg.close()
 
 

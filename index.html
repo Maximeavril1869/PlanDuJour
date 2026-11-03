@@ -344,7 +344,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.31.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.31.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -695,14 +695,14 @@ function loadSettings() {
   try {
     text = window.localStorage.getItem(STORAGE_KEY);
   } catch (e) {
-    return { settings: defaultSettings(), status: 'unavailable' };
+    return { settings: blankSettings(), status: 'unavailable' };
   }
-  if (text === null) return { settings: defaultSettings(), status: 'empty' };
+  if (text === null) return { settings: blankSettings(), status: 'empty' };      // premier lancement : app vierge (0.31.1)
   try {
     const clean = sanitize(JSON.parse(text));
     if (clean) return { settings: clean, status: 'ok' };
   } catch (e) { /* données illisibles */ }
-  return { settings: defaultSettings(), status: 'corrupt' };
+  return { settings: blankSettings(), status: 'corrupt' };
 }
 
 function saveSettings(settings) {
@@ -1485,8 +1485,8 @@ function refreshRecapNow() {                          // la ligne « maintenant 
 let recapNowShown = null;   // minute affichée par la ligne « maintenant » du Récap (null : pas de ligne)
 function renderRecap(s, status) {
   let html = '';
-  if (status === 'empty') html += '<div class="banner info">Valeurs de départ affichées. Rien n’est enregistré tant que tu n’as pas appuyé sur « Enregistrer » dans Réglages.</div>';
-  if (status === 'corrupt') html += '<div class="banner warn">Les données enregistrées sont illisibles : les valeurs de départ sont affichées. Elles ne seront remplacées que lorsque tu enregistreras.</div>';
+  if (status === 'empty') html += '<div class="banner info">App vierge : aucune activité. Rien n’est enregistré tant que tu n’as pas appuyé sur « Enregistrer » dans Réglages.</div>';
+  if (status === 'corrupt') html += '<div class="banner warn">Les données enregistrées sont illisibles : une app vierge est affichée. Elles ne seront remplacées que lorsque tu enregistreras.</div>';
   if (status === 'unavailable') html += '<div class="banner warn">Le stockage du navigateur est indisponible (navigation privée ?). Tu peux saisir, mais rien ne sera conservé.</div>';
   const real = recapMode === 'reel';
   if (real && !recapDate) recapDate = dateKey(new Date());
@@ -1754,7 +1754,7 @@ function renderDay() {
   head += '<label class="field profsel"><span class="lbl">Profil de la journée</span><select id="day-profile"><option value="">' + esc(habitual.name) + ' (habituel) · ' + hoursOf(habitual) + '</option>' +
     current.profiles.filter((p) => p.id !== habitual.id).map((p) => '<option value="' + esc(p.id) + '"' + (dayProf === p.id ? ' selected' : '') + '>' + esc(p.name) + ' · ' + hoursOf(p) + '</option>').join('') + '</select></label>' +
     (build.profile.note && !dayProf ? '<p class="hours-help">' + esc(build.profile.note) + '</p>' : '');
-  if (loadStatus === 'empty') head += '<div class="banner info">Tu utilises les valeurs de départ : enregistre tes réglages dans l’onglet Réglages.</div>';
+  if (loadStatus === 'empty') head += '<div class="banner info">App vierge : ajoute tes activités et enregistre-les dans l’onglet Réglages.</div>';
 
   const wrk = workReport(daysData.days, current, selectedDate, selectedDate, selectedDate, dayNow()), wd1 = wrk.days[0];
   head += presenceHtml(wd1);

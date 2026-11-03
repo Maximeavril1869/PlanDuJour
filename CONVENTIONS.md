@@ -382,3 +382,11 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Ligne « maintenant » de la frise : `<em>` « X avant le coucher » (`formatDuration(bedtime − maintenant)`), seulement si le coucher du profil n'est pas libre et pas dépassé. L'heure reste dans le `<span>` (les tests la lisent là).
 - `refreshRecapNow` (Récap de la journée courante en semaine réelle, minute différente de `recapNowShown`) est appelée par la minuterie de 15 s, à l'ouverture de l'onglet Récap (`switchTab`), au retour dans l'app (`visibilitychange`) et à `pageshow` : une app mise en veille rattrape l'heure tout de suite.
 - Tests : `tests/test_temps_restant.py` ; l'heure qui passe sans minuterie se simule avec `page.clock.set_system_time`.
+
+## 49. App vierge dès le premier lancement (0.31.1)
+
+- Décision de l'utilisateur (3 novembre 2026) : aucune valeur de départ ; il règle tout lui-même. `loadSettings` renvoie `blankSettings()` (§33 réinitialisation) quand rien n'est enregistré (`status: 'empty'`), quand le stockage est illisible (`'corrupt'`) ou indisponible (`'unavailable'`). Rien n'est enregistré tant qu'il n'appuie pas sur « Enregistrer ».
+- Messages : bandeaux « App vierge : … » (Récap, page du jour) ; pour des données illisibles, « une app vierge est affichée ».
+- **Inchangé** : la migration de réglages anciens (versions 1 et 2) et la lecture d'exports sans catégories gardent `defaultSettings()` (l'iPad contient d'anciennes données). `defaultSettings()` reste exposée par `window.PDJ` : les tests s'en servent comme fixture (`seed_defaults` dans `tests/test_calendrier.py`). Ne pas la ressusciter comme valeur de démarrage.
+- Les valeurs d'origine citées dans `STATUS.md` (« Décisions prises ») sont historiques.
+- Tests : `tests/test_calendrier.py` (premier lancement vierge, réglages illisibles).
