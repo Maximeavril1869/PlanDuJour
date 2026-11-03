@@ -82,6 +82,18 @@ def test_defilement(browser):
     pg.click('[data-day-nav="today"]')
     r = pg.evaluate("() => document.querySelector('.nowline').getBoundingClientRect().top")
     check('revenir sur aujourd’hui replace la page sur la ligne', 0 <= r <= 700, r)
+    pg.evaluate("() => window.scrollTo(0, 0)")
+    pg.click('#tab-stats')
+    pg.click('#tab-day')
+    r = pg.evaluate("() => document.querySelector('.nowline').getBoundingClientRect().top")
+    check('toucher l’onglet « Jour » (depuis un autre onglet) recentre sur la ligne', 0 <= r <= 700, r)
+    pg.evaluate("() => window.scrollTo(0, 0)")
+    pg.click('#tab-day')
+    r = pg.evaluate("() => document.querySelector('.nowline').getBoundingClientRect().top")
+    check('toucher « Jour » alors qu’on y est déjà recentre aussi', 0 <= r <= 700, r)
+    pg.click('[data-day-nav="-1"]')
+    pg.click('#tab-day')
+    check('sur un jour passé, « Jour » ne cherche pas de ligne (pas d’erreur, en haut de page)', pg.evaluate("() => window.scrollY") == 0 and not pg.errors, pg.errors)
     pg.close()
 
 

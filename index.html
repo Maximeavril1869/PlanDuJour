@@ -342,7 +342,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.26.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.26.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -2747,7 +2747,7 @@ function bindEvents() {
   bindDayEvents();
   const form = $('#settings-form');
 
-  $$('.tabbar button').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  $$('.tabbar button').forEach((b) => b.addEventListener('click', () => { switchTab(b.dataset.tab); if (b.dataset.tab === 'day') scrollToNow(); }));   // toucher « Jour » recentre sur la ligne « maintenant » (aujourd'hui seulement)
   $('#panel-stats').addEventListener('toggle', (e) => {       // mémorise les menus dépliés tant que l'app reste ouverte
     const f = e.target.dataset && e.target.dataset.fid;
     if (f && (f.indexOf('stn-') === 0 || f.indexOf('stk-') === 0)) { if (e.target.open) statsOpen.add(f); else statsOpen.delete(f); }
