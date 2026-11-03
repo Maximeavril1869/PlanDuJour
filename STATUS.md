@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.27.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.28.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -241,6 +241,10 @@ Demande de l'utilisateur (3 novembre 2026) : l'app reste ouverte des heures ; to
 Demande de l'utilisateur (3 novembre 2026) : tout se met à jour dans l'app, donc le jour même doit aussi être exportable (la 0.13.3 l'avait retiré). Décisions : périodes « Aujourd'hui » et « 7 jours à partir d'aujourd'hui » ajoutées à « Demain » et « 7 jours à partir de demain » ; uniquement dans Réglages › Calendrier ; contenu = plan actuel de l'app (blocs terminés à leurs heures réelles, bloc en cours jusqu'à maintenant, blocs à venir à leur heure recalée), seuls les blocs cochés ; une tâche sans heure à passages = un événement par passage ; réexporter doit mettre à jour (mêmes identifiants), un bloc retiré du plan reste dans Calendrier.
 Fini quand, sur l'iPhone : exporter « Aujourd'hui », l'ajouter à Calendrier, changer un bloc dans l'app, réexporter : l'événement est mis à jour et non dupliqué (**à confirmer sur iOS**, non testable ici).
 
+## 0.28.0 — Envoi vers l'app Raccourcis (plan B du .ics) — livré, à valider sur appareil
+Constat de l'utilisateur (3 novembre 2026) : ni la feuille de partage ni l'enregistrement dans Fichiers ne propose Calendrier pour le fichier `.ics`. Décisions : passer par l'app Raccourcis (pas par le Mac) ; agenda dédié « Plan du jour » (existe déjà) vidé puis recréé à chaque envoi ; rappel fixe à l'heure de l'événement. Bouton « Envoyer vers Raccourcis » dans Réglages › Calendrier (le bouton .ics reste). Procédure du raccourci : `RACCOURCI.md`.
+Fini quand, sur l'iPhone : le raccourci « Plan du jour » est construit ; « Envoyer vers Raccourcis » ouvre Raccourcis (sinon lancer le raccourci à la main) ; les événements apparaissent dans l'agenda « Plan du jour » ; un second envoi les remplace sans doublon. **À confirmer** : ouverture du lien `shortcuts://` depuis l'app installée ; lecture des dates ISO par Raccourcis.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -253,4 +257,5 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.26.0 : ligne « maintenant » sur la frise et dans le Récap. Livré.
 - 0.26.1 : toucher « Jour » recentre sur la ligne. Livré.
 - 0.27.0 : export Calendrier du jour même, un événement par passage. Livré.
+- 0.28.0 : envoi vers Raccourcis (agenda dédié). Livré.
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

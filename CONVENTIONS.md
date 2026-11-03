@@ -351,3 +351,11 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Tâche sans heure sans sous-activité à passages (`isPlain` + `segs`) : un événement par passage (UID `pdj-<jour>-<clé>-<n>` ou `pdj-p-<id>-<n>`, code `PDJ-a-<id>-<jour>-<n>` ou `PDJ-p-<id>-<n>`), passage en cours jusqu'à maintenant, sans rappel. Les autres blocs gardent un événement par bloc.
 - Les identifiants ne changent pas d'un export à l'autre : c'est ce qui doit permettre à Calendrier de mettre à jour au lieu de dupliquer (à confirmer sur iOS). Un bloc retiré du plan n'est pas supprimé de Calendrier.
 - Test : `tests/test_export_jour.py` (heure simulée, téléchargement forcé).
+
+## 45. Envoi vers Raccourcis (0.28.0)
+
+- Plan B quand l'iPhone ne propose pas Calendrier pour un `.ics`. `doShortcutSend` : même période (`calPeriod`) et même contenu que l'export (`calendarEvents`, mode plan) ; texte JSON `shortcutPayload` = `{from, to, events:[{title, start, end}]}` en heures locales ISO (`isoLocal`) ; copie dans le presse-papiers (`copyText`, repli `execCommand`), puis `openLink('shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=clipboard')`. Si la copie échoue et que le texte tient dans le lien (< 12 000 caractères), repli `input=text&text=…`.
+- L'ouverture passe par un lien `<a>` cliqué par le code (testable : les tests interceptent le clic).
+- Le raccourci (construit par l'utilisateur, voir `RACCOURCI.md`) supprime les événements de l'agenda « Plan du jour » entre `from` et `to`, puis crée ceux de `events`. Pas d'identifiants ni de notes : l'agenda dédié suffit. Un envoi avec `events` vide vide la période (le toast le dit).
+- Rappel : fixe, réglé dans le raccourci. Les rappels par bloc ne passent que par le `.ics`.
+- Test : `tests/test_raccourcis.py` (presse-papiers et lien simulés).

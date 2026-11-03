@@ -28,6 +28,7 @@ Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le
 | `test_passages.py` | Passages d'une tâche sans heure : chrono répété, créneaux et Stats, panneau (saisie, suppression, effacement), ancien temps réel converti, bloc ponctuel, sous-activités inchangées |
 | `test_maintenant.py` | Ligne « maintenant » (horloge simulée) : position proportionnelle, avance seule, absente hors plage et sur un autre jour, défilement à l'ouverture sans reprise de la page, ligne dans le Récap |
 | `test_export_jour.py` | Export Calendrier du jour même (heure simulée) : choix de période, heures réelles / en cours / à venir, 7 jours dès aujourd'hui ou dès demain, un événement par passage, identifiants stables, rien de coché |
+| `test_raccourcis.py` | Envoi vers Raccourcis (presse-papiers et lien simulés, heure simulée) : lien et JSON, périodes, un événement par passage, liste vide, repli par le texte, bouton .ics conservé |
 | `test_stockage.py` | Demande de stockage persistant : accordée, déjà accordée, refusée, en erreur, interface absente (système simulé) ; affichage dans Réglages |
 | `test_cochables.py` | Sous-activités cochables : cases à la main, coche d'office à l'arrêt du chrono et à la saisie d'un temps, panneau du bloc, jour passé, lecture de données invalides |
 | `test_calendrier.py` | Démarrage sans erreur, export vers Calendrier par case à cocher (`toCal`, codes, rappel facultatif, `.ics`), valeurs par défaut, case conservée après rechargement |
