@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.28.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.29.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -245,6 +245,10 @@ Fini quand, sur l'iPhone : exporter « Aujourd'hui », l'ajouter à Calendrier, 
 Constat de l'utilisateur (3 novembre 2026) : ni la feuille de partage ni l'enregistrement dans Fichiers ne propose Calendrier pour le fichier `.ics`. Décisions : passer par l'app Raccourcis (pas par le Mac) ; agenda dédié « Plan du jour » (existe déjà) vidé puis recréé à chaque envoi ; rappel fixe à l'heure de l'événement. Bouton « Envoyer vers Raccourcis » dans Réglages › Calendrier (le bouton .ics reste). Procédure du raccourci : `RACCOURCI.md`.
 Fini quand, sur l'iPhone : le raccourci « Plan du jour » est construit ; « Envoyer vers Raccourcis » ouvre Raccourcis (sinon lancer le raccourci à la main) ; les événements apparaissent dans l'agenda « Plan du jour » ; un second envoi les remplace sans doublon. **À confirmer** : ouverture du lien `shortcuts://` depuis l'app installée ; lecture des dates ISO par Raccourcis.
 
+## 0.29.0 — Identifiant stable par événement envoyé à Raccourcis — livré, raccourci à reconstruire et à valider sur appareil
+Constat de l'utilisateur (3 novembre 2026) : le raccourci « supprimer puis recréer » (0.28.0) est validé sur appareil (second envoi sans doublon avec le vrai envoi de l'app), mais il efface à chaque envoi les réglages faits à la main dans Calendrier (alertes, lieu, délai de route). Décisions : chaque événement du JSON porte un `id` (le code de l'export `.ics`, entre crochets : `[PDJ-p-<id>]`, `[PDJ-a-<activité>-<jour>]`, avec `-<rang>` pour un passage) que le raccourci écrit dans les Notes ; à chaque envoi il retrouve l'événement (Notes **contient** l'id), le met à jour (titre, début, fin) ou le crée ; le plan de l'app l'emporte sur le titre et les heures modifiés à la main, le reste est conservé. Un bloc retiré du plan **n'est pas supprimé** de Calendrier ; sa détection (et une notification) est reportée à une version suivante (décision de l'utilisateur). Aucun événement coché : le raccourci n'est plus ouvert (toast « rien à envoyer »). Texte d'aide de Réglages › Calendrier corrigé.
+Fini quand, sur l'iPhone : le raccourci est reconstruit selon `RACCOURCI.md` ; un envoi crée les événements avec leur id dans les Notes ; un second envoi après changement d'heure ou de titre dans l'app met l'événement à jour sans doublon ; une alerte ou un lieu réglé à la main dans Calendrier survit à l'envoi suivant. **Migration** : supprimer une fois les événements déjà créés de l'agenda « Plan du jour » (ils n'ont pas d'id). Tests : `tests/test_raccourcis.py` (19 vérifications), deux contrôles négatifs faits ; 334 vérifications.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -258,4 +262,6 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.26.1 : toucher « Jour » recentre sur la ligne. Livré.
 - 0.27.0 : export Calendrier du jour même, un événement par passage. Livré.
 - 0.28.0 : envoi vers Raccourcis (agenda dédié). Livré.
+- 0.29.0 : id stable par événement, mise à jour au lieu de recréer. Livré (raccourci à reconstruire).
+- À venir (décidé) : nom saisi par passage d'une tâche sans heure (titre de l'événement dans Calendrier) ; détection des événements disparus du plan.
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

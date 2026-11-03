@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (2 novembre 2026)
 
-- Version **0.28.0**, poussée sur GitHub Pages (à valider sur appareil). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.29.0**, poussée sur GitHub Pages (à valider sur appareil ; le raccourci doit être reconstruit selon `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -19,9 +19,15 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 329 vérifications (14 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 334 vérifications (14 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
 ## 3 novembre 2026 (suite)
+
+### Session de la 0.29.0 (id stable par événement)
+- Réponses de l'utilisateur : second envoi avec le vrai envoi de l'app sans doublon (0.28.0 validée) ; « Jour » doit ramener au jour courant mais « pas besoin, il y a déjà Aujourd'hui en haut » (rien à coder) ; aucune note écrite à la main dans l'agenda « Plan du jour » ; filtre Notes du raccourci : se termine par / commence par / ne contient pas / contient / n'est pas / est ; détection des événements disparus du plan : après ; format d'id validé ; migration : il veut être guidé ; **nom par passage : oui, il veut pouvoir détailler** (version à part, questions de conception en suspens).
+- **0.29.0** : `shortcutPayload` ajoute `id` = `[` + code de l'export `.ics` + `]` ; `doShortcutSend` n'ouvre plus le raccourci si rien n'est coché ; texte d'aide de Réglages › Calendrier corrigé (ne dit plus que le raccourci vide l'agenda) ; `APP_VERSION` / `VERSION` 0.29.0. `tests/test_raccourcis.py` passe à 19 vérifications ; deux contrôles négatifs faits (crochets retirés : 4 échecs ; rang de passage retiré : 1 échec) ; 334 vérifications OK ; captures iPhone 390 px clair et sombre vérifiées (toast et texte d'aide).
+- Décision prise sans question : un envoi sans aucun bloc coché n'ouvre plus le raccourci (il ne vide plus la période, l'ouvrir n'apporterait qu'une confirmation inutile). À défaire si l'utilisateur veut l'ancien comportement.
+- À faire par l'utilisateur : reconstruire le raccourci (voir `RACCOURCI.md`), supprimer une fois les événements existants de l'agenda « Plan du jour », puis valider sur appareil (mise à jour sans doublon, alerte réglée à la main conservée).
 
 ### Session de validation du raccourci (aucun code modifié, version toujours 0.28.0)
 - Le raccourci iPhone « Plan du jour » est construit et **validé de bout en bout sur appareil avec le JSON de test** : lecture des dates ISO sans décalage (Début 00:00, Fin 23:59), suppression de l'événement de test, événements recréés aux bonnes heures, pas de doublon au second lancement, aucune demande d'autorisation Calendrier. Procédure détaillée dans `RACCOURCI.md`.

@@ -342,7 +342,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.28.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.29.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1454,7 +1454,7 @@ function renderForm(s) {
       '<p class="help">N’exporte que les blocs pour lesquels tu as coché « Exporter vers Calendrier » (dans l’activité, la tâche habituelle ou le bloc ponctuel). Génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier ». Le rappel est facultatif. Pour aujourd’hui, le plan exporté est celui de l’app à cet instant (heures réelles, blocs recalés) ; réexporter met à jour les événements déjà ajoutés, mais un bloc retiré du plan reste dans Calendrier.</p>' +
       '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="today">Aujourd’hui</option><option value="tomorrow">Demain</option><option value="week0">7 jours à partir d’aujourd’hui</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
       '<button type="button" class="btn primary" data-action="cal-shortcut">Envoyer vers Raccourcis</button> <button type="button" class="btn" data-action="cal-export">Exporter un fichier .ics</button>' +
-      '<p class="help">« Envoyer vers Raccourcis » copie les événements puis lance le raccourci « Plan du jour », qui vide l’agenda « Plan du jour » sur la période et le remplit de nouveau (le rappel est à l’heure de l’événement).</p></div></details>' +
+      '<p class="help">« Envoyer vers Raccourcis » copie les événements puis lance le raccourci « Plan du jour » : un événement déjà envoyé est retrouvé et mis à jour (titre, heures), un nouveau est créé. Tes réglages faits dans Calendrier (alertes, lieu, trajet) sont conservés ; un bloc retiré du plan reste dans Calendrier.</p></div></details>' +
     '<div class="card"><h2>Sauvegarde</h2>' +
       '<p class="help">Un seul fichier avec tes réglages et tous tes jours. Sert à sauvegarder, ou à passer de l’iPhone à l’iPad : enregistre-le dans Fichiers (iCloud Drive), puis importe-le sur l’autre appareil.</p>' +
       backupSettingsHtml() +
@@ -2124,11 +2124,11 @@ function calPeriod(per) {
   const from = per === 'today' || per === 'week0' ? today : addDays(today, 1), to = per === 'week' || per === 'week0' ? addDays(from, 6) : from;   // le jour même est exportable (depuis la 0.27.0) : le plan est recalé dans l'app
   return { from: from, to: to };
 }
-// Envoi vers l'app Raccourcis (0.28.0) : l'app donne au raccourci « Plan du jour » la période et les événements ; lui vide l'agenda « Plan du jour » sur cette période puis recrée les événements.
+// Envoi vers l'app Raccourcis (0.28.0, id stable en 0.29.0) : l'app donne au raccourci « Plan du jour » la période et les événements ; chaque événement porte un `id` (le code de l'export .ics, entre crochets : « [PDJ-a-12-2026-11-03] ») que le raccourci écrit dans les Notes puis cherche (Notes contient) pour mettre à jour l'événement au lieu de le recréer. Les crochets évitent qu'un id soit trouvé dans un autre.
 const SHORTCUT_NAME = 'Plan du jour';
 function isoLocal(k, m) { return k + 'T' + pad2(Math.floor(m / 60)) + ':' + pad2(m % 60) + ':00'; }
 function shortcutPayload(events, from, to) {
-  return JSON.stringify({ from: from + 'T00:00:00', to: to + 'T23:59:00', events: events.map((e) => ({ title: e.title, start: isoLocal(e.date, e.start), end: isoLocal(e.date, e.end) })) });
+  return JSON.stringify({ from: from + 'T00:00:00', to: to + 'T23:59:00', events: events.map((e) => ({ id: '[' + (e.code || e.uid) + ']', title: e.title, start: isoLocal(e.date, e.start), end: isoLocal(e.date, e.end) })) });
 }
 function openLink(url) { const a = document.createElement('a'); a.href = url; document.body.appendChild(a); a.click(); a.remove(); }
 async function copyText(text) {
@@ -2142,12 +2142,13 @@ async function copyText(text) {
 async function doShortcutSend() {
   const p = calPeriod($('#cal-period').value);
   const events = calendarEvents(daysData.days, current, p.from, p.to, 'plan');
+  if (!events.length) { showToast('Aucun bloc coché sur cette période : rien à envoyer'); return; }   // depuis la 0.29.0 le raccourci ne vide plus la période : inutile de l'ouvrir
   const text = shortcutPayload(events, p.from, p.to), name = encodeURIComponent(SHORTCUT_NAME);
   const copied = await copyText(text);
   if (copied) openLink('shortcuts://run-shortcut?name=' + name + '&input=clipboard');   // le raccourci lit le presse-papiers
   else if (text.length < 12000) openLink('shortcuts://run-shortcut?name=' + name + '&input=text&text=' + encodeURIComponent(text));
   else { showToast('Copie impossible : réessaie', 'err'); return; }
-  showToast(events.length ? plural(events.length, 'événement envoyé', 'événements envoyés') + ' à Raccourcis' : 'Aucun bloc coché : le raccourci videra l’agenda sur cette période');
+  showToast(plural(events.length, 'événement envoyé', 'événements envoyés') + ' à Raccourcis');
 }
 async function doCalExport() {
   const per = $('#cal-period').value, p = calPeriod(per), from = p.from, to = p.to;

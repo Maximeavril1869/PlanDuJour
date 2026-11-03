@@ -356,6 +356,15 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 
 - Plan B quand l'iPhone ne propose pas Calendrier pour un `.ics`. `doShortcutSend` : même période (`calPeriod`) et même contenu que l'export (`calendarEvents`, mode plan) ; texte JSON `shortcutPayload` = `{from, to, events:[{title, start, end}]}` en heures locales ISO (`isoLocal`) ; copie dans le presse-papiers (`copyText`, repli `execCommand`), puis `openLink('shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=clipboard')`. Si la copie échoue et que le texte tient dans le lien (< 12 000 caractères), repli `input=text&text=…`.
 - L'ouverture passe par un lien `<a>` cliqué par le code (testable : les tests interceptent le clic).
-- Le raccourci (construit par l'utilisateur, voir `RACCOURCI.md`) supprime les événements de l'agenda « Plan du jour » entre `from` et `to`, puis crée ceux de `events`. Pas d'identifiants ni de notes : l'agenda dédié suffit. Un envoi avec `events` vide vide la période (le toast le dit).
+- Le raccourci (construit par l'utilisateur, voir `RACCOURCI.md`) supprimait en 0.28.0 les événements de l'agenda « Plan du jour » entre `from` et `to`, puis créait ceux de `events` ; remplacé en 0.29.0 (§46).
 - Rappel : fixe, réglé dans le raccourci. Les rappels par bloc ne passent que par le `.ics`.
 - Test : `tests/test_raccourcis.py` (presse-papiers et lien simulés).
+
+## 46. Identifiant stable par événement envoyé (0.29.0)
+
+- `shortcutPayload` = `{from, to, events:[{id, title, start, end}]}`. `id` = `'[' + code + ']'` où `code` est celui de l'export `.ics` (§31) : `PDJ-p-<id>` (bloc ponctuel, sans jour : stable si le bloc change de jour), `PDJ-a-<activité>-<jour>` (occurrence d'activité), suffixe `-<rang>` pour un passage. L'id ne dépend ni de l'heure ni du titre : il survit au recalage du plan. Repli sur `uid` si un événement n'a pas de `code`.
+- **Les crochets sont obligatoires** : le raccourci cherche avec « Notes **contient** l'id », sans crochets `PDJ-p-p1` serait trouvé dans `PDJ-p-p12`, et `PDJ-a-x-<jour>` dans `PDJ-a-x-<jour>-0`. Test : aucun id contenu dans un autre.
+- Un passage qu'on supprime décale le rang des suivants (limite connue). Un id ne contient jamais de donnée réelle (identifiants internes et date).
+- Le raccourci ne supprime plus rien : un bloc retiré du plan reste dans Calendrier (détection et notification : version à venir). Aucun événement coché : `doShortcutSend` n'ouvre pas le raccourci (toast « rien à envoyer »).
+- Le plan de l'app l'emporte sur le titre et les heures ; alertes, lieu et délai de route faits à la main dans Calendrier sont conservés.
+- Tests : `tests/test_raccourcis.py` (19 vérifications : ids, unicité, non-inclusion, stabilité après changement de titre et d'heure, envoi vide).

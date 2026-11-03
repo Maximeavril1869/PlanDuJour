@@ -1,15 +1,15 @@
-# Raccourci iOS « Plan du jour » (0.28.0)
+# Raccourci iOS « Plan du jour » (0.29.0)
 
 Le bouton « Envoyer vers Raccourcis » (Réglages › Calendrier) copie dans le presse-papiers un texte JSON, puis ouvre le lien
-`shortcuts://run-shortcut?name=Plan%20du%20jour&input=clipboard`. Le raccourci vide l'agenda « Plan du jour » sur la période, puis recrée les événements.
+`shortcuts://run-shortcut?name=Plan%20du%20jour&input=clipboard`. Depuis la 0.29.0 le raccourci **met à jour** les événements de l'agenda « Plan du jour » (retrouvés par leur `id` dans les Notes) ou les crée ; il ne supprime plus rien.
 
 ## Texte envoyé
 
 ```json
-{"from":"2026-11-03T00:00:00","to":"2026-11-03T23:59:00","events":[{"title":"Réunion test","start":"2026-11-03T09:10:00","end":"2026-11-03T09:50:00"}]}
+{"from":"2026-11-03T00:00:00","to":"2026-11-03T23:59:00","events":[{"id":"[PDJ-p-p1]","title":"Réunion test","start":"2026-11-03T09:10:00","end":"2026-11-03T09:50:00"}]}
 ```
 
-Heures locales, sans fuseau. `events` peut être vide : le raccourci vide alors seulement la période.
+Heures locales, sans fuseau. `id` = code stable de l'événement, déjà entouré de crochets : à écrire tel quel dans les Notes et à chercher avec « Notes contient » (les crochets évitent qu'un id soit trouvé dans un autre). L'app n'ouvre pas le raccourci si rien n'est coché.
 
 ## Construction du raccourci (à faire une fois, dans l'app Raccourcis, en français)
 
@@ -31,6 +31,18 @@ Pour l'usage réel, l'entrée du raccourci est le presse-papiers (`input=clipboa
 - L'événement de test « Test suppression » est supprimé ; les événements recréés ont les bonnes heures.
 - Pas de doublon au second lancement ; aucune demande d'autorisation Calendrier.
 
+## Version 0.29.0 : mise à jour au lieu de recréer (à construire et à valider sur appareil)
+
+Les étapes 1 à 3 (Données, Début période, Fin période) restent identiques. Le reste change :
+
+1. **Migration, une seule fois** : les événements créés avant la 0.29.0 n'ont pas d'id ; au premier envoi ils feraient doublon. Garder l'étape « Rechercher… puis Supprimer les événements » de la 0.28.0 pour ce premier envoi, puis la retirer (ou supprimer à la main les événements de la période dans Calendrier).
+2. **Répéter avec chaque élément** de `events` → **Définir la variable** `element` → lire `id`, `title`, `start`, `end` dans `element` (dates converties pour `start` et `end`).
+3. **Rechercher des événements de calendrier** : Calendrier = « Plan du jour » ; **Notes contient** `id` (filtres Notes disponibles : se termine par, commence par, ne contient pas, contient, n'est pas, est).
+4. **Si** le résultat a une valeur : **Régler les détails des événements de calendrier** (titre, début, fin) ; **Sinon** : **Ajouter un nouvel événement** (titre, début, fin, calendrier « Plan du jour », **Notes = `id`**, alerte à l'heure de l'événement).
+5. (facultatif) **Afficher la notification** « Calendrier à jour ».
+
+Réglages exacts de « Régler les détails des événements de calendrier » : **à relever sur l'appareil**, puis à consigner ici.
+
 ## Pièges
 
 - **Après un « Définir la variable », l'action suivante ne reprend plus le dictionnaire par défaut** : dans chaque action « Obtenir la valeur pour la clé », toucher le champ du dictionnaire et choisir la variable à la main (`Données`, ou `element` dans la boucle).
@@ -39,5 +51,6 @@ Pour l'usage réel, l'entrée du raccourci est le presse-papiers (`input=clipboa
 ## Limites
 
 - Pas de rappel différent par bloc : un rappel fixe, à l'heure de l'événement.
-- « Supprimer puis recréer » efface à chaque envoi les réglages faits à la main dans Calendrier (alertes, lieu, délai de route…) et tout événement ajouté à la main dans l'agenda « Plan du jour » sur la période. Piste : 0.29.0 (identifiant stable par événement, mise à jour au lieu de recréer).
+- 0.28.0 (« supprimer puis recréer ») effaçait à chaque envoi les réglages faits à la main dans Calendrier (alertes, lieu, délai de route…) : corrigé par la 0.29.0, qui conserve ces réglages mais remet titre et heures comme dans l'app.
+- Un bloc retiré du plan **reste** dans Calendrier (la détection et une notification sont prévues dans une version suivante).
 - Le lien `shortcuts://` depuis l'app installée sur l'écran d'accueil lance le raccourci tout seul, mais iOS demande une **confirmation à chaque fois** (confirmation système, à ne pas supposer supprimable).

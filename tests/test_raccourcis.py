@@ -1,6 +1,6 @@
-"""Tests : envoi vers l'app Raccourcis (0.28.0).
+"""Tests : envoi vers l'app Raccourcis (0.28.0, id stable en 0.29.0).
 
-Le bouton « Envoyer vers Raccourcis » copie un JSON {from, to, events[{title, start, end}]} dans le presse-papiers puis ouvre
+Le bouton « Envoyer vers Raccourcis » copie un JSON {from, to, events[{id, title, start, end}]} dans le presse-papiers puis ouvre
 shortcuts://run-shortcut?name=Plan du jour&input=clipboard (repli : input=text si la copie échoue). Même contenu que l'export .ics.
 Le presse-papiers et l'ouverture du lien sont simulés ; l'heure aussi (11:30, le 3 novembre 2026).
 Lancer depuis la racine du dépôt :  PYTHONDONTWRITEBYTECODE=1 python3 tests/test_raccourcis.py
@@ -66,6 +66,8 @@ def test_contenu(browser):
     ev = {e['title']: (e['start'], e['end']) for e in data['events']}
     check('seuls les blocs cochés du jour sont envoyés', sorted(ev) == ['Bloc a venir test', 'Bloc termine test'], sorted(ev))
     check('heures réelles pour un bloc terminé, heure prévue pour un bloc à venir, format ISO local', ev['Bloc termine test'] == ('2026-11-03T09:10:00', '2026-11-03T09:50:00') and ev['Bloc a venir test'] == ('2026-11-03T14:00:00', '2026-11-03T15:00:00'), ev)
+    ids = {e['title']: e['id'] for e in data['events']}
+    check('chaque événement porte un id entre crochets, celui du code .ics', ids == {'Bloc a venir test': '[PDJ-p-p1]', 'Bloc termine test': '[PDJ-p-p2]'}, ids)
     check('un toast confirme l’envoi', '2 événements envoyés' in pg.inner_text('#toast'), pg.inner_text('#toast'))
     check('aucune erreur JavaScript', not pg.errors, pg.errors)
     pg.close()
@@ -92,15 +94,41 @@ def test_passages(browser):
     _, clip = send(pg, 'today')
     ev = [(e['start'][11:16], e['end'][11:16]) for e in json.loads(clip)['events']]
     check('deux passages = deux événements, le dernier jusqu’à maintenant', ev == [('08:00', '08:30'), ('11:00', '11:30')], ev)
+    ids = [e['id'] for e in json.loads(clip)['events']]
+    check('chaque passage a son propre id, entre crochets, avec son rang', ids == ['[PDJ-a-a-plain-2026-11-03-0]', '[PDJ-a-a-plain-2026-11-03-1]'], ids)
     pg.close()
+
+
+def test_ids(browser):
+    print('Identifiants stables')
+    ps = [ponctuel('p1', 'Bloc test', 840, 60, toCal=True), ponctuel('p12', 'Bloc douze test', 600, 60, toCal=True)]
+    act = free_act('a-plain', 'Dossier test', None)
+    act['toCal'] = True
+    pg = page(browser, ps, acts=[act], segs={'act:a-plain': [{'cid': '', 'start': 480, 'end': 510}]})
+    _, clip = send(pg, 'today')
+    ids = [e['id'] for e in json.loads(clip)['events']]
+    check('aucun id n’est contenu dans un autre (p1 / p12, avec ou sans rang de passage)', len(ids) == 3 and all(a == b or a not in b for a in ids for b in ids), ids)
+    check('tous les ids sont uniques', len(set(ids)) == len(ids), ids)
+    pg.close()
+    # le même bloc déplacé à une autre heure garde le même id (le raccourci le retrouve et le met à jour)
+    pg1 = page(browser, [ponctuel('p1', 'Bloc test', 840, 60, toCal=True)])
+    _, c1 = send(pg1, 'today')
+    pg1.close()
+    pg2 = page(browser, [ponctuel('p1', 'Bloc renomme test', 900, 90, toCal=True)])
+    _, c2 = send(pg2, 'today')
+    pg2.close()
+    e1, e2 = json.loads(c1)['events'][0], json.loads(c2)['events'][0]
+    check('titre et heures changent, l’id reste', e1['id'] == e2['id'] == '[PDJ-p-p1]' and e1['title'] != e2['title'] and e1['start'] != e2['start'], (e1, e2))
 
 
 def test_vide_et_replis(browser):
     print('Rien de coché, copie impossible')
     pg = page(browser, [ponctuel('p1', 'Bloc test', 840, 60)])
-    _, clip = send(pg, 'today')
-    check('rien de coché : le raccourci reçoit une liste vide (il videra l’agenda sur la période)', json.loads(clip)['events'] == [], clip)
-    check('le toast le dit', 'videra' in pg.inner_text('#toast'), pg.inner_text('#toast'))
+    pg.select_option('#cal-period', 'today')
+    pg.click('[data-action=cal-shortcut]')
+    pg.wait_for_timeout(500)
+    check('rien de coché : le raccourci n’est pas ouvert et rien n’est copié', pg.evaluate("() => window.__opened.length === 0 && window.__clip === null"))
+    check('le toast le dit', 'rien à envoyer' in pg.inner_text('#toast'), pg.inner_text('#toast'))
     pg.close()
     pg = page(browser, [ponctuel('p1', 'Bloc test', 840, 60, toCal=True)], clip=CLIP_KO)
     pg.select_option('#cal-period', 'today')
@@ -126,6 +154,7 @@ def main():
         test_contenu(browser)
         test_periodes(browser)
         test_passages(browser)
+        test_ids(browser)
         test_vide_et_replis(browser)
         test_ics_conserve(browser)
         browser.close()

@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.28.0**.
+Version décrite : **0.29.0**.
 
 ## 1. Principe
 
@@ -15,7 +15,8 @@ flowchart LR
   SW[sw.js<br/>cache hors ligne] -. sert les fichiers .-> APP
   APP -->|.ics, .json| SH[Feuille de partage iOS]
   SH --> CAL[Calendrier / Fichiers]
-  RAC[Raccourci iOS] -->|texte via presse-papiers| APP
+  APP -->|JSON via presse-papiers + lien shortcuts://| RAC[Raccourci iOS «Plan du jour»]
+  RAC -->|crée ou met à jour, id dans les Notes| CAL
   GH[GitHub Pages<br/>branche main] -->|déploie| SW
 ```
 
@@ -135,6 +136,7 @@ flowchart TD
 |---|---|---|---|
 | Export / import de sauvegarde | app ↔ Fichiers | JSON (`app: 'plandujour'`, `format: 1`) | Import validé par `sanitize` ; modes « tout remplacer » ou « réglages seulement » ; un bandeau en tête de tous les onglets rappelle d'exporter après N jours de modifications non sauvegardées (0.25.0) |
 | Export vers Calendrier | app → Calendrier | `.ics` (UID `pdj-p-<id>` ou `pdj-<date>-<clé>`, code dans les Notes) | Jours suivants seulement ; **uniquement les blocs dont la case « Exporter vers Calendrier » (`toCal`) est cochée** ; rappel `VALARM` facultatif ; à ajouter dans un calendrier dédié « Plan du jour » |
+| Envoi vers Raccourcis (0.28.0, id en 0.29.0) | app → Raccourcis → Calendrier | JSON `{from, to, events:[{id, title, start, end}]}` dans le presse-papiers, puis lien `shortcuts://run-shortcut?name=Plan%20du%20jour&input=clipboard` | `id` = code de l'export `.ics` entre crochets ; le raccourci cherche « Notes contient id » dans l'agenda « Plan du jour », met à jour (titre, heures) ou crée ; ne supprime rien ; confirmation système à chaque lancement du lien |
 
 L'app est la source unique : **il n'y a plus d'import depuis le calendrier** (retiré en 0.20.0). Un bloc n'est exporté que si la case est cochée, par défaut décochée.
 
@@ -142,6 +144,7 @@ L'app est la source unique : **il n'y a plus d'import depuis le calendrier** (re
 flowchart LR
   A[Bloc de l'app<br/>case Exporter cochée] -->|export .ics<br/>code PDJ dans les Notes| C[(Calendrier<br/>« Plan du jour »)]
   B[Bloc non coché] -. reste dans l'app .-> B
+  A -->|envoi vers Raccourcis<br/>id entre crochets dans les Notes| C
 ```
 
 Au démarrage, l'app demande au système la protection du stockage (`navigator.storage.persist`, §41) et affiche le résultat dans Réglages › Sauvegarde.
