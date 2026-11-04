@@ -28,7 +28,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Défaut trouvé au passage par les tests : l'onglet Récap ne se recalculait pas à l'ouverture si l'heure n'avait pas changé ; corrigé (toujours recalculé).
 - Tests : `tests/test_retrait_jour.py` (26 vérifications) ; suite complète au vert ; 6 mutations du code détectées puis fichier restauré.
 - À savoir : un événement déjà exporté vers Calendrier reste (à effacer à la main) ; alternative existante : profil avec « removes ».
-- Commit : voir ci-dessous (hash ajouté après le push).
+- Commit : `4b682c7` **0.33.0**.
 
 ## 4 novembre 2026 (validation sur iPhone, 0.32.2)
 - Retour de l'utilisateur : 0.31.0 à 0.32.1 validés (points 5 à 13 et 15) ; 0.30.0 non essayé. Point 14 : captures d'écran reçues, la pause terminée est bien grisée sur la frise et dans le Récap ; le doute venait d'autre chose.
