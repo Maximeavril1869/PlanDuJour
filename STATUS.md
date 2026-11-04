@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.32.1**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.32.2**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -279,6 +279,11 @@ Décisions de l'utilisateur : écart **systématique** entre deux éléments qui
 Réalisé : `buildDay` balaie blocs et repères ensemble (`dayMarks`, instants) ; un repère qui tombe dans un bloc ne crée pas d'écart ; l'alerte « les blocs vont après le coucher » ne tient compte que des blocs ; `gap.pause` pour une pause terminée ; frise (« 45 min de pause », pointillé gris) et Récap (« pause », grisé). **Choix de ma part, à valider** : une pause **en cours** (début sans fin) n'est pas grisée, l'écart qui la suit reste « disponible » jusqu'à ce qu'on la termine.
 Fini quand, sur l'iPhone : avec départ de chez moi, un bloc et une présence avec pause, la frise et le Récap montrent un écart entre chaque élément qui se suit (par exemple 49 min puis 18 min avant le train) ; la pause terminée est grisée ; une pause en cours ne l'est pas. Tests : `tests/test_reperes.py` (48 vérifications, 15 de plus) ; contrôles négatifs faits (écarts sans repères : 9 échecs ; pause jamais grisée : 5 ; pause en cours grisée : 1, après avoir renforcé le test ; repère pris pour un bloc : 1 ; libellé non grisé : 2) ; 416 vérifications.
 
+## 0.32.2 — Libellé de repère sous un bloc court — livré, à valider sur appareil
+Retour de validation de l'utilisateur (4 novembre 2026) : 0.30.0 non essayé ; 0.31.0, 0.31.1, 0.32.0 et 0.32.1 validés, y compris la pause en cours non grisée. Point 14 : il croyait la pause terminée non grisée ; les captures montrent qu'elle l'est (« 1 h 03 de pause » sur la frise, « pause » dans le Récap). Vrai défaut relevé : une minitâche de 4 min (11 h 59–12 h 03) est dessinée sur 22 px mini, donc le libellé « Début de pause 12:04 » passait sur le bloc.
+Réalisé : dans la frise, le libellé d'un repère qui tombe dans la hauteur dessinée d'un bloc est décalé sous ce bloc. Le trait reste à l'heure exacte. Test : `test_bloc_court` dans `tests/test_reperes.py` (échoue sans le correctif, passe avec) ; 17 fichiers, 417 vérifications.
+Fini quand, sur l'iPhone : une minitâche suivie d'un début de pause à quelques minutes ne se chevauche plus avec le libellé.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -297,6 +302,7 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.31.0 : temps restant avant le coucher sur la ligne « maintenant », Récap rattrapé à l'ouverture et au retour dans l'app. Livré.
 - 0.31.1 : app vierge dès le premier lancement (plus de valeurs de départ). Livré.
 - 0.32.0 : départ et retour de chez soi, lignes de repère sur la frise et dans le Récap. Livré.
-- 0.32.1 : le temps disponible tient compte des lignes de repère, pause terminée grisée. Livré.
+- 0.32.1 : le temps disponible tient compte des lignes de repère, pause terminée grisée. Livré, validé sur iPhone (4 novembre).
+- 0.32.2 : libellé d'un repère placé sous un bloc court (taille mini de 22 px). Livré, à valider.
 - À venir (décidé) : détection des événements disparus du plan (notification).
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

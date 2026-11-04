@@ -407,3 +407,4 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Pause : pour chaque pause **terminée** de la présence, les écarts compris entre son début et sa fin reçoivent `pause: true` ; ils s'affichent grisés, « 45 min de pause » sur la frise (`.gap.pause`) et « pause » dans le Récap (`li.gapli.pausegap`), et ne sont plus du temps « disponible ». Une pause en cours n'est pas grisée.
 - Semaine type du Récap : aucun repère (rien n'est prévu), écarts entre blocs seulement.
 - Tests : `tests/test_reperes.py` (`test_ecarts`).
+- Libellés (0.32.2) : un bloc est dessiné sur 22 px au moins ; le libellé d'un repère dont le trait tombe dans cette hauteur est décalé sous le bloc (`off` dans la boucle des repères de la frise).

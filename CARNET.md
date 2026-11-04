@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (3 novembre 2026)
 
-- Version **0.32.1**, poussée sur GitHub Pages (à valider sur appareil : 0.30.0, 0.31.0, 0.31.1, 0.32.0 et 0.32.1). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.32.2**, poussée sur GitHub Pages (validées sur iPhone le 4 novembre : 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; à valider : 0.30.0 et 0.32.2). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -20,6 +20,11 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
 - Tests : 416 vérifications (17 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+
+## 4 novembre 2026 (validation sur iPhone, 0.32.2)
+- Retour de l'utilisateur : 0.31.0 à 0.32.1 validés (points 5 à 13 et 15) ; 0.30.0 non essayé. Point 14 : captures d'écran reçues, la pause terminée est bien grisée sur la frise et dans le Récap ; le doute venait d'autre chose.
+- Défaut réel : le libellé « Début de pause 12:04 » chevauchait la minitâche 11 h 59–12 h 03 (bloc dessiné sur 22 px mini). **0.32.2** : libellé décalé sous le bloc. Test `test_bloc_court` (échoue sans le correctif) ; 17 fichiers, 417 vérifications.
+- Reste à valider : 0.30.0 (points 1 à 4) et 0.32.2.
 
 ## 3 novembre 2026 (suite)
 

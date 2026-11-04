@@ -347,7 +347,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.32.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.32.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1879,7 +1879,9 @@ function renderDay() {
   if (t.bedtime !== null) html += '<div class="marker" style="top:' + y(t.bedtime) + 'px"><span>Coucher ' + formatTime(t.bedtime) + '</span></div>';
   let labelBottom = -Infinity;          // lignes de repère (0.32.0) : un libellé trop proche du précédent est décalé vers le bas pour rester lisible
   marks.forEach((m) => {
-    const top = y(m.at), off = Math.max(2, labelBottom - top + 2);
+    const top = y(m.at);
+    let off = Math.max(2, labelBottom - top + 2);
+    items.forEach((b) => { const bt = y(b.start), bb = bt + Math.max((b.end - b.start) * PX - 2, 22); if (top >= bt && top < bb) off = Math.max(off, bb - top + 2); });   // un bloc court est dessiné plus haut que sa durée (22 px mini) : le libellé du repère passe sous lui (0.32.2)
     labelBottom = top + off + 15;
     html += '<div class="marker mk-day" style="top:' + top + 'px" data-mark="' + esc(m.label) + '"><span style="top:' + off + 'px">' + esc(m.label) + ' ' + formatTime(m.at) + '</span></div>';
   });

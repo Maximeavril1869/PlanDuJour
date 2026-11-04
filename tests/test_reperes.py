@@ -223,6 +223,21 @@ def test_ecarts(browser):
     pg.close()
 
 
+def test_bloc_court(browser):
+    print('Bloc court et libellé de repère (0.32.2)')
+    pg = page(browser, 17, 0)
+    # minitâche 11:59–12:03 (719–723), pause 12:04–13:07 : le bloc est dessiné sur 22 px mini, le libellé du repère passe dessous
+    pg.evaluate("""() => { const d = { real: { 'p:x': { start: 719, end: 723, missed: false } }, ponctuels: [{ id: 'x', name: 'Mini', start: 719, duration: 4 }], subtasks: {}, review: {}, profile: null, segs: {}, kidsDone: {},
+      presence: { start: 450, end: 960, pauses: [{ start: 724, end: 787 }] }, trip: null };
+      localStorage.setItem('plandujour.jours', JSON.stringify({ version: 2, days: { '2026-11-03': d } })); }""")
+    pg.reload()
+    r = pg.evaluate("""() => { const b = document.querySelector('#day-timeline .blk').getBoundingClientRect();
+      const l = [...document.querySelectorAll('#day-timeline .marker.mk-day')].find((m) => m.dataset.mark === 'Début de pause').querySelector('span').getBoundingClientRect();
+      return { blockBottom: b.bottom, labelTop: l.top }; }""")
+    check('le libellé « Début de pause » ne chevauche pas le bloc court', r['labelTop'] >= r['blockBottom'] - 1, r)
+    pg.close()
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -232,6 +247,7 @@ def main():
         test_jour_passe(browser)
         test_frise(browser)
         test_ecarts(browser)
+        test_bloc_court(browser)
         browser.close()
     bad = [n for n, ok in RESULTS if not ok]
     print('\n%d vérifications, %d échec(s)' % (len(RESULTS), len(bad)))
