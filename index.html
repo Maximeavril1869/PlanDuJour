@@ -312,6 +312,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
         <button type="button" class="btn" data-bp="stop" id="bp-stop">■ Arrêter maintenant</button>
         <button type="button" class="btn" data-bp="clear" id="bp-clear">Effacer les heures réelles</button>
         <button type="button" class="btn" data-bp="close">Fermer</button>
+        <button type="button" class="btn" data-bp="remove-act" id="bp-remove">Retirer pour ce jour</button>
         <button type="button" class="btn danger" data-bp="delete" id="bp-del">Supprimer</button>
       </div>
     </form>
@@ -347,7 +348,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.32.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.33.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -540,7 +541,7 @@ function blankSettings() {
     activities: []
   };
 }
-function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {}, presence: null, kidsDone: {}, trip: null }; }
+function emptyDay() { return { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {}, presence: null, kidsDone: {}, trip: null, removed: [] }; }
 // Présence au travail : un chrono à part, qui tourne en parallèle des activités. { start, end|null, pauses:[{start,end|null}] }
 function cleanPresence(p) {
   if (!p || typeof p !== 'object' || !isMinute(p.start)) return null;
@@ -826,6 +827,7 @@ function sanitizeDays(raw) {
       if (typeof d.profile === 'string') day.profile = d.profile;
       day.presence = cleanPresence(d.presence);
       day.trip = cleanTrip(d.trip);
+      if (Array.isArray(d.removed)) d.removed.forEach((id) => { if (typeof id === 'string' && id && !day.removed.includes(id)) day.removed.push(id); });   // activités récurrentes retirées ce jour-là (0.33.0)
       if (d.review && typeof d.review === 'object') Object.keys(d.review).forEach((key) => { const r = cleanReview(d.review[key]); if (r) day.review[key] = r; });
     }
     out.days[k] = day;
@@ -897,7 +899,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], reopen: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
-    if (a.days.includes(weekday) && !prof.removes.includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, toCal: a.toCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
+    if (a.days.includes(weekday) && !prof.removes.includes(a.id) && !(dayData.removed || []).includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, toCal: a.toCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
   });
   dayData.ponctuels.forEach((p) => {
     items.push({ key: 'p:' + p.id, id: p.id, kind: 'p', name: p.name, mode: p.mode, entry: p.entry, confirm: p.confirm === true, carry: p.carry === true, cat: p.cat || null, alarm: p.alarm === undefined ? null : p.alarm, parallel: p.parallel === true, toCal: p.toCal === true, children: [], from: p.from || null, plannedStart: p.mode === 'free' ? null : p.start, minutes: p.duration });
@@ -1810,6 +1812,8 @@ function renderDay() {
   head += '<label class="field profsel"><span class="lbl">Profil de la journée</span><select id="day-profile"><option value="">' + esc(habitual.name) + ' (habituel) · ' + hoursOf(habitual) + '</option>' +
     current.profiles.filter((p) => p.id !== habitual.id).map((p) => '<option value="' + esc(p.id) + '"' + (dayProf === p.id ? ' selected' : '') + '>' + esc(p.name) + ' · ' + hoursOf(p) + '</option>').join('') + '</select></label>' +
     (build.profile.note && !dayProf ? '<p class="hours-help">' + esc(build.profile.note) + '</p>' : '');
+  const removedActs = ((daysData.days[selectedDate] || {}).removed || []).map((id) => current.activities.find((a) => a.id === id)).filter((a) => a && a.days.includes(wd) && !build.profile.removes.includes(a.id));
+  if (removedActs.length) head += '<div class="btnrow removed-row"><span class="hours-help" style="margin:0">Retiré ce jour :</span>' + removedActs.map((a) => '<button type="button" class="btn small" data-action="restore-act" data-id="' + esc(a.id) + '">' + esc(a.name) + ' · Rétablir</button>').join('') + '</div>';
   if (loadStatus === 'empty') head += '<div class="banner info">App vierge : ajoute tes activités et enregistre-les dans l’onglet Réglages.</div>';
 
   const wrk = workReport(daysData.days, current, selectedDate, selectedDate, selectedDate, dayNow()), wd1 = wrk.days[0];
@@ -1933,7 +1937,7 @@ function switchTab(name) {
   $('#subtitle').textContent = { day: 'Ton plan, recalé selon la réalité.', recap: 'Ta semaine type et le temps disponible.', stats: 'Le temps réel passé, par activité.', settings: 'Modifie, puis enregistre.' }[name];
   if (name === 'day') renderDay();
   if (name === 'stats') renderStats();
-  if (name === 'recap') refreshRecapNow();
+  if (name === 'recap') renderRecap(current, loadStatus);   // toujours recalculé : le Jour a pu changer (retrait d'un bloc, heures réelles)
   renderBackupBanner();
   window.scrollTo(0, 0);
 }
@@ -2655,7 +2659,7 @@ function openPanel(key) {
   }
   $('#bp-planned').textContent = !it ? 'Un bloc ponctuel ne concerne que ce jour.'
     : (it.mode === 'free' ? 'Sans heure' : 'Prévu : ' + formatTime(it.plannedStart) + '–' + formatTime(it.plannedStart + it.minutes) + ' · ' + MODE_TAG[it.mode]) +
-      (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + (it.kind === 'act' ? ' · à modifier dans Réglages' : '');
+      (it.from ? ' · reporté de ' + fromLabel(it.from) : '') + (it.kind === 'act' ? ' · à modifier dans Réglages ; « Retirer pour ce jour » ne touche que ce jour' : '');
   const kids = !!(it && it.children.length);
   const plain = isPlain(it);
   $('#bp-real').hidden = !it || kids || plain;
@@ -2668,6 +2672,7 @@ function openPanel(key) {
   $('#bp-clear').textContent = plain ? 'Effacer les passages' : 'Effacer les heures réelles';
   $('#bp-start').textContent = plain && real.start !== null ? '▶ Nouveau passage' : '▶ Démarrer maintenant';
   $('#bp-del').hidden = !(it && isP);
+  $('#bp-remove').hidden = !(it && it.kind === 'act');
   $('#bp-save').textContent = it ? 'Enregistrer' : 'Ajouter';
   $('#bp-subs').hidden = !it;
   $('#sub-label').value = '';
@@ -2744,7 +2749,12 @@ function bindDayEvents() {
     const act = e.target.closest('[data-action]');
     if (act) {
       const a = act.dataset.action;
-      if (a === 'add-block') openPanel(null);
+      if (a === 'restore-act') {
+        const day = ensureDay(), id = act.dataset.id;
+        day.removed = (day.removed || []).filter((x) => x !== id);
+        persistDays(); renderDay(); showToast('Bloc rétabli pour ce jour');
+      }
+      else if (a === 'add-block') openPanel(null);
       else if (a === 'open-block') openPanel(act.dataset.key);
       else if (a === 'start') startNow(act.dataset.key);
       else if (a === 'child-go') toggleChild(act.dataset.key, act.dataset.cid);
@@ -2806,6 +2816,18 @@ function bindDayEvents() {
     else if (what === 'add-sub') addSub();
     else if (what === 'add-seg') addSeg();
     else if (what === 'clear' && panelKey) { const dd = ensureDay(); delete dd.real[panelKey]; if (isPlain(findItem(panelKey))) delete dd.segs[panelKey]; persistDays(); closePanel(); renderDay(); }
+    else if (what === 'remove-act' && panelKey) {
+      const it = findItem(panelKey), day = ensureDay();
+      if (!it || it.kind !== 'act') return;
+      const r = day.real[panelKey], hasReal = !!r && (r.start !== null || r.end !== null);
+      if (hasReal || (day.segs[panelKey] && day.segs[panelKey].length)) { showToast('Efface d’abord les heures réelles ou les passages de ce bloc', 'err'); return; }
+      if (!Array.isArray(day.removed)) day.removed = [];
+      if (!day.removed.includes(it.id)) day.removed.push(it.id);
+      persistDays();
+      closePanel();
+      renderDay();
+      showToast('« ' + it.name + ' » retiré pour ce jour');
+    }
     else if (what === 'delete' && panelKey) {
       const day = ensureDay();
       day.ponctuels = day.ponctuels.filter((p) => 'p:' + p.id !== panelKey);

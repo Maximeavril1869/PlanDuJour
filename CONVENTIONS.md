@@ -408,3 +408,14 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Semaine type du Récap : aucun repère (rien n'est prévu), écarts entre blocs seulement.
 - Tests : `tests/test_reperes.py` (`test_ecarts`).
 - Libellés (0.32.2) : un bloc est dessiné sur 22 px au moins ; le libellé d'un repère dont le trait tombe dans cette hauteur est décalé sous le bloc (`off` dans la boucle des repères de la frise).
+
+## 52. Retirer une activité récurrente pour un seul jour (0.33.0)
+
+- Besoin : « demain je vais travailler en voiture, je ne peux pas supprimer le train ». Une activité récurrente (`kind 'act'`) ne se supprime pas au jour (elle vit dans Réglages) ; elle peut désormais être **retirée pour ce jour**.
+- Donnée : `jour.removed` = liste d'identifiants d'activités retirées ce jour-là (champ additif, `DAYS_VERSION` inchangé ; `cleanDays` ne garde que les textes non vides, sans doublon). Rien n'est supprimé : heures, sous-tâches, profils restent intacts, « Rétablir » remet tout.
+- `buildDay` ignore l'activité si son id est dans `removed` : elle disparaît de la frise, du Récap de ce jour, des écarts (recalculés), des Stats et de l'export Calendrier de ce jour. Les autres jours ne changent pas. Les traits de repère (départ de chez soi, présence) sont indépendants.
+- Interface : bouton « Retirer pour ce jour » dans le panneau d'une activité récurrente seulement (un bloc ponctuel garde « Supprimer ») ; ligne « Retiré ce jour : Nom · Rétablir » en haut du Jour.
+- Refus avec message si le bloc a des heures réelles ou des passages : « Efface d'abord les heures réelles ou les passages de ce bloc » (évite de masquer du temps déjà compté).
+- Limite connue : un événement déjà exporté vers Calendrier n'est jamais supprimé par les raccourcis (à effacer à la main). Alternative existante : un profil avec `removes` (« Voiture ») choisi dans « Profil de la journée ».
+- Correctif lié : l'onglet Récap est toujours recalculé à l'ouverture (il restait périmé tant que l'heure n'avait pas changé).
+- Tests : `tests/test_retrait_jour.py`.

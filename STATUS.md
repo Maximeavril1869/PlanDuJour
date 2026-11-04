@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.32.2**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.33.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -284,6 +284,10 @@ Retour de validation de l'utilisateur (4 novembre 2026) : 0.30.0 non essayé ; 0
 Réalisé : dans la frise, le libellé d'un repère qui tombe dans la hauteur dessinée d'un bloc est décalé sous ce bloc. Le trait reste à l'heure exacte. Test : `test_bloc_court` dans `tests/test_reperes.py` (échoue sans le correctif, passe avec) ; 17 fichiers, 417 vérifications.
 Fini quand, sur l'iPhone : une minitâche suivie d'un début de pause à quelques minutes ne se chevauche plus avec le libellé.
 
+## 0.33.0 — Retirer une activité récurrente pour un jour — livré, à valider sur appareil
+Demande de l'utilisateur (4 novembre 2026) : pouvoir supprimer le train un jour où il va au travail en voiture. Réalisé : bouton « Retirer pour ce jour » (activités récurrentes), ligne « Retiré ce jour · Rétablir », champ `removed` par jour, refus si heures réelles ou passages (CONVENTIONS §52). Récap toujours recalculé à l'ouverture.
+Fini quand, sur l'iPhone : retirer « Trajet aller » pour demain le fait disparaître de la frise et du Récap de demain seulement, et « Rétablir » le ramène.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -304,5 +308,6 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.32.0 : départ et retour de chez soi, lignes de repère sur la frise et dans le Récap. Livré.
 - 0.32.1 : le temps disponible tient compte des lignes de repère, pause terminée grisée. Livré, validé sur iPhone (4 novembre).
 - 0.32.2 : libellé d'un repère placé sous un bloc court (taille mini de 22 px). Livré, à valider.
+- 0.33.0 : retrait d'une activité récurrente pour un seul jour. Livré, à valider.
 - À venir (décidé) : détection des événements disparus du plan (notification).
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.
