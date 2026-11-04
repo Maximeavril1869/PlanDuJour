@@ -164,6 +164,65 @@ def test_frise(browser):
     pg.close()
 
 
+GAPS_JS = """([blocks, trip, presence]) => {
+  const P = window.PDJ, st = P.defaultSettings();
+  st.activities = [];
+  st.profiles = [Object.assign({}, st.profiles[0], { wake: 345, bedtime: 1320, days: [1, 2, 3, 4, 5, 6, 7] })];
+  const d = P.emptyDay();
+  d.ponctuels = blocks.map((b, i) => ({ id: 'b' + i, name: b[0], mode: 'fixed', entry: 'duration', start: b[1], duration: b[2], confirm: false, carry: false, cat: null, alarm: null, parallel: false, toCal: false }));
+  d.trip = trip; d.presence = presence;
+  const out = P.buildDay(st, d, 2, null, false, '2026-11-03');
+  return { gaps: out.gaps.map((g) => [g.from, g.to, !!g.last, !!g.pause]), warnings: out.warnings };
+}"""
+
+
+def gaps(pg, blocks, trip=None, presence=None):
+    return pg.evaluate(GAPS_JS, [blocks, trip, presence])
+
+
+def test_ecarts(browser):
+    print('Temps disponible entre éléments qui se suivent (0.32.1)')
+    pg = page(browser, 7, 0)
+    # lever 5:45 (345), départ de chez moi 6:34 (394), train 6:52 (412) d'une heure
+    r = gaps(pg, [['Train', 412, 60]], {'leave': 394, 'home': None})
+    check('lever → départ → train : 49 min puis 18 min (et plus 1 h 07)', r['gaps'] == [[345, 394, False, False], [394, 412, False, False], [472, 1320, True, False]], r)
+    r = gaps(pg, [['Train', 412, 60]], None)
+    check('sans repère, l’écart du lever au train reste entier (67 min)', r['gaps'] == [[345, 412, False, False], [472, 1320, True, False]], r)
+    r = gaps(pg, [['Train A', 412, 60], ['Train B', 480, 60]], None)
+    check('deux blocs : l’écart entre eux (8 min)', [472, 480, False, False] in r['gaps'], r)
+    r = gaps(pg, [['Train', 412, 60]], {'leave': None, 'home': 600})
+    check('bloc puis repère (retour chez moi) : écart 472 → 600, puis jusqu’au coucher', r['gaps'] == [[345, 412, False, False], [472, 600, False, False], [600, 1320, True, False]], r)
+    r = gaps(pg, [['Train', 412, 60]], {'leave': 394, 'home': None}, {'start': 450, 'end': None, 'pauses': []})
+    check('un repère qui tombe dans un bloc (arrivée à 7:30 pendant le train) ne crée aucun écart', r['gaps'] == [[345, 394, False, False], [394, 412, False, False], [472, 1320, True, False]], r)
+    r = gaps(pg, [], {'leave': 410, 'home': 990}, {'start': 450, 'end': 960, 'pauses': [{'start': 720, 'end': 750}]})
+    attendu = [[345, 410, False, False], [410, 450, False, False], [450, 720, False, False], [720, 750, False, True], [750, 960, False, False], [960, 990, False, False], [990, 1320, True, False]]
+    check('journée sans bloc : écart entre chaque repère, la pause terminée est marquée (grisée)', r['gaps'] == attendu, r)
+    r = gaps(pg, [['Réunion test', 800, 60]], None, {'start': 450, 'end': None, 'pauses': [{'start': 720, 'end': None}]})
+    check('pause en cours : l’écart qui suit n’est pas grisé', r['gaps'] == [[345, 450, False, False], [450, 720, False, False], [720, 800, False, False], [860, 1320, True, False]], r)
+    r = gaps(pg, [], {'leave': 1400, 'home': None}, None)
+    check('un repère après le coucher ne fait pas dire « les blocs vont après le coucher »', r['warnings'] == [], r)
+    check('aucune erreur JavaScript', not pg.errors, pg.errors)
+    pg.close()
+
+    print('Écarts : affichage (frise et Récap)')
+    pg = page(browser, 17, 0)
+    pg.evaluate("""() => { const d = { real: {}, ponctuels: [], subtasks: {}, review: {}, profile: null, segs: {}, kidsDone: {},
+      presence: { start: 450, end: 960, pauses: [{ start: 720, end: 750 }] }, trip: { leave: 410, home: 990 } };
+      localStorage.setItem('plandujour.jours', JSON.stringify({ version: 2, days: { '2026-11-03': d } })); }""")
+    pg.reload()
+    txt = pg.evaluate("() => [...document.querySelectorAll('#day-timeline .gap')].map((g) => [g.className.trim(), g.textContent.trim()])")
+    check('frise : 5 écarts dont un seul de pause, grisé', len(txt) == 5 and sum('pause' in c for c, _ in txt) == 1, txt)
+    check('frise : l’écart de pause dit « de pause », les autres « disponible »', [t for c, t in txt if 'pause' in c] == ['30 min de pause'] and all('disponible' in t for c, t in txt if 'pause' not in c), txt)
+    pg.click('#tab-recap')
+    rows = pg.evaluate("() => [...document.querySelectorAll('#panel-recap li.gapli')].map((l) => [l.className.trim(), l.textContent.trim()])")
+    check('Récap : 5 écarts, un seul « pause » grisé', len(rows) == 5 and sum('pausegap' in c for c, _ in rows) == 1, rows)
+    check('Récap : l’écart de pause porte « pause »', [t for c, t in rows if 'pausegap' in c] and 'pause' in [t for c, t in rows if 'pausegap' in c][0] and 'disponible' not in [t for c, t in rows if 'pausegap' in c][0], rows)
+    col = pg.evaluate("() => { const n = document.querySelector('#panel-recap li.gapli.pausegap .what'), m = document.querySelector('#panel-recap li.gapli:not(.pausegap) .what'); return [getComputedStyle(n).color, getComputedStyle(m).color]; }")
+    check('la pause est d’une autre couleur que le temps disponible', col[0] != col[1], col)
+    check('aucune erreur JavaScript', not pg.errors, pg.errors)
+    pg.close()
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -172,6 +231,7 @@ def main():
         test_correction(browser)
         test_jour_passe(browser)
         test_frise(browser)
+        test_ecarts(browser)
         browser.close()
     bad = [n for n, ok in RESULTS if not ok]
     print('\n%d vérifications, %d échec(s)' % (len(RESULTS), len(bad)))

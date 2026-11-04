@@ -102,7 +102,7 @@ Une session = un lot, avec un résultat que l'utilisateur teste sur son iPhone o
 - **Jours** (`plandujour.jours`, `version: 2`) : par date, `real` (heures réelles `{ start, end }` par clé de bloc, `act:<id>` ou `p:<id>`) et `ponctuels` (blocs d'un seul jour, mêmes champs qu'une activité sans les jours). Tout ce qui est ponctuel se saisit dans le jour concerné.
 - **Chrono** : disponible sur tous les blocs. Démarrer et arrêter enregistrent l'heure réelle (minutes) ; un seul bloc tourne à la fois (en démarrer un arrête les autres). Les heures réelles, conservées 400 jours, servent aux statistiques futures.
 - **Glissement** (`buildDay`) : les blocs sont triés par début ; un bloc `flex` non démarré commence à `max(heure prévue, fin la plus tardive des blocs précédents)`. Un bloc démarré mais non terminé finit à `max(début + durée, maintenant)` : il repousse la suite en direct. Un bloc `fixed` ne bouge jamais, un chevauchement est signalé.
-- **Temps disponible** : écart entre deux blocs consécutifs, du lever au premier bloc, et du dernier bloc au coucher (comparé à la détente minimale `relaxFloor`). Affiché dans le Récapitulatif et sur la page du jour.
+- **Temps disponible** : écart entre deux éléments consécutifs (blocs, et depuis la 0.32.1 lignes de repère, § 51), du lever au premier élément, et du dernier élément au coucher (comparé à la détente minimale `relaxFloor`). Affiché dans le Récapitulatif et sur la page du jour.
 - **Heures du jour** : plus de fourchette ni de champs d'arrivée et de départ. L'arrivée est la fin réelle du « Trajet aller », le départ le début réel du « Trajet retour ».
 - **Enregistrement immédiat** pour les données du jour ; le bouton « Enregistrer » reste réservé aux réglages (§9).
 - **Migrations** : les réglages 1 et 2 sont convertis à la lecture (trajets, rendez-vous réguliers, saxophone, ménage et blocs mobiles deviennent des activités) puis réécrits en version 3 au prochain enregistrement. Les jours 1 sont convertis en jours 2. Si les jours sont illisibles, une copie brute est gardée sous `plandujour.jours.sauvegarde`.
@@ -399,3 +399,11 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Frise : lignes `.marker.mk-day` (même style que Lever et Coucher) ; la plage de la frise (`lo`, `hi`) s'étend aux lignes ; deux libellés à moins de ~10 minutes sont décalés vers le bas (15 px par libellé) pour rester lisibles. Récap : entrées `li.mark` de la semaine **réelle** seulement (rien en semaine type) ; elles comptent dans la plage de la ligne « maintenant ».
 - Pas d'export Calendrier ni d'envoi vers Raccourcis pour ces lignes (décision de l'utilisateur). Aucun effet sur le calcul de la journée, la présence nette ou les Stats.
 - Tests : `tests/test_reperes.py` (33 vérifications).
+
+## 51. Écarts entre blocs et lignes de repère (0.32.1)
+
+- Règle de l'utilisateur : on voit **systématiquement** le temps entre deux éléments qui se suivent, qu'ils soient blocs ou lignes de repère (bloc–bloc, trait–bloc, bloc–trait, trait–trait). Toute nouvelle ligne de repère doit entrer dans ce calcul : l'ajouter à `dayMarks`, jamais la dessiner à part.
+- `buildDay` : `sweep` = blocs (`spans`) + repères (`dayMarks`, instants de durée nulle) triés ; un écart apparaît quand un élément commence après la fin de tout ce qui précède (`prevEnd`). Un repère dans un bloc ne crée pas d'écart. Un repère ne compte jamais pour les alertes de chevauchement ni pour « les blocs vont après le coucher » (`blocksEnd`).
+- Pause : pour chaque pause **terminée** de la présence, les écarts compris entre son début et sa fin reçoivent `pause: true` ; ils s'affichent grisés, « 45 min de pause » sur la frise (`.gap.pause`) et « pause » dans le Récap (`li.gapli.pausegap`), et ne sont plus du temps « disponible ». Une pause en cours n'est pas grisée.
+- Semaine type du Récap : aucun repère (rien n'est prévu), écarts entre blocs seulement.
+- Tests : `tests/test_reperes.py` (`test_ecarts`).

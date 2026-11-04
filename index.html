@@ -168,6 +168,9 @@ button { font: inherit; }
 .hline span { position: absolute; left: -46px; top: -9px; width: 40px; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .marker { position: absolute; left: 0; right: 0; border-top: 2px solid var(--muted); font-size: 12px; color: var(--muted); z-index: 1; }
 .marker span { position: absolute; right: 0; top: 2px; }
+.gap.pause { border-left-color: var(--muted); color: var(--muted); }
+.tl li.gapli.pausegap .t, .tl li.gapli.pausegap .what { color: var(--muted); }
+.tl li.gapli.pausegap .dot::after { border-color: var(--muted); }
 .gap { position: absolute; left: 0; right: 0; border-left: 3px dotted var(--accent); z-index: 1; color: var(--accent); font-size: 12px; padding-left: 8px; display: flex; align-items: center; }
 .blk { position: absolute; display: flex; flex-direction: column; justify-content: flex-start; text-align: left; font: inherit; color: var(--ink);
   border: 0; border-radius: 8px; padding: 3px 8px; overflow: hidden; line-height: 1.2; margin: 1px 0; z-index: 2; }
@@ -344,7 +347,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.32.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.32.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -939,7 +942,8 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     if (it.confirm && state === 'planned' && (past === true || (nowMin !== null && end <= nowMin))) out.toConfirm.push(it);
   });
 
-  // Temps disponible entre deux blocs (du lever au premier bloc, puis jusqu'au coucher).
+  // Temps disponible entre deux éléments qui se suivent (du lever au premier élément, puis jusqu'au coucher) : blocs et lignes de repère (0.32.1).
+  // Un repère (départ de chez soi, arrivée, pause, retour…) est un instant : il coupe l'écart sans en créer s'il tombe dans un bloc.
   // Créneaux réels : un bloc à sous-activités compte un créneau par temps chronométré (pas une plage continue du premier au dernier).
   const spans = [];
   timed.forEach((it) => {
@@ -948,20 +952,27 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   });
   const byStart = spans.sort((a, b) => a.start - b.start || a.end - b.end);
   out.spans = byStart;
-  let prevEnd = prof.wake !== null ? prof.wake : (byStart.length ? byStart[0].start : 0), prev = null;
-  byStart.forEach((it) => {
+  const sweep = byStart.concat(dayMarks(dayData).map((m) => ({ mark: true, name: m.label, start: m.at, end: m.at }))).sort((a, b) => a.start - b.start || a.end - b.end);
+  let prevEnd = prof.wake !== null ? prof.wake : (sweep.length ? sweep[0].start : 0), prev = null, blocksEnd = 0;
+  sweep.forEach((it) => {
     if (it.start > prevEnd) out.gaps.push({ from: prevEnd, to: it.start, minutes: it.start - prevEnd, last: false });
-    else if (prev && it.start < prevEnd && !prev.parallel && !it.parallel) out.warnings.push('« ' + prev.name + ' » (' + formatTime(prev.start) + '–' + formatTime(prev.end) + ') chevauche « ' + it.name + ' » (' + formatTime(it.start) + '–' + formatTime(it.end) + ').');
+    else if (!it.mark && prev && it.start < prevEnd && !prev.parallel && !it.parallel) out.warnings.push('« ' + prev.name + ' » (' + formatTime(prev.start) + '–' + formatTime(prev.end) + ') chevauche « ' + it.name + ' » (' + formatTime(it.start) + '–' + formatTime(it.end) + ').');
+    if (it.mark) { prevEnd = Math.max(prevEnd, it.end); return; }
+    blocksEnd = Math.max(blocksEnd, it.end);
     if (it.end > prevEnd || prev === null) { prevEnd = Math.max(prevEnd, it.end); prev = it; }
   });
-  if (byStart.length && prof.bedtime !== null) {
+  if (sweep.length && prof.bedtime !== null) {
     out.relax = Math.max(0, prof.bedtime - prevEnd);
     if (prof.bedtime > prevEnd) {
       out.gaps.push({ from: prevEnd, to: prof.bedtime, minutes: prof.bedtime - prevEnd, last: true });
-    } else {
-      out.warnings.push('Les blocs vont jusqu’à ' + formatTime(prevEnd) + ', après l’heure du coucher (' + formatTime(prof.bedtime) + ').');
+    } else if (blocksEnd > prof.bedtime) {
+      out.warnings.push('Les blocs vont jusqu’à ' + formatTime(blocksEnd) + ', après l’heure du coucher (' + formatTime(prof.bedtime) + ').');
     }
   }
+  // Une pause terminée (début et fin enregistrés) : l'écart qu'elle couvre est une pause, pas du temps disponible (grisé).
+  ((dayData.presence && dayData.presence.pauses) || []).forEach((g) => {
+    if (g.end !== null) out.gaps.forEach((x) => { if (!x.last && x.from >= g.start && x.to <= g.end) x.pause = true; });
+  });
   out.gaps.forEach((g) => { out.largestGap = Math.max(out.largestGap, g.minutes); });
   out.placed = timed.slice().sort((a, b) => a.start - b.start || a.end - b.end);
 
@@ -1538,7 +1549,7 @@ function renderRecap(s, status) {
       names + '<small>' + MODE_TAG[it.mode] + '</small></span></li>' });
   });
   b.gaps.forEach((g) => {
-    entries.push({ at: g.from + 0.1, html: '<li class="gapli"><span class="t">' + formatDuration(g.minutes) + '</span><span class="dot"></span><span class="what">disponible' + (g.last ? ' avant le coucher' : '') + '</span></li>' });
+    entries.push({ at: g.from + 0.1, html: '<li class="gapli' + (g.pause ? ' pausegap' : '') + '"><span class="t">' + formatDuration(g.minutes) + '</span><span class="dot"></span><span class="what">' + (g.pause ? 'pause' : 'disponible' + (g.last ? ' avant le coucher' : '')) + '</span></li>' });
   });
   const dayMk = real ? dayMarks(daysData.days[recapDate]) : [];       // lignes de repère (0.32.0) : heures réellement enregistrées, semaine réelle seulement
   dayMk.forEach((m) => entries.push({ at: m.at - 0.3, html: '<li class="mark"><span class="t">' + formatTime(m.at) + '</span><span class="dot"></span><span class="what">' + esc(m.label) + '</span></li>' }));
@@ -1874,7 +1885,7 @@ function renderDay() {
   });
   build.gaps.forEach((g) => {
     const h = g.minutes * PX;
-    html += '<div class="gap" style="top:' + y(g.from) + 'px;height:' + h + 'px">' + (h >= 18 ? formatDuration(g.minutes) + (g.last ? ' avant le coucher' : ' disponible') : '') + '</div>';
+    html += '<div class="gap' + (g.pause ? ' pause' : '') + '" style="top:' + y(g.from) + 'px;height:' + h + 'px">' + (h >= 18 ? formatDuration(g.minutes) + (g.pause ? ' de pause' : g.last ? ' avant le coucher' : ' disponible') : '') + '</div>';
   });
   items.forEach((b) => {
     const h = Math.max((b.end - b.start) * PX - 2, 22);

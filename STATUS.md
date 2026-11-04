@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.32.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.32.1**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -273,6 +273,12 @@ Réalisé : carte repliable « Départ et retour » (boutons **« Je pars de che
 **Point de nom** : la carte « Présence au travail » a déjà un bouton « Je pars » qui enregistre le **départ du travail** ; les nouveaux boutons portent donc « de chez moi » pour ne pas être confondus. À valider ou à renommer.
 Fini quand, sur l'iPhone : j'appuie sur « Je pars de chez moi », la ligne « Départ de chez moi HH:MM » apparaît sur la frise ; mes arrivée, pauses et départ du travail y apparaissent aussi ; « Je rentre chez moi » ajoute la dernière ligne ; le Récap du jour montre les mêmes lignes ; une heure corrigée à la main se redessine. Tests : `tests/test_reperes.py` (33 vérifications), quatre contrôles négatifs faits (4, 1, 1 et 3 échecs) ; 401 vérifications.
 
+## 0.32.1 — Le temps disponible tient compte des lignes de repère — livré, à valider sur appareil
+Anomalie signalée par l'utilisateur (4 novembre 2026), **oubli de ma part en 0.32.0** : lever 5 h 45, départ de chez lui 6 h 34, train 6 h 52 → l'app affichait 1 h 07 (lever → train) au lieu de couper au départ. Cause : les écarts sont calculés dans `buildDay` à partir des blocs seulement ; les lignes de repère étaient dessinées à part. Les tests de la 0.32.0 vérifiaient les lignes, pas les écarts autour d'elles.
+Décisions de l'utilisateur : écart **systématique** entre deux éléments qui se suivent, qu'ils soient blocs ou traits (bloc–bloc, trait–bloc, bloc–trait, trait–trait, y compris Lever → premier trait et le trajet de chez soi au travail) ; l'écart entre le début et la fin d'une **pause terminée** est **grisé** (« pause ») au lieu de « disponible ».
+Réalisé : `buildDay` balaie blocs et repères ensemble (`dayMarks`, instants) ; un repère qui tombe dans un bloc ne crée pas d'écart ; l'alerte « les blocs vont après le coucher » ne tient compte que des blocs ; `gap.pause` pour une pause terminée ; frise (« 45 min de pause », pointillé gris) et Récap (« pause », grisé). **Choix de ma part, à valider** : une pause **en cours** (début sans fin) n'est pas grisée, l'écart qui la suit reste « disponible » jusqu'à ce qu'on la termine.
+Fini quand, sur l'iPhone : avec départ de chez moi, un bloc et une présence avec pause, la frise et le Récap montrent un écart entre chaque élément qui se suit (par exemple 49 min puis 18 min avant le train) ; la pause terminée est grisée ; une pause en cours ne l'est pas. Tests : `tests/test_reperes.py` (48 vérifications, 15 de plus) ; contrôles négatifs faits (écarts sans repères : 9 échecs ; pause jamais grisée : 5 ; pause en cours grisée : 1, après avoir renforcé le test ; repère pris pour un bloc : 1 ; libellé non grisé : 2) ; 416 vérifications.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -291,5 +297,6 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.31.0 : temps restant avant le coucher sur la ligne « maintenant », Récap rattrapé à l'ouverture et au retour dans l'app. Livré.
 - 0.31.1 : app vierge dès le premier lancement (plus de valeurs de départ). Livré.
 - 0.32.0 : départ et retour de chez soi, lignes de repère sur la frise et dans le Récap. Livré.
+- 0.32.1 : le temps disponible tient compte des lignes de repère, pause terminée grisée. Livré.
 - À venir (décidé) : détection des événements disparus du plan (notification).
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

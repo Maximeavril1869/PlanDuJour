@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.32.0**.
+Version décrite : **0.32.1**.
 
 ## 1. Principe
 
@@ -96,7 +96,7 @@ erDiagram
 
 **Premier lancement** (0.31.1) : rien d'enregistré, stockage illisible ou indisponible → `blankSettings()` (app vierge, voir CONVENTIONS §49). `defaultSettings()` ne sert plus qu'à lire d'anciennes données et de fixture aux tests.
 
-Un jour (`emptyDay`) : `{ real, ponctuels, subtasks, review, profile, segs, presence, kidsDone, trip }`. `trip = { leave, home }` : départ de chez soi et retour chez soi, minutes ou `null` (0.32.0, CONVENTIONS §50) ; avec la présence (arrivée, pauses, départ) il alimente `dayMarks`, les lignes de repère de la frise et du Récap. `kidsDone[clé du bloc][idSousActivité] = true` : sous-activités cochées « faites » ce jour-là (0.22.0, voir CONVENTIONS §36). Dans `segs`, une entrée de `cid` vide est un **passage** d'une tâche sans heure sans sous-activité (0.25.3, CONVENTIONS §42) ; elle peut porter un `name` facultatif (0.30.0, CONVENTIONS §47), conservé par `cleanSegs` pour les passages seulement.
+Un jour (`emptyDay`) : `{ real, ponctuels, subtasks, review, profile, segs, presence, kidsDone, trip }`. `trip = { leave, home }` : départ de chez soi et retour chez soi, minutes ou `null` (0.32.0, CONVENTIONS §50) ; avec la présence (arrivée, pauses, départ) il alimente `dayMarks`, les lignes de repère de la frise et du Récap. `buildDay` balaie blocs et repères ensemble pour calculer les écarts (`gaps`, avec `pause` pour une pause terminée) : voir CONVENTIONS §51. `kidsDone[clé du bloc][idSousActivité] = true` : sous-activités cochées « faites » ce jour-là (0.22.0, voir CONVENTIONS §36). Dans `segs`, une entrée de `cid` vide est un **passage** d'une tâche sans heure sans sous-activité (0.25.3, CONVENTIONS §42) ; elle peut porter un `name` facultatif (0.30.0, CONVENTIONS §47), conservé par `cleanSegs` pour les passages seulement.
 
 Clé d'un bloc : `act:<id>` pour une activité de Réglages, `p:<id>` pour un bloc ponctuel du jour.
 
