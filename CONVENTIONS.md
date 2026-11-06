@@ -421,3 +421,10 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Tests : `tests/test_retrait_jour.py`.
 
 - Colonnes de la frise (0.33.1) : `layoutColumns` compare les fins dessinées (`visualEnd` : 22 px au moins), pas les fins réelles. Si la hauteur mini d'un bloc change, changer `visualEnd` aussi.
+
+## 53. Choisir un jour dans le calendrier (0.34.0)
+
+- Besoin : caler des dates très à l'avance sans appuyer sur « › » jour après jour.
+- Onglet **Jour** seulement (le Récap n'a pas de sélecteur, choix de l'utilisateur) : le libellé du jour est un `<label>` qui contient un `<input type="date" id="day-date">` transparent posé dessus ; un appui sur la date ouvre le calendrier du système. Le changement saute au jour choisi (même effets que les flèches : revue repliée, panneau fermé). Champ vidé : le jour affiché est conservé.
+- Les flèches et « Aujourd'hui » (déjà toujours visible) restent inchangés.
+- Tests : `tests/test_choix_date.py`.

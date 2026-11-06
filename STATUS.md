@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.33.1**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.34.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -291,6 +291,10 @@ Fini quand, sur l'iPhone : retirer « Trajet aller » pour demain le fait dispar
 ## 0.33.1 — Blocs courts côte à côte — livré, à valider sur appareil
 Demande de l'utilisateur (6 novembre 2026) : les minitâches qui se chevauchent à l'écran doivent être placées côte à côte en décalé. Cause : un bloc est dessiné sur 22 px au moins, mais les colonnes de la frise (`layoutColumns`) ne comparaient que les heures réelles. Réalisé : `layoutColumns` compare les fins « dessinées » (`visualEnd`, mêmes constantes que le dessin). Les blocs éloignés gardent la pleine largeur. Tests : `test_blocs_courts_cote_a_cote` dans `tests/test_reperes.py` (échoue sans le correctif) ; 445 vérifications.
 Fini quand, sur l'iPhone : une minitâche suivie à quelques minutes d'un autre bloc s'affiche à côté de lui, sans recouvrement.
+
+## 0.34.0 — Choisir un jour dans le calendrier — livré, à valider sur appareil
+Demande de l'utilisateur (6 novembre 2026) : caler des dates très à l'avance. Appui sur la date de l'onglet Jour = calendrier du système (CONVENTIONS §53). Onglet Jour seulement.
+Fini quand, sur l'iPhone : un appui sur la date ouvre le calendrier et choisir un jour lointain y emmène.
 
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.

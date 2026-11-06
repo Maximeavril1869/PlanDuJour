@@ -156,6 +156,8 @@ button { font: inherit; }
 /* Jour */
 .daynav { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 10px; gap: 8px; }
 .daylabel { font-weight: 700; font-size: 18px; text-align: center; flex: 1; }
+.daypick { position: relative; cursor: pointer; padding: 10px 0; }
+.daypick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }   /* l'appui sur la date ouvre le calendrier du système (0.34.0) */
 .daytools { display: flex; gap: 10px; margin-bottom: 4px; }
 .daytools .btn { flex: 1; }
 .runbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--accent); color: var(--accent-ink);
@@ -348,7 +350,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.33.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.34.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1806,7 +1808,7 @@ function renderDay() {
   const build = buildSelected();
   let head = '<input type="search" id="day-search" placeholder="Rechercher une tâche…" autocomplete="off" value="' + esc(searchQ) + '" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:transparent;color:inherit"><div id="day-search-res">' + (searchQ ? searchResultsHtml() : '') + '</div>' +
     '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
-    '<div class="daylabel">' + esc(fmtDateLabel(selectedDate)) + '</div>' +
+    '<label class="daylabel daypick">' + esc(fmtDateLabel(selectedDate)) + ' ▾<input type="date" id="day-date" value="' + esc(selectedDate) + '" aria-label="Choisir un jour dans le calendrier"></label>' +
     '<button type="button" class="icon-btn" data-day-nav="1" aria-label="Jour suivant">›</button></div>' +
     '<div class="daytools"><button type="button" class="btn" data-day-nav="today">Aujourd’hui</button>' +
     '<button type="button" class="btn primary" data-action="add-block">+ Bloc ponctuel</button></div>';
@@ -2869,6 +2871,12 @@ function bindDayEvents() {
     persistDays(); renderDay();
   });
   panel.addEventListener('change', (e) => {
+    if (e.target.id === 'day-date') {      // saut direct à un jour choisi dans le calendrier (0.34.0)
+      const v = e.target.value;
+      if (isDateKey(v) && v !== selectedDate) { closePick(); reviewOpen = null; selectedDate = v; closePanel(); renderDay(); if (v === dateKey(new Date())) scrollToNow(); }
+      else renderDay();
+      return;
+    }
     if (e.target.dataset && e.target.dataset.pres && ['start', 'end'].includes(e.target.dataset.pres)) { presenceEdit(e.target.dataset.pres, e.target.value); return; }
     if (e.target.dataset && e.target.dataset.trip && ['leave', 'home'].includes(e.target.dataset.trip)) { tripEdit(e.target.dataset.trip, e.target.value); return; }
     if (e.target.id === 'day-profile') {
