@@ -28,7 +28,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 - Demande : pouvoir choisir un jour lointain dans un calendrier au lieu d'appuyer sur « › ». Décisions : onglet Jour seulement ; « Aujourd'hui » existait déjà et reste toujours visible.
 - Fait : champ date transparent posé sur le libellé du jour (CONVENTIONS §53). Test `tests/test_choix_date.py` (10 vérifications), suite complète au vert, mutation détectée.
-- Commit : HASH **0.34.0**.
+- Commit : `2819e24` **0.34.0**.
 
 ## 4 novembre 2026 (0.33.0, retrait d'une activité pour un jour)
 
