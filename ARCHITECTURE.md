@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.32.2**.
+Version décrite : **0.33.1**.
 
 ## 1. Principe
 

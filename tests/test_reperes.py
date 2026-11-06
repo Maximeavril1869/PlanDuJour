@@ -238,6 +238,29 @@ def test_bloc_court(browser):
     pg.close()
 
 
+def test_blocs_courts_cote_a_cote(browser):
+    print('Blocs courts qui se recouvrent à l’écran : côte à côte (0.33.1)')
+    pg = page(browser, 17, 0)
+    # minitâche 11:59–12:03 puis bloc à 12:04 : la minitâche est dessinée sur 22 px, elle recouvrirait le bloc suivant sans colonnes
+    pg.evaluate("""() => { const d = { real: { 'p:x': { start: 719, end: 723, missed: false }, 'p:y': { start: 724, end: 760, missed: false } },
+      ponctuels: [{ id: 'x', name: 'Mini', start: 719, duration: 4 }, { id: 'y', name: 'Suite', start: 724, duration: 36 }],
+      subtasks: {}, review: {}, profile: null, segs: {}, kidsDone: {}, presence: null, trip: null };
+      localStorage.setItem('plandujour.jours', JSON.stringify({ version: 2, days: { '2026-11-03': d } })); }""")
+    pg.reload()
+    r = pg.evaluate("""() => [...document.querySelectorAll('#day-timeline .blk')].map((b) => { const q = b.getBoundingClientRect(); return [q.left, q.right, q.top, q.bottom]; })""")
+    check('deux blocs, côte à côte (pas de recouvrement horizontal)', len(r) == 2 and (r[0][1] <= r[1][0] + 1 or r[1][1] <= r[0][0] + 1), r)
+    pg.close()
+    pg = page(browser, 17, 0)
+    pg.evaluate("""() => { const d = { real: { 'p:x': { start: 600, end: 604, missed: false }, 'p:y': { start: 700, end: 760, missed: false } },
+      ponctuels: [{ id: 'x', name: 'Mini', start: 600, duration: 4 }, { id: 'y', name: 'Loin', start: 700, duration: 60 }],
+      subtasks: {}, review: {}, profile: null, segs: {}, kidsDone: {}, presence: null, trip: null };
+      localStorage.setItem('plandujour.jours', JSON.stringify({ version: 2, days: { '2026-11-03': d } })); }""")
+    pg.reload()
+    r = pg.evaluate("""() => [...document.querySelectorAll('#day-timeline .blk')].map((b) => b.getBoundingClientRect().width)""")
+    check('deux blocs éloignés : pleine largeur chacun', len(r) == 2 and r[0] == r[1] and r[0] > 250, r)
+    pg.close()
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -248,6 +271,7 @@ def main():
         test_frise(browser)
         test_ecarts(browser)
         test_bloc_court(browser)
+        test_blocs_courts_cote_a_cote(browser)
         browser.close()
     bad = [n for n, ok in RESULTS if not ok]
     print('\n%d vérifications, %d échec(s)' % (len(RESULTS), len(bad)))

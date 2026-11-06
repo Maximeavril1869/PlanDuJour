@@ -419,3 +419,5 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Limite connue : un événement déjà exporté vers Calendrier n'est jamais supprimé par les raccourcis (à effacer à la main). Alternative existante : un profil avec `removes` (« Voiture ») choisi dans « Profil de la journée ».
 - Correctif lié : l'onglet Récap est toujours recalculé à l'ouverture (il restait périmé tant que l'heure n'avait pas changé).
 - Tests : `tests/test_retrait_jour.py`.
+
+- Colonnes de la frise (0.33.1) : `layoutColumns` compare les fins dessinées (`visualEnd` : 22 px au moins), pas les fins réelles. Si la hauteur mini d'un bloc change, changer `visualEnd` aussi.

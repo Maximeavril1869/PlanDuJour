@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (3 novembre 2026)
 
-- Version **0.33.0**, poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.33.1**, poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -20,6 +20,9 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
 - Tests : 416 vérifications (17 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+
+## 6 novembre 2026 (blocs courts côte à côte, 0.33.1)
+- Demande de l'utilisateur : mettre côte à côte en décalé les minitâches qui se chevauchent. Cause : `layoutColumns` ignorait la hauteur mini de 22 px des blocs. **0.33.1** : colonnes calculées sur la fin dessinée (`visualEnd`). Test `test_blocs_courts_cote_a_cote` (échoue sans le correctif) ; 445 vérifications. À valider sur appareil.
 
 ## 4 novembre 2026 (0.33.0, retrait d'une activité pour un jour)
 

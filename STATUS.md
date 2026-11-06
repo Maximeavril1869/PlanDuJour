@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.33.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.33.1**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -288,6 +288,10 @@ Fini quand, sur l'iPhone : une minitâche suivie d'un début de pause à quelque
 Demande de l'utilisateur (4 novembre 2026) : pouvoir supprimer le train un jour où il va au travail en voiture. Réalisé : bouton « Retirer pour ce jour » (activités récurrentes), ligne « Retiré ce jour · Rétablir », champ `removed` par jour, refus si heures réelles ou passages (CONVENTIONS §52). Récap toujours recalculé à l'ouverture.
 Fini quand, sur l'iPhone : retirer « Trajet aller » pour demain le fait disparaître de la frise et du Récap de demain seulement, et « Rétablir » le ramène.
 
+## 0.33.1 — Blocs courts côte à côte — livré, à valider sur appareil
+Demande de l'utilisateur (6 novembre 2026) : les minitâches qui se chevauchent à l'écran doivent être placées côte à côte en décalé. Cause : un bloc est dessiné sur 22 px au moins, mais les colonnes de la frise (`layoutColumns`) ne comparaient que les heures réelles. Réalisé : `layoutColumns` compare les fins « dessinées » (`visualEnd`, mêmes constantes que le dessin). Les blocs éloignés gardent la pleine largeur. Tests : `test_blocs_courts_cote_a_cote` dans `tests/test_reperes.py` (échoue sans le correctif) ; 445 vérifications.
+Fini quand, sur l'iPhone : une minitâche suivie à quelques minutes d'un autre bloc s'affiche à côté de lui, sans recouvrement.
+
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
 - 0.23.0 : modèle de données, éditeur d'arbre, chemin « A › B » affiché. Livré.
@@ -309,5 +313,6 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.32.1 : le temps disponible tient compte des lignes de repère, pause terminée grisée. Livré, validé sur iPhone (4 novembre).
 - 0.32.2 : libellé d'un repère placé sous un bloc court (taille mini de 22 px). Livré, à valider.
 - 0.33.0 : retrait d'une activité récurrente pour un seul jour. Livré, à valider.
+- 0.33.1 : blocs courts qui se recouvrent à l'écran placés côte à côte. Livré, à valider.
 - À venir (décidé) : détection des événements disparus du plan (notification).
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.

@@ -348,7 +348,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.33.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.33.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1101,17 +1101,21 @@ function statsRange(mode, anchor) {
 }
 
 // Répartit en colonnes les blocs qui se chevauchent (affichage uniquement).
+// Colonnes côte à côte pour les blocs qui se recouvrent à l'écran. Un bloc court est dessiné sur 22 px au moins (voir la frise) : on compare donc les
+// fins « dessinées » et non les fins réelles, sinon une minitâche chevauche le bloc suivant (0.33.1).
+function visualEnd(it) { return it.start + Math.max(it.end - it.start - 2 / PX, 22 / PX); }
 function layoutColumns(items) {
   items.sort((a, b) => a.start - b.start || b.end - a.end);
   let cluster = null;
   const clusters = [];
   items.forEach((it) => {
-    if (!cluster || it.start >= cluster.end) { cluster = { end: it.end, cols: [], items: [] }; clusters.push(cluster); }
+    const ve = visualEnd(it);
+    if (!cluster || it.start >= cluster.end) { cluster = { end: ve, cols: [], items: [] }; clusters.push(cluster); }
     let c = cluster.cols.findIndex((e) => e <= it.start);
     if (c === -1) { c = cluster.cols.length; cluster.cols.push(0); }
-    cluster.cols[c] = it.end;
+    cluster.cols[c] = ve;
     it.col = c;
-    cluster.end = Math.max(cluster.end, it.end);
+    cluster.end = Math.max(cluster.end, ve);
     cluster.items.push(it);
   });
   clusters.forEach((cl) => cl.items.forEach((it) => { it.colCount = cl.cols.length; }));
