@@ -2,11 +2,11 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.33.1**.
+Version décrite : **0.35.0**.
 
 ## 1. Principe
 
-Une PWA (application web installable) pour iPhone et iPad. **Un seul fichier de code** (`index.html` : HTML + CSS + JavaScript), aucun framework, aucune dépendance, aucun serveur. Toutes les données restent dans le `localStorage` de l'appareil. Le service worker met l'app en cache pour qu'elle fonctionne hors ligne.
+Une PWA (application web installable) pour iPhone et iPad. **Un seul fichier de code** (`index.html` : HTML + CSS + JavaScript), aucun framework, aucune dépendance. **Local d'abord** : toutes les données sont dans le `localStorage` de l'appareil et l'app marche hors ligne (le service worker la met en cache). Depuis la 0.35.0, une copie est **synchronisée avec un compte Supabase** quand l'utilisateur est connecté (§7, CONVENTIONS §54) ; sans connexion, rien ne quitte l'appareil.
 
 ```mermaid
 flowchart LR
@@ -18,6 +18,7 @@ flowchart LR
   APP -->|JSON via presse-papiers + lien shortcuts://| RAC[Raccourci iOS «Plan du jour»]
   RAC -->|crée ou met à jour, id dans les Notes| CAL
   GH[GitHub Pages<br/>branche main] -->|déploie| SW
+  APP <-->|fetch toutes les 5 s si connecté| SB[(Supabase<br/>table donnees)]
 ```
 
 ## 2. Fichiers
@@ -49,6 +50,7 @@ Sections dans un ordre fixe, repérées par `// ==== N. NOM ====`.
 | 5B. PLANNING | Cœur métier pur : `resolveProfile`, `buildDay`, `timeEntries`, `statsFor`, `workReport` |
 | 6. VUE | Rendu des quatre onglets et des éditeurs |
 | 7. ÉVÉNEMENTS | Actions : chrono, calendrier, export / import, revue du jour, panneau d'un bloc |
+| 7B. SYNCHRONISATION | Connexion, jetons, envoi et lecture des changements, conflits, carte Réglages › Synchronisation (0.35.0) |
 | 8. INIT | Démarrage, enregistrement du service worker |
 
 `window.PDJ` expose quelques fonctions pures (`buildDay`, `statsFor`, `workReport`, `calendarEvents`…) pour les tests automatisés.
@@ -77,6 +79,9 @@ Deux objets JSON versionnés, plus des copies de sécurité.
 | `plandujour.jours.sauvegarde` | Copie brute si les jours sont illisibles | — |
 | `plandujour.sauvegarde` | Rappel de sauvegarde, propre à l'appareil : dernier export, première modification non sauvegardée, report, délai (0.25.0, §40) ; jamais exporté | — |
 | `plandujour.avant-import.reglages` / `.jours` | État précédent, gardé avant un import (une génération) | — |
+| `plandujour.sync.session` | Jetons de connexion (jamais le mot de passe) ; propre à l'appareil, jamais exporté | — |
+| `plandujour.sync.meta` | Curseur de lecture, empreinte de chaque clé à la dernière synchro, première lecture faite ; propre à l'appareil | — |
+| `plandujour.sync.conflits` | Copies de ce qui a été écrasé lors d'un conflit (5 dernières) | — |
 
 ```mermaid
 erDiagram
@@ -151,7 +156,25 @@ flowchart LR
 
 Au démarrage, l'app demande au système la protection du stockage (`navigator.storage.persist`, §41) et affiche le résultat dans Réglages › Sauvegarde.
 
-Aucune donnée n'est envoyée à un serveur : GitHub ne reçoit que le code.
+### Synchronisation (0.35.0)
+
+| Élément | Détail |
+|---|---|
+| Service | Supabase, projet `plan-du-jour` ; table `donnees (user_id, app, cle, valeur jsonb, maj)`, règles d'accès (RLS) : chacun ne voit que ses lignes ; inscriptions fermées |
+| Clés | `reglages` et `jour:AAAA-MM-JJ` ; `valeur = { d: … }` (`d = null` : supprimé) |
+| Envoi | 1,5 s après un enregistrement local (`syncTouch` dans `saveSettings` / `saveDays`) |
+| Lecture | toutes les 5 s si l'app est visible, au retour dans l'app et au retour du réseau ; curseur `since` avec 3 s de marge |
+| Conflit | version locale envoyée, version écrasée gardée ; première synchro d'un appareil : le serveur l'emporte |
+
+```mermaid
+flowchart LR
+  A[Appareil A<br/>localStorage] -->|envoi des clés modifiées| T[(table donnees)]
+  T -->|lecture toutes les 5 s| B[Appareil B<br/>localStorage]
+  B -->|envoi| T
+  T -->|lecture| A
+```
+
+Hors synchronisation, GitHub ne reçoit que le code. Le dépôt ne contient aucune donnée saisie ; la clé publique Supabase y figure (sans danger : voir CONVENTIONS §54).
 
 ## 8. Déploiement
 

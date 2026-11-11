@@ -350,7 +350,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.34.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.35.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -739,6 +739,7 @@ function loadSettings() {
 function saveSettings(settings) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    syncTouch();                                          // 0.35.0 : envoi vers le compte si connecté (CONVENTIONS §54)
     return window.localStorage.getItem(STORAGE_KEY) !== null;
   } catch (e) {
     return false;
@@ -852,6 +853,7 @@ function saveDays(data) {
     const limit = addDays(dateKey(new Date()), -KEEP_DAYS);
     Object.keys(data.days).forEach((k) => { if (k < limit) delete data.days[k]; });
     window.localStorage.setItem(DAYS_KEY, JSON.stringify(data));
+    syncTouch();
     return true;
   } catch (e) {
     return false;
@@ -1506,6 +1508,7 @@ function renderForm(s) {
       '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="today">Aujourd’hui</option><option value="tomorrow">Demain</option><option value="week0">7 jours à partir d’aujourd’hui</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
       '<button type="button" class="btn primary" data-action="cal-shortcut">Envoyer vers Raccourcis</button> <button type="button" class="btn" data-action="cal-export">Exporter un fichier .ics</button>' +
       '<p class="help">« Envoyer vers Raccourcis » copie les événements puis lance le raccourci « Plan du jour » : un événement déjà envoyé est retrouvé et mis à jour (titre, heures), un nouveau est créé. Tes réglages faits dans Calendrier (alertes, lieu, trajet) sont conservés ; un bloc retiré du plan reste dans Calendrier.</p></div></details>' +
+    '<div class="card"><h2>Synchronisation</h2><div id="sync-box" data-nodirty></div></div>' +
     '<div class="card"><h2>Sauvegarde</h2>' +
       '<p class="help">Un seul fichier avec tes réglages et tous tes jours. Sert à sauvegarder, ou à passer de l’iPhone à l’iPad : enregistre-le dans Fichiers (iCloud Drive), puis importe-le sur l’autre appareil.</p>' +
       backupSettingsHtml() +
@@ -1513,9 +1516,10 @@ function renderForm(s) {
       '<button type="button" class="btn" data-action="import">Importer un fichier…</button></div>' +
       '<input type="file" id="import-file" accept="application/json,.json" hidden><div id="import-box"></div></div>' +
     '<div class="foot"><button type="button" class="btn danger" data-action="reset">Réinitialiser…</button><div id="reset-box" data-nodirty></div>' +
-      '<div>Plan du jour · version ' + APP_VERSION + '</div><div>Données stockées uniquement sur cet appareil.</div></div>';
+      '<div>Plan du jour · version ' + APP_VERSION + '</div><div>Données stockées sur cet appareil ; copie synchronisée si tu es connecté (Synchronisation).</div></div>';
   renderImportBox();
   renderResetBox();
+  renderSyncBox();
 }
 
 let pendingImport = null;   // fichier lu et validé, en attente de choix
@@ -2962,6 +2966,7 @@ function bindEvents() {
     else if (nv) { recapDate = addDays(recapDate, Number(nv.dataset.recapNav)); renderRecap(current, loadStatus); }
   });
 
+  form.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id && e.target.id.indexOf('sync-') === 0) { e.preventDefault(); doSyncLogin(); } });
   form.addEventListener('input', (e) => { if (e.target.id === 'import-file' || (e.target.closest && e.target.closest('[data-nodirty]'))) return; if (e.target.closest && e.target.closest('#cats-list')) syncCatOptions(); setDirty(true); updateSummary(e.target.closest && (e.target.closest('.act-row') || e.target.closest('.tpl-row'))); });
   form.addEventListener('toggle', (e) => {                 // mémorise ce qui est plié ou déplié
     const d = e.target, id = d.dataset && d.dataset.fid;
@@ -3008,6 +3013,9 @@ function bindEvents() {
     if (action === 'export') { doExport(); return; }
     if (action === 'cal-export') { doCalExport(); return; }
     if (action === 'cal-shortcut') { doShortcutSend(); return; }
+    if (action === 'sync-login') { doSyncLogin(); return; }
+    if (action === 'sync-now') { showToast('Synchronisation…'); syncNow(); return; }
+    if (action === 'sync-logout') { doSyncLogout(); return; }
     if (action === 'import') {
       if (dirty && !window.confirm('Des modifications ne sont pas enregistrées. Elles seront perdues si tu remplaces les réglages. Continuer ?')) return;
       $('#import-file').click();
@@ -3140,8 +3148,373 @@ function bindEvents() {
   });
 }
 
+// ==== 7B. SYNCHRONISATION (0.35.0, CONVENTIONS §54) ====
+// Local d'abord : le localStorage reste la référence et l'app marche sans réseau. Une fois connecté, les réglages et chaque jour sont copiés
+// vers Supabase (table `donnees`, une ligne par clé) et relus toutes les 5 secondes. Aucune bibliothèque : `fetch` seulement.
+// Clés distantes : « reglages » et « jour:AAAA-MM-JJ ». Valeur distante : { d: données } (d = null : supprimé).
+const SYNC_URL = 'https://zoyrclsppuhgnyzgodjv.supabase.co';
+const SYNC_KEY = 'sb_publishable_rHeMIa4CSjCjZXpAI-0tTQ_QC1O06Ng';   // clé publique : la protection vient des règles d'accès de la table, pas de ce texte
+const SYNC_APP = 'plandujour';
+const SYNC_SESSION_KEY = 'plandujour.sync.session';     // jetons de connexion (jamais le mot de passe), propres à l'appareil
+const SYNC_META_KEY = 'plandujour.sync.meta';           // curseur de lecture et empreinte de chaque clé à la dernière synchro, propres à l'appareil
+const SYNC_LOST_KEY = 'plandujour.sync.conflits';       // copies de ce qui a été écrasé lors d'un conflit (5 dernières)
+const SYNC_POLL_MS = 5000;
+
+let syncSession = null;          // { at, rt, exp, uid, email } ou null (non connecté)
+let syncMeta = { since: null, synced: {}, done: false };   // done : la première lecture a abouti (avant, le distant l'emporte en cas d'écart)
+let syncState = { status: 'start', last: null, msg: '' };   // 'start' | 'ok' | 'offline' | 'error' | 'auth'
+let syncBusy = false;
+let syncAgain = false;
+let syncTimer = null;
+let syncRefreshing = null;
+let syncUiPending = null;
+let syncCache = { rs: undefined, ds: undefined, out: null };
+let syncMetaText = '';
+
+function cyrb53(str) {                                  // empreinte rapide (pas de sécurité : sert seulement à comparer deux versions)
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+function canon(v) {                                     // JSON à clés triées : jsonb ne garde pas l'ordre des clés
+  if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}';
+  return JSON.stringify(v === undefined ? null : v);
+}
+function hashOf(v) { return cyrb53(canon(v)); }
+function syncErr(code, message, status) { const e = new Error(message || code); e.code = code; if (status) e.status = status; return e; }
+async function syncHttpError(res) {
+  let m = '';
+  try { const j = await res.json(); m = j.message || j.msg || j.error_description || ''; } catch (e) { /* pas de détail */ }
+  return syncErr('http', 'HTTP ' + res.status + (m ? ' : ' + m : ''), res.status);
+}
+
+// ---- Session et état propre à l'appareil ----
+function syncLoad() {
+  syncSession = null;
+  syncMeta = { since: null, synced: {}, done: false };
+  try {
+    const s = JSON.parse(window.localStorage.getItem(SYNC_SESSION_KEY));
+    if (s && typeof s.at === 'string' && typeof s.rt === 'string') syncSession = { at: s.at, rt: s.rt, exp: Number(s.exp) || 0, uid: typeof s.uid === 'string' ? s.uid : '', email: typeof s.email === 'string' ? s.email : '' };
+  } catch (e) { /* aucune session */ }
+  try {
+    const m = JSON.parse(window.localStorage.getItem(SYNC_META_KEY));
+    if (m && typeof m === 'object') syncMeta = { since: typeof m.since === 'string' ? m.since : null, synced: m.synced && typeof m.synced === 'object' ? m.synced : {}, done: m.done === true };
+  } catch (e) { /* départ à zéro */ }
+}
+function syncSessionSave() {
+  try {
+    if (syncSession) window.localStorage.setItem(SYNC_SESSION_KEY, JSON.stringify(syncSession));
+    else window.localStorage.removeItem(SYNC_SESSION_KEY);
+  } catch (e) { /* ignoré */ }
+}
+function syncMetaSave() {
+  try {
+    const t = JSON.stringify(syncMeta);
+    if (t !== syncMetaText) { window.localStorage.setItem(SYNC_META_KEY, t); syncMetaText = t; }
+  } catch (e) { /* ignoré */ }
+}
+function syncClearSession() {
+  syncSession = null;
+  syncMeta = { since: null, synced: {}, done: false };
+  syncMetaText = '';
+  syncCache = { rs: undefined, ds: undefined, out: null };
+  try { window.localStorage.removeItem(SYNC_SESSION_KEY); window.localStorage.removeItem(SYNC_META_KEY); } catch (e) { /* ignoré */ }
+}
+function syncStoreSession(j, prev) {
+  syncSession = {
+    at: j.access_token, rt: j.refresh_token, exp: Date.now() + (Number(j.expires_in) || 3600) * 1000,
+    uid: (j.user && j.user.id) || (prev && prev.uid) || '', email: (j.user && j.user.email) || (prev && prev.email) || ''
+  };
+  syncSessionSave();
+}
+function syncKeepLost(cle, who, valeur) {                // filet de sécurité : ce qui perd un conflit est gardé (5 dernières copies)
+  try {
+    let list = [];
+    try { list = JSON.parse(window.localStorage.getItem(SYNC_LOST_KEY)) || []; } catch (e) { list = []; }
+    list.push({ cle: cle, quand: new Date().toISOString(), perdant: who, valeur: valeur });
+    window.localStorage.setItem(SYNC_LOST_KEY, JSON.stringify(list.slice(-5)));
+  } catch (e) { /* ignoré */ }
+}
+
+// ---- Réseau ----
+async function syncLogin(email, password) {
+  const res = await fetch(SYNC_URL + '/auth/v1/token?grant_type=password', {
+    method: 'POST', headers: { apikey: SYNC_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, password: password })
+  });
+  if (res.status === 400 || res.status === 401 || res.status === 422) throw syncErr('bad', 'identifiants refusés', res.status);
+  if (!res.ok) throw await syncHttpError(res);
+  const j = await res.json();
+  if (!j || typeof j.access_token !== 'string' || typeof j.refresh_token !== 'string') throw syncErr('http', 'réponse inattendue');
+  syncMeta = { since: null, synced: {}, done: false };  // nouvelle connexion : première synchronisation (le distant l'emporte en cas d'écart)
+  syncMetaText = '';
+  syncCache = { rs: undefined, ds: undefined, out: null };
+  syncStoreSession(j, null);
+  syncMetaSave();
+}
+function syncRefresh() {
+  if (!syncSession) return Promise.reject(syncErr('auth', 'non connecté'));
+  if (syncRefreshing) return syncRefreshing;
+  const prev = syncSession;
+  syncRefreshing = (async () => {
+    const res = await fetch(SYNC_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST', headers: { apikey: SYNC_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: prev.rt })
+    });
+    if (res.status === 400 || res.status === 401 || res.status === 403) { syncClearSession(); throw syncErr('auth', 'session expirée', res.status); }
+    if (!res.ok) throw await syncHttpError(res);
+    syncStoreSession(await res.json(), prev);
+  })();
+  const done = () => { syncRefreshing = null; };
+  syncRefreshing.then(done, done);
+  return syncRefreshing;
+}
+async function syncFetch(path, opts, retried) {
+  if (!syncSession) throw syncErr('auth', 'non connecté');
+  if (Date.now() > syncSession.exp - 60000) await syncRefresh();
+  const headers = Object.assign({ apikey: SYNC_KEY, 'Content-Type': 'application/json', Authorization: 'Bearer ' + syncSession.at }, (opts && opts.headers) || {});
+  const res = await fetch(SYNC_URL + path, { method: (opts && opts.method) || 'GET', headers: headers, body: opts && opts.body });
+  if (res.status === 401) {
+    if (retried) { syncClearSession(); throw syncErr('auth', 'session expirée', 401); }
+    await syncRefresh();
+    return syncFetch(path, opts, true);
+  }
+  return res;
+}
+
+// ---- État local, vu comme des clés ----
+// Lecture brute (jamais de `sanitize` ici : il peut inventer des identifiants et changerait l'empreinte à chaque lecture).
+function syncLocal() {
+  let rs, ds;
+  try { rs = window.localStorage.getItem(STORAGE_KEY); ds = window.localStorage.getItem(DAYS_KEY); } catch (e) { throw syncErr('local', 'stockage indisponible sur cet appareil'); }
+  if (syncCache.out && syncCache.rs === rs && syncCache.ds === ds) return syncCache.out;
+  const out = {};
+  if (rs !== null) {
+    let d;
+    try { d = JSON.parse(rs); } catch (e) { d = null; }
+    if (!d || typeof d !== 'object') throw syncErr('local', 'réglages illisibles sur cet appareil : synchronisation suspendue');
+    out.reglages = { data: d, hash: hashOf(d) };
+  }
+  if (ds !== null) {
+    let d;
+    try { d = JSON.parse(ds); } catch (e) { d = null; }
+    if (!d || typeof d !== 'object' || !d.days || typeof d.days !== 'object') throw syncErr('local', 'jours illisibles sur cet appareil : synchronisation suspendue');
+    const emptyCanon = canon(emptyDay());
+    Object.keys(d.days).forEach((k) => {
+      const day = d.days[k];
+      if (!isDateKey(k) || !day || typeof day !== 'object') return;
+      if (!(('jour:' + k) in syncMeta.synced) && canon(day) === emptyCanon) return;     // jour vide jamais synchronisé : rien à envoyer
+      out['jour:' + k] = { data: day, hash: hashOf(day) };
+    });
+  }
+  syncCache = { rs: rs, ds: ds, out: out };
+  return out;
+}
+
+// ---- Lecture : ce qui a changé ailleurs ----
+async function syncPull() {
+  let path = '/rest/v1/donnees?select=cle,valeur,maj&app=eq.' + SYNC_APP + '&order=maj.asc';
+  if (syncMeta.since) path += '&maj=gt.' + encodeURIComponent(new Date(Date.parse(syncMeta.since) - 3000).toISOString());   // marge de 3 s : relire deux fois ne coûte rien
+  const res = await syncFetch(path, {});
+  if (!res.ok) throw await syncHttpError(res);
+  const rows = await res.json();
+  if (!Array.isArray(rows)) throw syncErr('http', 'réponse inattendue');
+  const first = !syncMeta.done;
+  const local = syncLocal();
+  let maxMaj = syncMeta.since, newSettings = null;
+  const dayChanges = {}, synced = {}, lost = [];
+  rows.forEach((row) => {
+    if (!row || typeof row.cle !== 'string') return;
+    if (row.maj && (!maxMaj || Date.parse(row.maj) > Date.parse(maxMaj))) maxMaj = row.maj;
+    const key = row.cle;
+    if (key !== 'reglages' && !/^jour:\d{4}-\d{2}-\d{2}$/.test(key)) return;
+    const env = row.valeur;
+    if (!env || typeof env !== 'object' || !('d' in env)) return;
+    const rdata = env.d;
+    if (key === 'reglages' && (rdata === null || typeof rdata !== 'object')) return;
+    const rhash = rdata === null ? null : hashOf(rdata);
+    const l = local[key], lhash = l ? l.hash : null;
+    if (rhash === lhash) { synced[key] = rhash; return; }                       // déjà identique (par exemple mon propre envoi)
+    const isDirty = l ? l.hash !== syncMeta.synced[key] : (key in syncMeta.synced);   // modifié (ou supprimé) ici depuis la dernière synchro
+    if (isDirty && !first) { lost.push([key, 'distant', rdata]); return; }       // conflit : la version de cet appareil est envoyée ensuite
+    if (isDirty && first && l) lost.push([key, 'local', l.data]);                      // première synchro : le distant l'emporte, l'ancienne version est gardée
+    if (key === 'reglages') newSettings = rdata; else dayChanges[key.slice(5)] = rdata;
+    synced[key] = rhash;
+  });
+  const needsApply = !!newSettings || Object.keys(dayChanges).length > 0;
+  if (needsApply && (panelOpen || reviewPick !== null || (newSettings && dirty))) return null;   // saisie en cours : on réessaie au prochain passage
+  lost.forEach((x) => syncKeepLost(x[0], x[1], x[2]));
+  const applied = { settings: false, days: false };
+  try {
+    if (newSettings) {
+      const clean = sanitize(JSON.parse(JSON.stringify(newSettings)));
+      if (clean) { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(clean)); current = clean; loadStatus = 'ok'; applied.settings = true; }
+    }
+    if (Object.keys(dayChanges).length) {
+      const cand = { version: DAYS_VERSION, days: JSON.parse(JSON.stringify(daysData.days)) };
+      Object.keys(dayChanges).forEach((k) => { if (dayChanges[k] === null) delete cand.days[k]; else cand.days[k] = dayChanges[k]; });
+      const clean = sanitizeDays(cand);
+      if (clean) { window.localStorage.setItem(DAYS_KEY, JSON.stringify(clean)); daysData = clean; applied.days = true; }
+    }
+  } catch (e) { throw syncErr('local', 'enregistrement impossible sur cet appareil'); }
+  syncCache = { rs: undefined, ds: undefined, out: null };
+  const after = syncLocal();
+  Object.keys(synced).forEach((key) => {                                       // l'empreinte retenue est celle de ce qui est réellement enregistré ici
+    if (after[key]) syncMeta.synced[key] = after[key].hash;
+    else delete syncMeta.synced[key];
+  });
+  syncMeta.since = maxMaj;
+  syncMeta.done = true;
+  return applied.settings || applied.days ? applied : false;
+}
+
+// ---- Écriture : ce qui a changé ici ----
+async function syncPush() {
+  const local = syncLocal();
+  const rows = [];
+  Object.keys(local).forEach((key) => { if (local[key].hash !== syncMeta.synced[key]) rows.push({ key: key, data: local[key].data, hash: local[key].hash }); });
+  Object.keys(syncMeta.synced).forEach((key) => { if (!local[key]) rows.push({ key: key, data: null, hash: null }); });   // supprimé ici : supprimé partout
+  for (let i = 0; i < rows.length; i += 40) {
+    const chunk = rows.slice(i, i + 40);
+    const body = JSON.stringify(chunk.map((r) => {
+      const o = { app: SYNC_APP, cle: r.key, valeur: { d: r.data } };
+      if (syncSession.uid) o.user_id = syncSession.uid;
+      return o;
+    }));
+    const res = await syncFetch('/rest/v1/donnees?on_conflict=user_id,app,cle', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: body });
+    if (!res.ok) throw await syncHttpError(res);
+    chunk.forEach((r) => { if (r.hash === null) delete syncMeta.synced[r.key]; else syncMeta.synced[r.key] = r.hash; });
+  }
+}
+
+// ---- Cycle ----
+async function syncNow() {
+  if (!syncSession) return;
+  if (syncBusy) { syncAgain = true; return; }
+  syncBusy = true;
+  clearTimeout(syncTimer);
+  let applied = false;
+  try {
+    applied = await syncPull();
+    await syncPush();
+    syncState.last = new Date();
+    setSyncStatus('ok');
+  } catch (e) {
+    if (e && e.code === 'auth') setSyncStatus('auth');
+    else if (e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false)) setSyncStatus('offline');
+    else setSyncStatus('error', e && e.message ? e.message : String(e));
+  } finally {
+    syncMetaSave();
+    syncBusy = false;
+    if (syncAgain) { syncAgain = false; syncSchedule(300); }
+  }
+  if (applied) syncRefreshUi(applied);
+}
+function syncSchedule(ms) {
+  if (!syncSession) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncNow, ms);
+}
+function syncTouch() { syncSchedule(1500); }            // appelé après chaque enregistrement local
+function syncSafeToRender() {
+  const a = document.activeElement;
+  return !panelOpen && reviewPick === null && !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+}
+function syncRefreshUi(applied) {
+  if (applied) syncUiPending = Object.assign(syncUiPending || { settings: false, days: false }, { settings: (syncUiPending && syncUiPending.settings) || applied.settings, days: (syncUiPending && syncUiPending.days) || applied.days });
+  if (!syncUiPending) return;
+  if (!syncSafeToRender()) return;                      // on affiche au prochain passage, pour ne pas voler la saisie
+  const what = syncUiPending;
+  syncUiPending = null;
+  if (what.settings && !dirty) { renderForm(current); setDirty(false); }
+  renderRecap(current, loadStatus);
+  renderDay();
+}
+function syncPoll() {
+  if (!syncSession || document.hidden || navigator.onLine === false) return;
+  if (syncUiPending) syncRefreshUi(null);
+  syncNow();
+}
+function syncStart() {
+  setInterval(syncPoll, SYNC_POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
+  window.addEventListener('online', () => { syncNow(); });
+  if (syncSession) syncNow();
+}
+
+// ---- Écran : Réglages › Synchronisation ----
+function hhmmss(d) { return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()); }
+function syncStatusText() {
+  const s = syncState;
+  if (s.status === 'ok' && s.last) return 'Synchronisé à ' + hhmmss(s.last) + '.';
+  if (s.status === 'offline') return 'Hors ligne : tes modifications partiront dès le retour du réseau.';
+  if (s.status === 'error') return 'Erreur : ' + s.msg + ' (nouvel essai automatique).';
+  return 'Synchronisation en cours…';
+}
+function setSyncStatus(status, msg) {
+  const was = syncState.status;
+  syncState.status = status;
+  syncState.msg = msg || '';
+  if (status === 'auth' || was === 'auth') renderSyncBox(); else refreshSyncStatus();
+}
+function refreshSyncStatus() {
+  const el = $('#sync-status');
+  if (el) el.textContent = syncStatusText();
+}
+function renderSyncBox() {
+  const box = $('#sync-box');
+  if (!box) return;
+  if (!syncSession) {
+    box.innerHTML = '<p class="help">Pour retrouver le même plan sur tes autres appareils. Les données restent d’abord sur cet appareil ; une copie est envoyée à ton compte, et l’app fonctionne aussi sans réseau.</p>' +
+      (syncState.status === 'auth' ? '<p class="help" role="alert" style="color:var(--danger,#b42318)">Ta session a expiré : reconnecte-toi.</p>' : '') +
+      '<label class="field"><span class="lbl">E-mail</span><input type="text" inputmode="email" id="sync-email" form="sync-nof" autocomplete="username" autocapitalize="none" spellcheck="false"></label>' +
+      '<label class="field"><span class="lbl">Mot de passe</span><input type="password" id="sync-pass" form="sync-nof" autocomplete="current-password"></label>' +
+      '<div class="btnrow"><button type="button" class="btn primary" data-action="sync-login">Se connecter</button></div>' +
+      '<p class="help" id="sync-msg" role="alert" hidden></p>';
+  } else {
+    box.innerHTML = '<p>Connecté : <strong>' + esc(syncSession.email || 'compte') + '</strong></p>' +
+      '<p class="help" id="sync-status">' + esc(syncStatusText()) + '</p>' +
+      '<div class="btnrow"><button type="button" class="btn primary" data-action="sync-now">Synchroniser maintenant</button>' +
+      '<button type="button" class="btn" data-action="sync-logout">Se déconnecter</button></div>' +
+      '<p class="help">Chaque modification est envoyée en quelques secondes et les changements faits ailleurs arrivent seuls. Attention : « Réinitialiser… » et l’import d’un fichier s’appliquent aussi sur tes autres appareils.</p>';
+  }
+}
+async function doSyncLogin() {
+  const em = $('#sync-email'), pw = $('#sync-pass'), msg = $('#sync-msg');
+  if (!em || !pw || !msg) return;
+  const say = (t) => { msg.textContent = t; msg.hidden = !t; };
+  const email = em.value.trim(), pass = pw.value;
+  if (!email || !pass) { say('Saisis ton e-mail et ton mot de passe.'); return; }
+  say('Connexion…');
+  try {
+    await syncLogin(email, pass);
+  } catch (e) {
+    say(e && e.code === 'bad' ? 'E-mail ou mot de passe incorrect.' : (e instanceof TypeError ? 'Pas de réseau : connexion impossible.' : 'Connexion impossible (' + (e && e.message ? e.message : 'erreur') + ').'));
+    return;
+  }
+  syncState = { status: 'start', last: null, msg: '' };
+  renderSyncBox();
+  showToast('Connecté');
+  syncNow();
+}
+function doSyncLogout() {
+  const at = syncSession ? syncSession.at : null;
+  syncClearSession();
+  syncState = { status: 'start', last: null, msg: '' };
+  clearTimeout(syncTimer);
+  if (at) { try { fetch(SYNC_URL + '/auth/v1/logout?scope=local', { method: 'POST', headers: { apikey: SYNC_KEY, Authorization: 'Bearer ' + at } }).catch(() => {}); } catch (e) { /* ignoré */ } }
+  renderSyncBox();
+  showToast('Déconnecté : les données restent sur cet appareil');
+}
+
 // ==== 8. INIT ====
 function init() {
+  syncLoad();
   const loaded = loadSettings();
   current = loaded.settings;
   loadStatus = loaded.status;
@@ -3157,6 +3530,7 @@ function init() {
   switchTab('day');
   scrollToNow();
   requestPersistence();
+  syncStart();
   // Un bloc en cours fait glisser la suite et l'heure fait apparaître les blocs « à confirmer » : on rafraîchit le jour affiché toutes les 15 secondes.
   setInterval(() => {
     renderBackupBanner();                                  // le bandeau suit le changement de jour, quel que soit l'onglet
@@ -3165,7 +3539,7 @@ function init() {
   }, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshRecapNow(); renderBackupBanner(); } });   // retour dans l'app après une mise en veille : l'heure affichée est rattrapée tout de suite
   window.addEventListener('pageshow', () => { refreshRecapNow(); });
-  window.PDJ = { shortcutPayload: shortcutPayload, calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree, dayMarks: dayMarks, cleanTrip: cleanTrip };   // point d'accès pour les tests
+  window.PDJ = { shortcutPayload: shortcutPayload, calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree, dayMarks: dayMarks, cleanTrip: cleanTrip, syncNow: syncNow };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });

@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.34.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.35.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -320,3 +320,16 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 - 0.33.1 : blocs courts qui se recouvrent à l'écran placés côte à côte. Livré, à valider.
 - À venir (décidé) : détection des événements disparus du plan (notification).
 - Avant la 1.0 : liste de contrôles sur appareil (iPhone puis iPad), période d'usage facultative d'environ deux semaines.
+
+## 0.35.0 — synchronisation avec un compte — livré, à valider sur appareil
+
+« Fini » veut dire, sur l'iPhone et l'iPad :
+
+1. **Réglages › Synchronisation** : je saisis mon e-mail et mon mot de passe, « Se connecter » ; le compte et « Synchronisé à hh:mm:ss » s'affichent.
+2. Je me connecte sur le second appareil : mes réglages et mes jours arrivent seuls.
+3. Je saisis quelque chose sur un appareil (par exemple « Je pars » dans Départ et retour) : cela apparaît sur l'autre en moins de ~10 s, sans rien faire.
+4. Réseau coupé : l'app reste utilisable, l'état affiche « Hors ligne » ; au retour du réseau, tout part.
+5. « Se déconnecter » : mes données restent sur l'appareil, la synchro s'arrête.
+6. Attention connue : « Réinitialiser… » et l'import d'un fichier s'appliquent aussi aux autres appareils connectés.
+
+Vérifié côté code avec un faux serveur (`tests/test_sync.py`, 53 vérifications). **Non vérifié** : le vrai service Supabase. Règles : CONVENTIONS §54.

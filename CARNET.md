@@ -4,9 +4,9 @@ Journal daté de toutes les opérations sur le projet, pour savoir où il en est
 
 Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECTURE.md), [CONVENTIONS.md](CONVENTIONS.md).
 
-## Où en est le projet (3 novembre 2026)
+## Où en est le projet (11 novembre 2026)
 
-- Version **0.34.0**, poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.35.0** (synchronisation avec un compte, à valider sur iPhone et iPad : voir l'entrée du 11 novembre) ; la **0.34.0** était poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -20,6 +20,16 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
 - Tests : 416 vérifications (17 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+
+## 11 novembre 2026 (0.35.0, synchronisation avec un compte)
+
+- Demande : retrouver le même plan sur iPhone et iPad en quasi temps réel. Décisions de l'utilisateur : relève automatique (option « sans bibliothèque »), jamais de modification simultanée des deux appareils, aucune donnée à conserver au départ, compte unique. Dérogation aux règles « aucun serveur » acceptée (CONVENTIONS §54).
+- Mise en place côté Supabase par l'utilisateur : projet `plan-du-jour`, table `donnees` avec règles d'accès et horodatage serveur, un utilisateur, inscriptions fermées. Claude a écrit le code ; la clé publique est dans `index.html`.
+- Fait : section 7B (connexion, envoi, lecture, conflits, suppressions), carte Réglages › Synchronisation, pied de page mis à jour. Version 0.35.0 (`index.html` et `sw.js`).
+- Défauts trouvés par les tests avant la livraison : une suppression locale était annulée par la copie du serveur ; une modification faite dans les premières secondes après la première connexion pouvait être écrasée (drapeau `done` ajouté).
+- Tests : `tests/test_sync.py` (53 vérifications, faux serveur en mémoire, deux appareils simulés) ; les 19 autres fichiers de tests passent sans changement.
+- Non testé en conditions réelles : le vrai service Supabase (non joignable depuis l'espace de travail de Claude). **À valider sur appareil** : connexion sur l'iPhone puis sur l'iPad, saisie d'un côté qui apparaît de l'autre, coupure du réseau puis retour.
+- Point à vérifier plus tard : mise en pause d'un projet Supabase gratuit inactif (utile surtout pour la billetterie, projet séparé).
 
 ## 6 novembre 2026 (blocs courts côte à côte, 0.33.1)
 - Demande de l'utilisateur : mettre côte à côte en décalé les minitâches qui se chevauchent. Cause : `layoutColumns` ignorait la hauteur mini de 22 px des blocs. **0.33.1** : colonnes calculées sur la fin dessinée (`visualEnd`). Test `test_blocs_courts_cote_a_cote` (échoue sans le correctif) ; 445 vérifications. À valider sur appareil.

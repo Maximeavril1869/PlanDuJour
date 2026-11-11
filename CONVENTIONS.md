@@ -428,3 +428,18 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Onglet **Jour** seulement (le Récap n'a pas de sélecteur, choix de l'utilisateur) : le libellé du jour est un `<label>` qui contient un `<input type="date" id="day-date">` transparent posé dessus ; un appui sur la date ouvre le calendrier du système. Le changement saute au jour choisi (même effets que les flèches : revue repliée, panneau fermé). Champ vidé : le jour affiché est conservé.
 - Les flèches et « Aujourd'hui » (déjà toujours visible) restent inchangés.
 - Tests : `tests/test_choix_date.py`.
+
+## 54. Synchronisation avec un compte (0.35.0)
+
+- **Dérogation décidée par l'utilisateur** aux règles « aucun serveur » et « aucune dépendance » (§2) : l'app reste **locale d'abord** (le `localStorage` est la référence, tout marche hors ligne) et une copie est synchronisée avec Supabase quand l'utilisateur est connecté. Toujours **aucune bibliothèque ni CDN** : `fetch` seulement.
+- Projet Supabase `plan-du-jour` (identifiant dans `index.html`, constante `SYNC_URL`). La clé « publishable » est publique par conception : la protection vient des règles d'accès (RLS) de la table `donnees`, jamais du secret d'une clé. **Ne jamais mettre dans le dépôt** la clé `secret` / `service_role` ni un mot de passe.
+- Table `donnees (user_id, app, cle, valeur jsonb, maj)`, clé primaire `(user_id, app, cle)`, `maj` posée par le serveur (déclencheur). Une ligne `reglages` et une ligne `jour:AAAA-MM-JJ` par jour. `valeur = { d: données }`, `d = null` pour une suppression. La colonne `app` permet de réutiliser la table pour une autre app.
+- Un seul utilisateur, créé à la main dans Supabase, **inscriptions publiques fermées**. Connexion par e-mail et mot de passe dans Réglages › Synchronisation ; seuls les jetons sont gardés sur l'appareil, jamais le mot de passe.
+- Fonctionnement : envoi 1,5 s après chaque enregistrement local, lecture toutes les 5 s quand l'app est visible (et au retour dans l'app, au retour du réseau). Comparaison par empreinte du JSON à clés triées (jsonb ne garde pas l'ordre des clés). Lecture du stockage **brute**, jamais par `sanitize` (il peut inventer des identifiants) ; `sanitize` / `sanitizeDays` servent seulement à ce qui arrive du serveur.
+- **Conflits** (l'utilisateur dit ne jamais modifier les deux appareils en même temps) : la dernière version modifiée localement est envoyée ; ce qui est écrasé est gardé dans `plandujour.sync.conflits` (5 dernières copies). **Première synchronisation d'un appareil** : le serveur l'emporte en cas d'écart, la version locale est gardée de la même façon.
+- **Suppression** : un jour supprimé ou effacé ici est supprimé partout (ligne `d = null`). « Réinitialiser… » et l'import d'un fichier s'appliquent donc aussi aux autres appareils : l'écran le dit.
+- Saisie en cours : la lecture n'applique rien si un panneau est ouvert, si la revue est ouverte ou si les Réglages ont des modifications non enregistrées (nouvel essai au passage suivant) ; l'affichage du jour attend qu'aucun champ ne soit actif.
+- Garde-fou : si le stockage local est illisible, la synchronisation est suspendue (aucune suppression n'est envoyée).
+- État propre à l'appareil, jamais exporté : `plandujour.sync.session`, `plandujour.sync.meta`, `plandujour.sync.conflits`.
+- Limites connues : connexion Internet nécessaire pour synchroniser ; palier gratuit Supabase (mise en pause d'un projet inactif à vérifier) ; pas de temps réel « push » (relève toutes les 5 s).
+- Tests : `tests/test_sync.py` (faux serveur en mémoire, deux appareils simulés).
