@@ -30,6 +30,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Tests : `tests/test_sync.py` (53 vérifications, faux serveur en mémoire, deux appareils simulés) ; les 19 autres fichiers de tests passent sans changement.
 - Non testé en conditions réelles : le vrai service Supabase (non joignable depuis l'espace de travail de Claude). **À valider sur appareil** : connexion sur l'iPhone puis sur l'iPad, saisie d'un côté qui apparaît de l'autre, coupure du réseau puis retour.
 - Point à vérifier plus tard : mise en pause d'un projet Supabase gratuit inactif (utile surtout pour la billetterie, projet séparé).
+- Commit : `be14d93` **0.35.0**.
 
 ## 6 novembre 2026 (blocs courts côte à côte, 0.33.1)
 - Demande de l'utilisateur : mettre côte à côte en décalé les minitâches qui se chevauchent. Cause : `layoutColumns` ignorait la hauteur mini de 22 px des blocs. **0.33.1** : colonnes calculées sur la fin dessinée (`visualEnd`). Test `test_blocs_courts_cote_a_cote` (échoue sans le correctif) ; 445 vérifications. À valider sur appareil.
