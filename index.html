@@ -350,7 +350,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.35.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.35.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -2314,11 +2314,14 @@ const isRealDateKey = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test
 function readBackup() {
   let raw = null;
   try { raw = JSON.parse(window.localStorage.getItem(BACKUP_KEY)); } catch (e) { raw = null; }
+  return normBackup(raw);
+}
+function normBackup(raw) {     // 0.35.1 : aussi appliqué à l'état du rappel reçu d'un autre appareil (clé « sauvegarde », CONVENTIONS §54)
   raw = raw && typeof raw === 'object' ? raw : {};
   return { last: isRealDateKey(raw.last) ? raw.last : null, since: isRealDateKey(raw.since) ? raw.since : null, snooze: isRealDateKey(raw.snooze) ? raw.snooze : null,
     every: BACKUP_EVERY.includes(raw.every) ? raw.every : BACKUP_EVERY_DEFAULT };
 }
-function writeBackup(b) { try { window.localStorage.setItem(BACKUP_KEY, JSON.stringify(b)); } catch (e) { /* ignoré : le rappel est facultatif */ } }
+function writeBackup(b) { try { window.localStorage.setItem(BACKUP_KEY, JSON.stringify(b)); syncTouch(); } catch (e) { /* ignoré : le rappel est facultatif */ } }
 function backupMarkChanged() { const b = readBackup(); if (!b.since) { b.since = dateKey(new Date()); writeBackup(b); } }
 function backupMarkSaved() { const b = readBackup(); b.last = dateKey(new Date()); b.since = null; b.snooze = null; writeBackup(b); }
 function backupMarkImported() { const b = readBackup(); b.since = null; b.snooze = null; writeBackup(b); }
@@ -2338,13 +2341,13 @@ function backupBannerHtml() {
   const d = backupDue();
   if (!d) return '';
   return '<div class="banner warn" id="backup-banner"><strong>Pense à sauvegarder tes données</strong><br>Des modifications ne sont pas sauvegardées depuis ' + plural(d.days, 'jour', 'jours') +
-    ' (depuis ' + esc(fromLabel(d.since)) + '). ' + (d.last ? 'Dernière sauvegarde : ' + esc(fromLabel(d.last)) + '.' : 'Aucune sauvegarde faite depuis cet appareil.') +
+    ' (depuis ' + esc(fromLabel(d.since)) + '). ' + (d.last ? 'Dernière sauvegarde : ' + esc(fromLabel(d.last)) + '.' : 'Aucune sauvegarde faite.') +
     '<div class="btnrow" style="margin-top:8px"><button type="button" class="btn primary" data-action="backup-now">Exporter maintenant</button>' +
     '<button type="button" class="btn" data-action="backup-later">Plus tard</button></div></div>';
 }
 function backupInfoHtml() {
   const b = readBackup();
-  return (b.last ? 'Dernière sauvegarde : ' + esc(fmtDateLabel(b.last).toLowerCase()) + ' (' + ago(b.last) + ').' : 'Aucune sauvegarde faite depuis cet appareil.') + ' ' +
+  return (b.last ? 'Dernière sauvegarde : ' + esc(fmtDateLabel(b.last).toLowerCase()) + ' (' + ago(b.last) + ').' : 'Aucune sauvegarde faite.') + ' ' +
     (b.since ? 'Modifications non sauvegardées depuis ' + esc(fromLabel(b.since)) + '.' : 'Aucune modification depuis la dernière sauvegarde.');
 }
 function backupSettingsHtml() {
@@ -3290,9 +3293,9 @@ async function syncFetch(path, opts, retried) {
 // ---- État local, vu comme des clés ----
 // Lecture brute (jamais de `sanitize` ici : il peut inventer des identifiants et changerait l'empreinte à chaque lecture).
 function syncLocal() {
-  let rs, ds;
-  try { rs = window.localStorage.getItem(STORAGE_KEY); ds = window.localStorage.getItem(DAYS_KEY); } catch (e) { throw syncErr('local', 'stockage indisponible sur cet appareil'); }
-  if (syncCache.out && syncCache.rs === rs && syncCache.ds === ds) return syncCache.out;
+  let rs, ds, bs;
+  try { rs = window.localStorage.getItem(STORAGE_KEY); ds = window.localStorage.getItem(DAYS_KEY); bs = window.localStorage.getItem(BACKUP_KEY); } catch (e) { throw syncErr('local', 'stockage indisponible sur cet appareil'); }
+  if (syncCache.out && syncCache.rs === rs && syncCache.ds === ds && syncCache.bs === bs) return syncCache.out;
   const out = {};
   if (rs !== null) {
     let d;
@@ -3312,7 +3315,8 @@ function syncLocal() {
       out['jour:' + k] = { data: day, hash: hashOf(day) };
     });
   }
-  syncCache = { rs: rs, ds: ds, out: out };
+  if (bs !== null) { const b = readBackup(); out.sauvegarde = { data: b, hash: hashOf(b) }; }    // état du rappel de sauvegarde : une sauvegarde faite sur un appareil vaut pour tous
+  syncCache = { rs: rs, ds: ds, bs: bs, out: out };
   return out;
 }
 
@@ -3326,30 +3330,31 @@ async function syncPull() {
   if (!Array.isArray(rows)) throw syncErr('http', 'réponse inattendue');
   const first = !syncMeta.done;
   const local = syncLocal();
-  let maxMaj = syncMeta.since, newSettings = null;
+  let maxMaj = syncMeta.since, newSettings = null, newBackup = null, backupChanged = false;
   const dayChanges = {}, synced = {}, lost = [];
   rows.forEach((row) => {
     if (!row || typeof row.cle !== 'string') return;
     if (row.maj && (!maxMaj || Date.parse(row.maj) > Date.parse(maxMaj))) maxMaj = row.maj;
     const key = row.cle;
-    if (key !== 'reglages' && !/^jour:\d{4}-\d{2}-\d{2}$/.test(key)) return;
+    if (key !== 'reglages' && key !== 'sauvegarde' && !/^jour:\d{4}-\d{2}-\d{2}$/.test(key)) return;
     const env = row.valeur;
     if (!env || typeof env !== 'object' || !('d' in env)) return;
     const rdata = env.d;
     if (key === 'reglages' && (rdata === null || typeof rdata !== 'object')) return;
+    if (key === 'sauvegarde' && rdata !== null && typeof rdata !== 'object') return;
     const rhash = rdata === null ? null : hashOf(rdata);
     const l = local[key], lhash = l ? l.hash : null;
     if (rhash === lhash) { synced[key] = rhash; return; }                       // déjà identique (par exemple mon propre envoi)
     const isDirty = l ? l.hash !== syncMeta.synced[key] : (key in syncMeta.synced);   // modifié (ou supprimé) ici depuis la dernière synchro
     if (isDirty && !first) { lost.push([key, 'distant', rdata]); return; }       // conflit : la version de cet appareil est envoyée ensuite
     if (isDirty && first && l) lost.push([key, 'local', l.data]);                      // première synchro : le distant l'emporte, l'ancienne version est gardée
-    if (key === 'reglages') newSettings = rdata; else dayChanges[key.slice(5)] = rdata;
+    if (key === 'reglages') newSettings = rdata; else if (key === 'sauvegarde') { newBackup = rdata; backupChanged = true; } else dayChanges[key.slice(5)] = rdata;
     synced[key] = rhash;
   });
-  const needsApply = !!newSettings || Object.keys(dayChanges).length > 0;
+  const needsApply = !!newSettings || backupChanged || Object.keys(dayChanges).length > 0;
   if (needsApply && (panelOpen || reviewPick !== null || (newSettings && dirty))) return null;   // saisie en cours : on réessaie au prochain passage
   lost.forEach((x) => syncKeepLost(x[0], x[1], x[2]));
-  const applied = { settings: false, days: false };
+  const applied = { settings: false, days: false, backup: false };
   try {
     if (newSettings) {
       const clean = sanitize(JSON.parse(JSON.stringify(newSettings)));
@@ -3361,6 +3366,10 @@ async function syncPull() {
       const clean = sanitizeDays(cand);
       if (clean) { window.localStorage.setItem(DAYS_KEY, JSON.stringify(clean)); daysData = clean; applied.days = true; }
     }
+    if (backupChanged) {
+      if (newBackup === null) window.localStorage.removeItem(BACKUP_KEY); else window.localStorage.setItem(BACKUP_KEY, JSON.stringify(normBackup(newBackup)));
+      applied.backup = true;
+    }
   } catch (e) { throw syncErr('local', 'enregistrement impossible sur cet appareil'); }
   syncCache = { rs: undefined, ds: undefined, out: null };
   const after = syncLocal();
@@ -3370,7 +3379,7 @@ async function syncPull() {
   });
   syncMeta.since = maxMaj;
   syncMeta.done = true;
-  return applied.settings || applied.days ? applied : false;
+  return applied.settings || applied.days || applied.backup ? applied : false;
 }
 
 // ---- Écriture : ce qui a changé ici ----
@@ -3426,6 +3435,11 @@ function syncSafeToRender() {
   return !panelOpen && reviewPick === null && !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
 }
 function syncRefreshUi(applied) {
+  if (applied && applied.backup) {                      // rappel de sauvegarde reçu : bandeau et résumé à jour tout de suite (rien à saisir là)
+    refreshBackupUi();
+    const sel = $('#backup-every');
+    if (sel && document.activeElement !== sel) sel.value = String(readBackup().every);
+  }
   if (applied) syncUiPending = Object.assign(syncUiPending || { settings: false, days: false }, { settings: (syncUiPending && syncUiPending.settings) || applied.settings, days: (syncUiPending && syncUiPending.days) || applied.days });
   if (!syncUiPending) return;
   if (!syncSafeToRender()) return;                      // on affiche au prochain passage, pour ne pas voler la saisie
@@ -3539,7 +3553,7 @@ function init() {
   }, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshRecapNow(); renderBackupBanner(); } });   // retour dans l'app après une mise en veille : l'heure affichée est rattrapée tout de suite
   window.addEventListener('pageshow', () => { refreshRecapNow(); });
-  window.PDJ = { shortcutPayload: shortcutPayload, calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree, dayMarks: dayMarks, cleanTrip: cleanTrip, syncNow: syncNow };   // point d'accès pour les tests
+  window.PDJ = { shortcutPayload: shortcutPayload, calendarEvents: calendarEvents, buildIcs: buildIcs, workReport: workReport, presenceNet: presenceNet, cleanPresence: cleanPresence, resolveProfile: resolveProfile, lastWorkDay: lastWorkDay, eveOfReturn: eveOfReturn, statsFor: statsFor, statsRange: statsRange, buildDay: buildDay, defaultSettings: defaultSettings, emptyDay: emptyDay, parseTime: parseTime, formatTime: formatTime, cleanCats: cleanCats, catKind: catKind, statsTree: statsTree, dayMarks: dayMarks, cleanTrip: cleanTrip, syncNow: syncNow, backupMarkSaved: backupMarkSaved, readBackup: readBackup };   // point d'accès pour les tests
   const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   if ('serviceWorker' in navigator && (!isLocal || /[?&]sw=1/.test(location.search))) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, sans gravité */ });

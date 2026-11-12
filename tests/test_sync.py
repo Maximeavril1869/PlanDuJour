@@ -197,7 +197,7 @@ def test_connexion_et_envoi(browser, fake):
     check('connecté : le compte est affiché', wait(a, "() => document.querySelector('#sync-status')") and EMAIL in a.inner_text('#sync-box'))
     check('les réglages et le jour sont envoyés', wait(a, "() => true") and wait_remote(fake, lambda: 'reglages' in fake.rows and ('jour:' + DAY1) in fake.rows), list(fake.rows))
     check('le contenu du jour est identique côté serveur', remote_names(fake, DAY1) == ['Rdv test A'], remote_names(fake, DAY1))
-    check('un jour vide jamais synchronisé n’est pas envoyé', all(k in ('reglages', 'jour:' + DAY1) for k in fake.rows), list(fake.rows))
+    check('un jour vide jamais synchronisé n’est pas envoyé', all(k in ('reglages', 'sauvegarde', 'jour:' + DAY1) for k in fake.rows), list(fake.rows))
     check('l’état affiché est « Synchronisé »', wait(a, "() => document.querySelector('#sync-status') && document.querySelector('#sync-status').textContent.startsWith('Synchronisé')"), status(a))
     dump = a.evaluate("() => JSON.stringify(Object.assign({}, localStorage))")
     check('le mot de passe n’est stocké nulle part', PASSWORD not in dump)
@@ -358,6 +358,29 @@ def test_reglages_en_cours_de_saisie(browser):
     check('aucune erreur JavaScript', not a.errors and not b.errors, a.errors + b.errors)
 
 
+def test_sauvegarde_partagee(browser):
+    print('Rappel de sauvegarde : une sauvegarde faite sur un appareil vaut pour tous (0.35.1)')
+    fake = FauxSupabase()
+    a = device(browser, fake)
+    seed(a, {DAY1: day_with('Rdv test')})
+    a.evaluate("() => localStorage.setItem('plandujour.sauvegarde', JSON.stringify({ since: '2026-11-01', last: null, every: 7 }))")
+    a.reload()
+    login(a)
+    check('l’état du rappel est envoyé avec les données', wait_remote(fake, lambda: 'sauvegarde' in fake.rows), list(fake.rows))
+    b = device(browser, fake)
+    login(b)
+    check('B reçoit « modifications non sauvegardées depuis… »', wait(b, "() => window.PDJ.readBackup().since === '2026-11-01'"))
+    check('le bandeau de rappel s’affiche sur B', wait(b, "() => !!document.querySelector('#backup-banner')"))
+    a.evaluate("() => window.PDJ.backupMarkSaved()")
+    sync(a)
+    check('A envoie « sauvegarde faite »', wait_remote(fake, lambda: (fake.rows['sauvegarde']['valeur']['d'] or {}).get('since') is None and fake.rows['sauvegarde']['valeur']['d'].get('last')))
+    sync(b)
+    check('B sait que la sauvegarde est faite', wait(b, "() => window.PDJ.readBackup().since === null && window.PDJ.readBackup().last !== null"))
+    check('le bandeau de rappel disparaît de B sans rien faire', wait(b, "() => !document.querySelector('#backup-banner')"))
+    check('le résumé de Réglages de B est à jour', wait(b, "() => document.querySelector('#backup-info') && document.querySelector('#backup-info').textContent.includes('Aucune modification depuis la dernière sauvegarde')"))
+    check('aucune erreur JavaScript', not a.errors and not b.errors, a.errors + b.errors)
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -372,6 +395,7 @@ def main():
         test_jeton_expire(browser)
         test_deconnexion(browser)
         test_reglages_en_cours_de_saisie(browser)
+        test_sauvegarde_partagee(browser)
         browser.close()
     failed = [n for n, ok in RESULTS if not ok]
     print('\n%d vérifications, %d échec(s)' % (len(RESULTS), len(failed)))

@@ -2,7 +2,7 @@
 
 Vue d'ensemble du fonctionnement de l'app. Les **règles de travail** sont dans [CONVENTIONS.md](CONVENTIONS.md), l'**avancement par lot** dans [STATUS.md](STATUS.md), l'**historique des opérations** dans [CARNET.md](CARNET.md).
 
-Version décrite : **0.35.0**.
+Version décrite : **0.35.1**.
 
 ## 1. Principe
 
@@ -161,7 +161,7 @@ Au démarrage, l'app demande au système la protection du stockage (`navigator.s
 | Élément | Détail |
 |---|---|
 | Service | Supabase, projet `plan-du-jour` ; table `donnees (user_id, app, cle, valeur jsonb, maj)`, règles d'accès (RLS) : chacun ne voit que ses lignes ; inscriptions fermées |
-| Clés | `reglages` et `jour:AAAA-MM-JJ` ; `valeur = { d: … }` (`d = null` : supprimé) |
+| Clés | `reglages`, `jour:AAAA-MM-JJ` et `sauvegarde` (état du rappel de sauvegarde, partagé entre appareils) ; `valeur = { d: … }` (`d = null` : supprimé) |
 | Envoi | 1,5 s après un enregistrement local (`syncTouch` dans `saveSettings` / `saveDays`) |
 | Lecture | toutes les 5 s si l'app est visible, au retour dans l'app et au retour du réseau ; curseur `since` avec 3 s de marge |
 | Conflit | version locale envoyée, version écrasée gardée ; première synchro d'un appareil : le serveur l'emporte |

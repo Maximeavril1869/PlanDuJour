@@ -21,6 +21,13 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
 - Tests : 416 vérifications (17 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
 
+## 12 novembre 2026 (0.35.1, le rappel de sauvegarde suit la synchronisation)
+
+- Retour de test de l'utilisateur : la synchronisation fonctionne (réseau coupé puis rétabli : la saisie arrive bien). Remarque : le rappel de sauvegarde était attendu séparément sur chaque appareil, ce qui n'a pas de sens quand les données sont les mêmes.
+- Fait : l'état du rappel (`plandujour.sauvegarde` : dernière sauvegarde, modifications non sauvegardées, report, délai) devient la clé `sauvegarde` de la synchronisation. Une sauvegarde faite sur un appareil efface le rappel sur les autres en quelques secondes. Textes « depuis cet appareil » retirés. Fonction `normBackup` factorisée.
+- Tests : `test_sync.py` (61 vérifications, dont le rappel partagé) ; `test_sauvegarde.py` adapté aux nouveaux textes ; toute la suite passe (deux tests ont échoué une fois sous forte charge en parallèle, puis passent seuls et en relance : sensibles au temps, sans lien avec ce lot).
+- Question laissée à l'utilisateur : la mention « Hors ligne » n'a pas été vue pendant le test réseau coupé (l'état n'est affiché que dans Réglages › Synchronisation) ; faut-il un indicateur discret visible partout ?
+
 ## 11 novembre 2026 (0.35.0, synchronisation avec un compte)
 
 - Demande : retrouver le même plan sur iPhone et iPad en quasi temps réel. Décisions de l'utilisateur : relève automatique (option « sans bibliothèque »), jamais de modification simultanée des deux appareils, aucune donnée à conserver au départ, compte unique. Dérogation aux règles « aucun serveur » acceptée (CONVENTIONS §54).
