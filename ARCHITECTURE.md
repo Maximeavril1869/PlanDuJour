@@ -174,6 +174,8 @@ flowchart LR
   T -->|lecture| A
 ```
 
+**Bannière « Hors ligne » (0.36.0)** : barre fine `#offbar` au-dessus des onglets, visible partout, qui ne bloque aucun toucher. Affichée si un compte est connecté et que le navigateur est hors ligne ou que la dernière synchro a échoué sur le réseau (`syncState.status === 'offline'`) ; mise à jour par `offbarUpdate()` (voir CONVENTIONS §55).
+
 Hors synchronisation, GitHub ne reçoit que le code. Le dépôt ne contient aucune donnée saisie ; la clé publique Supabase y figure (sans danger : voir CONVENTIONS §54).
 
 ## 8. Déploiement

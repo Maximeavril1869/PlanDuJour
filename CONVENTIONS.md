@@ -443,3 +443,12 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - État propre à l'appareil, jamais exporté : `plandujour.sync.session`, `plandujour.sync.meta`, `plandujour.sync.conflits`.
 - Limites connues : connexion Internet nécessaire pour synchroniser ; palier gratuit Supabase (mise en pause d'un projet inactif à vérifier) ; pas de temps réel « push » (relève toutes les 5 s).
 - Tests : `tests/test_sync.py` (faux serveur en mémoire, deux appareils simulés).
+
+## 55. Bannière « Hors ligne » (0.36.0)
+
+- **Décidé par l'utilisateur** : une bannière qui annonce l'absence de réseau **sans empêcher d'utiliser l'app**, placée **en bas, au-dessus des onglets**, visible sur tous les onglets.
+- Élément `#offbar` (`position: fixed`, 28 px, `pointer-events: none` : aucun toucher n'est intercepté). Tant qu'il est affiché, `body` porte la classe `offline` : la barre « Enregistrer », le toast et le bas de page montent d'autant.
+- Affichée seulement si un compte est connecté (`syncSession`) **et** que le réseau manque : `navigator.onLine === false`, ou état de synchro `offline` (échec réseau de la dernière tentative). Le second cas est indispensable : en Wi-Fi sans internet, `navigator.onLine` reste vrai sur iOS.
+- `offbarUpdate()` est appelée à chaque changement d'état de synchro (`setSyncStatus`), à l'événement `offline`, à chaque relève (5 s) et au rendu de la carte de synchronisation (connexion, déconnexion). Sans compte, aucune bannière : l'app est locale et rien n'est à synchroniser.
+- Le texte reste court (une ligne, ~50 caractères) ; le détail (« tes modifications partiront dès le retour du réseau ») reste dans Réglages › Synchronisation.
+- Tests : `tests/test_bandeau_hors_ligne.py`.

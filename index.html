@@ -147,6 +147,15 @@ button { font: inherit; }
 }
 .tabbar button { height: var(--tabbar-h); border: 0; background: none; color: var(--muted); font-size: 14px; padding: 0 2px; }
 .tabbar button[aria-selected=true] { color: var(--accent); font-weight: 700; }
+/* Bannière « Hors ligne » (0.36.0) : au-dessus des onglets, sur tous les écrans, sans rien bloquer. La barre d'enregistrement et le toast montent d'autant. */
+.offbar {
+  position: fixed; left: 0; right: 0; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); height: 28px; line-height: 27px; padding: 0 10px; z-index: 5;
+  text-align: center; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+  background: var(--warn-bg); color: var(--warn-ink); border-top: 1px solid var(--fix-line);
+}
+body.offline .savebar { bottom: calc(var(--tabbar-h) + 28px + env(safe-area-inset-bottom)); }
+body.offline main { padding-bottom: calc(var(--tabbar-h) + 138px + env(safe-area-inset-bottom)); }
+body.offline .toast { bottom: calc(var(--tabbar-h) + 104px + env(safe-area-inset-bottom)); }
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + 76px + env(safe-area-inset-bottom));
   background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 22px; font-size: 14px; z-index: 6; max-width: 90vw;
@@ -342,6 +351,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
   <button type="button" role="tab" id="tab-stats" data-tab="stats" aria-selected="false">Stats</button>
   <button type="button" role="tab" id="tab-settings" data-tab="settings" aria-selected="false">Réglages</button>
 </nav>
+<div class="offbar" id="offbar" role="status" aria-live="polite" hidden>Hors ligne : tes modifications sont gardées sur cet appareil</div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <noscript><p style="padding:16px">Cette app a besoin de JavaScript.</p></noscript>
 
@@ -350,7 +360,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.35.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.36.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -3450,6 +3460,7 @@ function syncRefreshUi(applied) {
   renderDay();
 }
 function syncPoll() {
+  offbarUpdate();
   if (!syncSession || document.hidden || navigator.onLine === false) return;
   if (syncUiPending) syncRefreshUi(null);
   syncNow();
@@ -3458,6 +3469,7 @@ function syncStart() {
   setInterval(syncPoll, SYNC_POLL_MS);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
   window.addEventListener('online', () => { syncNow(); });
+  window.addEventListener('offline', offbarUpdate);
   if (syncSession) syncNow();
 }
 
@@ -3470,10 +3482,20 @@ function syncStatusText() {
   if (s.status === 'error') return 'Erreur : ' + s.msg + ' (nouvel essai automatique).';
   return 'Synchronisation en cours…';
 }
+// Bannière « Hors ligne » : seulement si un compte est connecté (sinon rien à synchroniser) et que le réseau manque : navigateur hors ligne, ou dernière
+// tentative de synchronisation tombée en échec réseau (Wi-Fi sans internet : `navigator.onLine` reste vrai, d'où l'état `offline` de la synchro).
+function offbarUpdate() {
+  const el = $('#offbar');
+  if (!el) return;
+  const off = !!(syncSession && (syncState.status === 'offline' || (typeof navigator !== 'undefined' && navigator.onLine === false)));
+  el.hidden = !off;
+  document.body.classList.toggle('offline', off);
+}
 function setSyncStatus(status, msg) {
   const was = syncState.status;
   syncState.status = status;
   syncState.msg = msg || '';
+  offbarUpdate();
   if (status === 'auth' || was === 'auth') renderSyncBox(); else refreshSyncStatus();
 }
 function refreshSyncStatus() {
@@ -3481,6 +3503,7 @@ function refreshSyncStatus() {
   if (el) el.textContent = syncStatusText();
 }
 function renderSyncBox() {
+  offbarUpdate();
   const box = $('#sync-box');
   if (!box) return;
   if (!syncSession) {

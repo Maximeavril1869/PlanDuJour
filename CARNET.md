@@ -4,9 +4,9 @@ Journal daté de toutes les opérations sur le projet, pour savoir où il en est
 
 Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECTURE.md), [CONVENTIONS.md](CONVENTIONS.md).
 
-## Où en est le projet (11 novembre 2026)
+## Où en est le projet (12 novembre 2026)
 
-- Version **0.35.0** (synchronisation avec un compte, à valider sur iPhone et iPad : voir l'entrée du 11 novembre) ; la **0.34.0** était poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.36.0** (bannière « Hors ligne » visible sur tous les onglets, à valider sur iPhone et iPad : voir l'entrée du 12 novembre, soir). Synchronisation avec un compte (0.35.0 et 0.35.1) validée sur appareils le 12 novembre ; la **0.35.0** (synchronisation avec un compte, voir l'entrée du 11 novembre) ; la **0.34.0** était poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -19,7 +19,16 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Avant la 1.0 : validation sur iPhone puis iPad (liste de contrôles à fournir). La sauvegarde elle-même existe (Réglages > Sauvegarde : export / import JSON).
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
-- Tests : 416 vérifications (17 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+- Tests : 536 vérifications (21 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+
+## 12 novembre 2026, soir (0.36.0, bannière « Hors ligne »)
+
+- Retour de test de l'utilisateur : réseau coupé (test 5) : la saisie reste bien en local et repart au retour du réseau, mais il n'a pas vu « Hors ligne », car cette mention n'existait que dans Réglages › Synchronisation. Décision de l'utilisateur : une **bannière** qui annonce l'absence de réseau **sans empêcher d'utiliser l'app**, **en bas, au-dessus des onglets**.
+- Fait : barre fine `#offbar` (CONVENTIONS §55) visible sur les quatre onglets, `pointer-events: none`. La barre « Enregistrer » de Réglages, le toast et le bas de page montent d'autant tant qu'elle est affichée (classe `offline` sur `body`). Affichée seulement si un compte est connecté : événement `offline` du navigateur, ou dernière tentative de synchro tombée en échec réseau (couvre un Wi-Fi sans internet, où `navigator.onLine` reste vrai). Disparaît quand une synchro réussit ou à la déconnexion.
+- Tests : `tests/test_bandeau_hors_ligne.py` (20 vérifications) ; toute la suite passe (536 vérifications, 21 fichiers, en séquence).
+- Pas de compteur « N modifications en attente » (non demandé) : la bannière dit seulement que les modifications sont gardées sur l'appareil.
+- À valider sur iPhone et iPad : mode avion (apparition immédiate sur chaque onglet, la barre « Enregistrer » reste visible au-dessus), retour du réseau (disparition en quelques secondes). Non testé : le comportement exact d'iOS en Wi-Fi sans internet.
+- Même séance, côté Mon Compte : rappel de sauvegarde aligné sur celui-ci et bannière du même type (voir `JOURNAL.md` du dépôt Suivi).
 
 ## 12 novembre 2026 (0.35.1, le rappel de sauvegarde suit la synchronisation)
 
