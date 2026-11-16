@@ -4,9 +4,9 @@ Journal daté de toutes les opérations sur le projet, pour savoir où il en est
 
 Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECTURE.md), [CONVENTIONS.md](CONVENTIONS.md).
 
-## Où en est le projet (12 novembre 2026)
+## Où en est le projet (16 novembre 2026)
 
-- Version **0.36.0** (bannière « Hors ligne » visible sur tous les onglets, à valider sur iPhone et iPad : voir l'entrée du 12 novembre, soir). Synchronisation avec un compte (0.35.0 et 0.35.1) validée sur appareils le 12 novembre ; la **0.35.0** (synchronisation avec un compte, voir l'entrée du 11 novembre) ; la **0.34.0** était poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
+- Version **0.37.0** : le départ en pause et le départ du travail coupent les actions « sans heure » en cours (voir l'entrée du 16 novembre) ; à valider sur iPhone et iPad. Avant : **0.36.0** (bannière « Hors ligne » visible sur tous les onglets, à valider sur iPhone et iPad : voir l'entrée du 12 novembre, soir). Synchronisation avec un compte (0.35.0 et 0.35.1) validée sur appareils le 12 novembre ; la **0.35.0** (synchronisation avec un compte, voir l'entrée du 11 novembre) ; la **0.34.0** était poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
 - Regroupements par catégorie en menus repliables, fermés au départ (0.21.0) : page du jour (« Sans heure »), Réglages (Activités, Tâches habituelles). À valider sur appareil.
 - Sous-activités cochables (0.22.0) : case « fait » par sous-activité et par jour, cochée d'office à l'arrêt du chrono ou à la saisie d'un temps, progression « n/m » dans « Sans heure ». À valider sur appareil.
@@ -20,6 +20,15 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
 - Tests : 536 vérifications (21 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+
+## 16 novembre 2026 (0.37.0, la pause et le départ coupent l'action en cours)
+
+- Demande de l'utilisateur : le départ en pause ou le départ du travail doivent couper l'action en cours (celles sans heure).
+- Questions posées et réponses : (1) seulement les blocs « sans heure » (les blocs à heure fixe ou prévue ne bougent pas) ; (2) saisie à la main d'une pause ou d'un départ : coupe à l'heure saisie une action démarrée avant, laisse telle quelle une action démarrée après ; (3) la reprise après une pause ne relance rien.
+- Fait : fonction `closeFreeRunning(day, at, live)` (`index.html`, section Chrono), appelée par les boutons **Pause** et **Je pars** (heure du moment, action démarrée à la même minute incluse), par **Ajouter la pause** (heure de début de pause) et par la saisie du champ **Départ** (heure saisie). Elle ferme les passages et sous-activités chronométrés des blocs sans heure (sous-activité cochée « faite » comme à l'arrêt du chrono) et un éventuel ancien temps réel ouvert.
+- Tests : `tests/test_coupure_presence.py` (16 vérifications) ; contrôle négatif fait (7 échecs sans la correction) ; toute la suite passe (552 vérifications, 22 fichiers, en séquence).
+- Non traité (non demandé) : la pause saisie à la main avec une heure de fin dans le futur, et le bouton « Je rentre chez moi » (retour de chez soi) ne coupent rien.
+- À valider sur iPhone et iPad : lancer une tâche sans heure, appuyer sur Pause (le chrono s'arrête, la pause démarre), puis Reprise (rien ne repart) ; idem avec « Je pars ».
 
 ## 12 novembre 2026, soir (0.36.0, bannière « Hors ligne »)
 

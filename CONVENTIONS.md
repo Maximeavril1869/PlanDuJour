@@ -452,3 +452,11 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - `offbarUpdate()` est appelée à chaque changement d'état de synchro (`setSyncStatus`), à l'événement `offline`, à chaque relève (5 s) et au rendu de la carte de synchronisation (connexion, déconnexion). Sans compte, aucune bannière : l'app est locale et rien n'est à synchroniser.
 - Le texte reste court (une ligne, ~50 caractères) ; le détail (« tes modifications partiront dès le retour du réseau ») reste dans Réglages › Synchronisation.
 - Tests : `tests/test_bandeau_hors_ligne.py`.
+
+## 56. Pause et départ du travail coupent l'action en cours (0.37.0)
+
+- **Décidé par l'utilisateur** : le départ en pause et le départ du travail coupent l'action en cours, **seulement pour les blocs « sans heure »**. Un bloc à heure fixe ou prévue n'est pas touché. La reprise après une pause **ne relance rien**.
+- Fonction `closeFreeRunning(day, at, live)` : ferme à l'heure `at` les passages et sous-activités chronométrés des blocs de mode `free` (sous-activité cochée « faite », comme à l'arrêt du chrono) et un ancien temps réel ouvert. Le mode se lit par `findItem(key).mode`.
+- Appelée par : bouton **Pause** et bouton **Je pars** (`live = true` : une action démarrée à la même minute est coupée aussi, durée minimale d'une minute) ; **Ajouter la pause** (heure de début de pause) et champ **Départ** (heure saisie), avec `live = false` : seule une action démarrée **avant** l'heure saisie est coupée, une action démarrée après est laissée telle quelle.
+- Ne coupe rien : « Je rentre chez moi », « Reprise », l'arrivée.
+- Tests : `tests/test_coupure_presence.py`.

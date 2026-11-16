@@ -174,6 +174,8 @@ flowchart LR
   T -->|lecture| A
 ```
 
+**Coupure par la présence (0.37.0)** : `closeFreeRunning` (section Chrono de `index.html`) arrête les actions « sans heure » en cours quand la présence passe en pause ou en départ (boutons ou saisie), voir CONVENTIONS §56.
+
 **Bannière « Hors ligne » (0.36.0)** : barre fine `#offbar` au-dessus des onglets, visible partout, qui ne bloque aucun toucher. Affichée si un compte est connecté et que le navigateur est hors ligne ou que la dernière synchro a échoué sur le réseau (`syncState.status === 'offline'`) ; mise à jour par `offbarUpdate()` (voir CONVENTIONS §55).
 
 Hors synchronisation, GitHub ne reçoit que le code. Le dépôt ne contient aucune donnée saisie ; la clé publique Supabase y figure (sans danger : voir CONVENTIONS §54).

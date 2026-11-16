@@ -360,7 +360,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.36.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.37.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -2064,12 +2064,14 @@ function presenceAction(a, data) {
     if (!day.presence) day.presence = { start: now, end: null, pauses: [] }; else day.presence.end = null;
   } else if (a === 'pres-pause' && now !== null && day.presence && day.presence.end === null && !day.presence.pauses.some((g) => g.end === null)) {
     day.presence.pauses.push({ start: now, end: null });
+    closeFreeRunning(day, now, true);                // le départ en pause coupe les actions « sans heure » en cours
   } else if (a === 'pres-resume' && now !== null && day.presence) {
     day.presence.pauses.forEach((g) => { if (g.end === null) g.end = Math.min(1439, Math.max(now, g.start + 1)); });
   } else if (a === 'pres-out' && now !== null && day.presence && day.presence.end === null) {
     const p = day.presence;
     p.pauses.forEach((g) => { if (g.end === null) g.end = Math.min(1439, Math.max(now, g.start + 1)); });
     p.end = Math.min(1439, Math.max(now, p.start + 1));
+    closeFreeRunning(day, now, true);                // le départ du travail coupe les actions « sans heure » en cours
   } else if (a === 'pres-delpause' && day.presence) {
     day.presence.pauses.splice(Number(data.i), 1);
   } else if (a === 'pres-addpause') {
@@ -2077,6 +2079,7 @@ function presenceAction(a, data) {
     if (!day.presence) { showToast('Renseigne d’abord l’arrivée', 'err'); return; }
     if (s0 === null || e0 === null || e0 <= s0) { showToast('Pause : début et fin valides (fin après début)', 'err'); return; }
     day.presence.pauses.push({ start: s0, end: e0 });
+    closeFreeRunning(day, s0, false);                // pause saisie à la main : coupe à l'heure de début de pause
   } else return;
   persistDays(); renderDay();
 }
@@ -2112,7 +2115,7 @@ function presenceEdit(which, text) {
     if (t === undefined) { if (p) p.end = null; }
     else if (!p) { showToast('Renseigne d’abord l’arrivée', 'err'); renderDay(); return; }
     else if (t <= p.start) { showToast('Le départ doit être après l’arrivée', 'err'); renderDay(); return; }
-    else { p.end = t; p.pauses.forEach((g) => { if (g.end === null) g.end = Math.min(p.end, Math.max(g.start + 1, p.end)); }); }
+    else { p.end = t; p.pauses.forEach((g) => { if (g.end === null) g.end = Math.min(p.end, Math.max(g.start + 1, p.end)); }); closeFreeRunning(day, t, false); }
   }
   persistDays(); renderDay();
 }
@@ -2147,6 +2150,20 @@ function closeRunning(day, now, exceptKey) {
     if (k !== exceptKey && r.start !== null && r.end === null) r.end = Math.min(1439, Math.max(now, r.start + 1));
   });
   Object.keys(day.segs).forEach((k) => day.segs[k].forEach((g) => { if (g.end === null) { g.end = Math.min(1439, Math.max(now, g.start + 1)); markKidDone(day, k, g.cid); } }));
+}
+// Départ en pause ou départ du travail (0.37.0) : coupe à l'heure `at` les actions « sans heure » en cours (passages, sous-activités, ancien temps réel ouvert).
+// Les blocs à heure fixe ou prévue ne sont pas touchés. Une action démarrée après `at` (heure passée saisie à la main) est laissée telle quelle ;
+// `live` (bouton, heure du moment) : une action démarrée à la même minute est coupée aussi. La reprise ne relance rien.
+function closeFreeRunning(day, at, live) {
+  const before = (start) => (live ? start <= at : start < at);
+  const isFree = (k) => { const it = findItem(k); return !!it && it.mode === 'free'; };
+  Object.keys(day.real).forEach((k) => {
+    const r = day.real[k];
+    if (r.start !== null && r.end === null && before(r.start) && isFree(k)) r.end = Math.min(1439, Math.max(at, r.start + 1));
+  });
+  Object.keys(day.segs).forEach((k) => day.segs[k].forEach((g) => {
+    if (g.end === null && before(g.start) && isFree(k)) { g.end = Math.min(1439, Math.max(at, g.start + 1)); markKidDone(day, k, g.cid); }
+  }));
 }
 const passDraft = {};                              // nom saisi pour le prochain passage, par bloc (survit aux réaffichages de la page)
 function startNow(key) {

@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.36.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.37.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -333,3 +333,15 @@ Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jama
 6. Attention connue : « Réinitialiser… » et l'import d'un fichier s'appliquent aussi aux autres appareils connectés.
 
 Vérifié côté code avec un faux serveur (`tests/test_sync.py`, 53 vérifications). **Non vérifié** : le vrai service Supabase. Règles : CONVENTIONS §54.
+
+## 0.37.0 — la pause et le départ du travail coupent l'action en cours — livré, à valider sur appareil
+
+« Fini » veut dire, sur l'iPhone et l'iPad :
+
+1. Une tâche « sans heure » tourne (chrono lancé) : j'appuie sur **Pause** dans la carte Présence ; son chrono s'arrête à l'heure de la pause, qui démarre.
+2. Je touche **Reprise** : la pause se termine, rien ne repart tout seul.
+3. Même chose avec **Je pars** : le chrono en cours s'arrête à l'heure du départ.
+4. Un bloc à heure fixe ou prévue dont le chrono tourne n'est pas coupé.
+5. Saisie à la main : une pause (début) ou un départ saisi coupe à l'heure saisie une action démarrée avant ; une action démarrée après est laissée telle quelle.
+
+Vérifié côté code (`tests/test_coupure_presence.py`, 16 vérifications, contrôle négatif fait). Règles : CONVENTIONS §56.
