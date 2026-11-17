@@ -65,7 +65,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Demande : le bloc en cours juste au-dessus du menu du bas ; menu toujours visible ; pas utile sur les autres jours.
 - Fait : bandeau fixé au-dessus des onglets sur le Jour d'aujourd'hui (CONVENTIONS §54), empilé avec la bannière « Hors ligne ». Test `tests/test_bandeau_encours.py` (12 vérifications), suite complète au vert, capture iPhone vérifiée.
 - Constat : la condition « aujourd'hui » est redondante (un bloc n'est en cours que le jour même), non détectée par mutation, sans effet sur le comportement.
-- Commit : HASH **0.38.0**.
+- Commit : `6e34fc9` **0.38.0**.
 
 ## 6 novembre 2026 (0.34.0, choix de la date)
 
