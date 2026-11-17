@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 from test_calendrier import RESULTS, URL, check, seed_defaults
 
 MARDI = datetime(2026, 11, 3, 7, 0)
-R = "() => { const r = document.querySelector('.runbar'); if (!r) return null; const a = r.getBoundingClientRect(), t = document.querySelector('.tabbar').getBoundingClientRect(); return { pos: getComputedStyle(r).position, bottom: a.bottom, tabTop: t.top, vis: a.height > 0 && a.bottom <= innerHeight, tabVis: t.bottom <= innerHeight + 1 && t.height > 0 }; }"
+R = "() => { const r = document.querySelector('.runbar'); if (!r) return null; const a = r.getBoundingClientRect(), t = document.querySelector('.tabbar').getBoundingClientRect(); return { pos: getComputedStyle(r.parentElement).position, bottom: a.bottom, tabTop: t.top, vis: a.height > 0 && a.bottom <= innerHeight, tabVis: t.bottom <= innerHeight + 1 && t.height > 0 }; }"
 
 
 def main():

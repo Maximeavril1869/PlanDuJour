@@ -467,3 +467,11 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Seulement sur l'onglet Jour et le jour d'aujourd'hui (le bandeau fait partie du panneau Jour ; la condition sur la date est une garde redondante, un bloc n'étant « en cours » que le jour même). Rien sur les autres onglets.
 - Empilement : bannière « Hors ligne » (28 px) entre les onglets et le bandeau (`body.offline .runbar`) ; classe `body.hasrun` : marge basse de la page et toast relevés. La barre « Enregistrer » ne concerne que Réglages, où le bandeau n'est pas affiché.
 - Tests : `tests/test_bandeau_encours.py`.
+
+## 55. « À confirmer » fixé en bas avec le bloc en cours (0.39.0)
+
+- Besoin : voir « À confirmer » sans remonter la page (il se perdait au-dessus du reste). Le cadre « À confirmer » (Fait / Raté) rejoint le bloc en cours dans un **bas fixé** (`#day-dock`, `.dock`) au-dessus des onglets : « À confirmer » au-dessus, bloc en cours collé aux onglets (remplace le placement du §54).
+- Aujourd'hui seulement, onglet Jour seulement. Un autre jour (jours passés, où tout est à confirmer) : le cadre reste dans la page, comme avant ; le bloc en cours n'existe que le jour même.
+- Hauteur : `.confbar` limité à 38 % de l'écran, défilable. `setDockHeight()` mesure le bas fixé après chaque rendu et pose `--dock-h` : marge basse de la page et messages (toast) relevés d'autant ; bannière « Hors ligne » sous le bas fixé (`body.offline .dock`).
+- Constat : un bloc souple (« glisse si retard ») derrière un bloc en cours est décalé et n'est plus à confirmer tant que le bloc en cours dure ; c'est le comportement existant du recalage.
+- Tests : `tests/test_bas_ecran.py` ; `tests/test_bandeau_encours.py` adapté (le parent est fixé).

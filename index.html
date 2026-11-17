@@ -39,7 +39,7 @@ body {
 header.app-header { padding: 20px 16px 8px; max-width: 720px; margin: 0 auto; }
 header.app-header h1 { margin: 0; font-size: 26px; letter-spacing: -0.01em; }
 header.app-header p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
-main { max-width: 720px; margin: 0 auto; padding: 8px 16px calc(var(--tabbar-h) + 110px + env(safe-area-inset-bottom)); }
+main { max-width: 720px; margin: 0 auto; padding: 8px 16px calc(var(--tabbar-h) + 110px + var(--dock-h, 0px) + env(safe-area-inset-bottom)); }
 [hidden] { display: none !important; }
 
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 12px 0; }
@@ -154,10 +154,10 @@ button { font: inherit; }
   background: var(--warn-bg); color: var(--warn-ink); border-top: 1px solid var(--fix-line);
 }
 body.offline .savebar { bottom: calc(var(--tabbar-h) + 28px + env(safe-area-inset-bottom)); }
-body.offline main { padding-bottom: calc(var(--tabbar-h) + 138px + env(safe-area-inset-bottom)); }
-body.offline .toast { bottom: calc(var(--tabbar-h) + 104px + env(safe-area-inset-bottom)); }
+body.offline main { padding-bottom: calc(var(--tabbar-h) + 138px + var(--dock-h, 0px) + env(safe-area-inset-bottom)); }
+body.offline .toast { bottom: calc(var(--tabbar-h) + 104px + var(--dock-h, 0px) + env(safe-area-inset-bottom)); }
 .toast {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + 76px + env(safe-area-inset-bottom));
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + 76px + var(--dock-h, 0px) + env(safe-area-inset-bottom));
   background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 22px; font-size: 14px; z-index: 6; max-width: 90vw;
 }
 .toast.err { background: var(--err); color: #fff; }
@@ -169,13 +169,13 @@ body.offline .toast { bottom: calc(var(--tabbar-h) + 104px + env(safe-area-inset
 .daypick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }   /* l'appui sur la date ouvre le calendrier du système (0.34.0) */
 .daytools { display: flex; gap: 10px; margin-bottom: 4px; }
 .daytools .btn { flex: 1; }
+.dock { position: fixed; left: 12px; right: 12px; max-width: 696px; margin: 0 auto; z-index: 5; display: flex; flex-direction: column; gap: 8px;
+  bottom: calc(var(--tabbar-h) + 8px + env(safe-area-inset-bottom)); }
+body.offline .dock { bottom: calc(var(--tabbar-h) + 36px + env(safe-area-inset-bottom)); }
+.dock .confbar { margin: 0; max-height: 38vh; overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+.dock .confbar h2 { margin-top: 0; }
 .runbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--accent); color: var(--accent-ink);
-  border-radius: 14px; padding: 10px 14px; position: fixed; left: 12px; right: 12px; max-width: 696px; margin: 0 auto; z-index: 5;
-  bottom: calc(var(--tabbar-h) + 8px + env(safe-area-inset-bottom)); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
-body.offline .runbar { bottom: calc(var(--tabbar-h) + 36px + env(safe-area-inset-bottom)); }
-body.hasrun main { padding-bottom: calc(var(--tabbar-h) + 190px + env(safe-area-inset-bottom)); }
-body.hasrun .toast { bottom: calc(var(--tabbar-h) + 150px + env(safe-area-inset-bottom)); }
-body.hasrun.offline .toast { bottom: calc(var(--tabbar-h) + 178px + env(safe-area-inset-bottom)); }
+  border-radius: 14px; padding: 10px 14px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 .runbar small { display: block; opacity: .85; }
 .runbar .btn { background: var(--accent-ink); color: var(--accent); border-color: var(--accent-ink); font-weight: 600; }
 .tlwrap { position: relative; margin: 14px 0 0 46px; }
@@ -365,7 +365,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.38.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.39.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1822,6 +1822,11 @@ function tripHtml() {
     '<label class="field"><span class="lbl">Retour chez moi</span><input ' + TIME_ATTRS + ' data-trip="home" value="' + (t.home !== null ? formatTime(t.home) : '') + '"></label></div>' +
     '<p class="hours-help">Ces heures s’affichent comme des lignes sur la frise et dans le Récap, avec l’arrivée, les pauses et le départ du travail. Vide = pas de ligne.</p></details>';
 }
+// Hauteur du bas fixé (À confirmer + bloc en cours) : la page et les messages montent d'autant (0.39.0).
+function setDockHeight() {
+  const d = $('#day-dock');
+  document.body.style.setProperty('--dock-h', d ? d.offsetHeight + 8 + 'px' : '0px');
+}
 function renderDay() {
   renderBackupBanner();
   const build = buildSelected();
@@ -1848,20 +1853,22 @@ function renderDay() {
       (wd1.target ? ' / ' + formatDuration(wd1.target) : '') + '</strong></div>' +
       (wd1.target ? '<p class="hours-help" style="margin:0 0 6px">' + (wd1.minutes >= wd1.target ? 'Cible atteinte (' + signed(wd1.minutes - wd1.target) + ').' : 'Il reste ' + formatDuration(wd1.target - wd1.minutes) + '.') + '</p>' : '<p class="hours-help" style="margin:0 0 6px">Jour sans cible : tout est du hors-horaires.</p>');
   }
-  if (build.toConfirm.length) {
-    head += '<div class="card"><h2>À confirmer</h2><ul class="rows">' + build.toConfirm.map((it) =>
-      '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatTime(it.start) + '–' + formatTime(it.end) + ' (' + formatDuration(it.end - it.start) + ')</span></span><span>' +
-      '<button type="button" class="btn small primary" data-action="confirm-done" data-key="' + esc(it.key) + '">Fait</button> ' +
-      '<button type="button" class="btn small" data-action="confirm-missed" data-key="' + esc(it.key) + '">Raté</button></span></li>').join('') + '</ul></div>';
-  }
-  const runShown = !!build.running && selectedDate === dateKey(new Date());   // bandeau « en cours » : fixé au-dessus des onglets, jour d'aujourd'hui seulement (0.38.0)
-  document.body.classList.toggle('hasrun', runShown);
-  if (runShown) {
+  // Bas de l'écran (0.38.0 / 0.39.0) : « À confirmer » puis le bloc en cours, fixés au-dessus des onglets, aujourd'hui seulement.
+  // Un autre jour (jours passés : tout est à confirmer), « À confirmer » reste dans la page.
+  const isToday = selectedDate === dateKey(new Date());
+  const confHtml = build.toConfirm.length ? '<h2>À confirmer</h2><ul class="rows">' + build.toConfirm.map((it) =>
+    '<li><span>' + esc(it.name) + ' <span class="v">· ' + formatTime(it.start) + '–' + formatTime(it.end) + ' (' + formatDuration(it.end - it.start) + ')</span></span><span>' +
+    '<button type="button" class="btn small primary" data-action="confirm-done" data-key="' + esc(it.key) + '">Fait</button> ' +
+    '<button type="button" class="btn small" data-action="confirm-missed" data-key="' + esc(it.key) + '">Raté</button></span></li>').join('') + '</ul>' : '';
+  if (confHtml && !isToday) head += '<div class="card">' + confHtml + '</div>';
+  let dock = isToday && confHtml ? '<div class="confbar card">' + confHtml + '</div>' : '';
+  if (build.running && isToday) {
     const r = build.running;
     const rseg = r.segs.find((g) => g.end === null), rkid = rseg && r.children.find((c) => c.id === rseg.cid), since = rseg ? rseg.start : r.start;
-    head += '<div class="runbar"><div><strong>' + esc(r.name) + (rkid ? ' · ' + esc(rkid.name) : (rseg && rseg.name ? ' · ' + esc(rseg.name) : '')) + '</strong><small>en cours depuis ' + formatTime(since) + ' · ' + formatDuration(Math.max(0, dayNow() - since)) +
+    dock += '<div class="runbar"><div><strong>' + esc(r.name) + (rkid ? ' · ' + esc(rkid.name) : (rseg && rseg.name ? ' · ' + esc(rseg.name) : '')) + '</strong><small>en cours depuis ' + formatTime(since) + ' · ' + formatDuration(Math.max(0, dayNow() - since)) +
       (r.mode === 'free' ? '' : ' (prévu ' + formatDuration(r.minutes) + ')') + '</small></div><button type="button" class="btn" data-action="stop" data-key="' + esc(r.key) + '">■ Arrêter</button></div>';
   }
+  if (dock) head += '<div class="dock" id="day-dock">' + dock + '</div>';
   if (build.running && build.running.children.length) {
     const rr = build.running, ropen = rr.segs.find((g) => g.end === null);
     head += '<div class="childbtns">' + rr.children.map((c) => { const on = ropen && ropen.cid === c.id; return '<button type="button" class="btn small ' + (on ? 'danger' : '') + '" data-action="child-go" data-key="' + esc(rr.key) + '" data-cid="' + esc(c.id) + '">' + (on ? '■ ' : '▶ ') + esc(c.name) + '</button>'; }).join('') + '</div>';
@@ -1887,6 +1894,7 @@ function renderDay() {
       '<button type="button" class="btn small" data-action="unmiss" data-key="' + esc(it.key) + '">Rétablir</button></span></li>').join('') + '</ul></div>';
   }
   $('#day-head').innerHTML = head;
+  setDockHeight();
 
   // Timeline
   const t = build.profile;
@@ -1962,7 +1970,7 @@ function switchTab(name) {
   $('#panel-stats').hidden = name !== 'stats';
   $('#panel-settings').hidden = name !== 'settings';
   $('#subtitle').textContent = { day: 'Ton plan, recalé selon la réalité.', recap: 'Ta semaine type et le temps disponible.', stats: 'Le temps réel passé, par activité.', settings: 'Modifie, puis enregistre.' }[name];
-  if (name === 'day') renderDay(); else document.body.classList.remove('hasrun');
+  if (name === 'day') renderDay(); else document.body.style.setProperty('--dock-h', '0px');
   if (name === 'stats') renderStats();
   if (name === 'recap') renderRecap(current, loadStatus);   // toujours recalculé : le Jour a pu changer (retrait d'un bloc, heures réelles)
   renderBackupBanner();

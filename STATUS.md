@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.38.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.39.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -299,6 +299,10 @@ Fini quand, sur l'iPhone : un appui sur la date ouvre le calendrier et choisir u
 ## 0.38.0 — Bandeau « en cours » en bas de l'écran — livré, à valider sur appareil
 Demande de l'utilisateur (17 novembre 2026) : le bloc en cours juste au-dessus du menu du bas, menu toujours visible, pas besoin sur les autres jours (CONVENTIONS §54). Onglet Jour, aujourd'hui seulement.
 Fini quand, sur l'iPhone : un bloc en cours reste collé au-dessus des onglets pendant le défilement et « ■ Arrêter » l'arrête.
+
+## 0.39.0 — « À confirmer » en bas de l'écran — livré, à valider sur appareil
+Demande de l'utilisateur (17 novembre 2026) : « À confirmer » comme le bloc en cours, sinon il ne le voit pas au-dessus du reste (CONVENTIONS §55). Aujourd'hui seulement ; sur un jour passé le cadre reste dans la page.
+Fini quand, sur l'iPhone : un bloc passé à confirmer apparaît au-dessus du bloc en cours, collé aux onglets, et « Fait » / « Raté » le retire.
 
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.
