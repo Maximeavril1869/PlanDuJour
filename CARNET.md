@@ -64,7 +64,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 - Demande : « pareil pour le à confirmer, sinon je ne le vois pas au-dessus du reste ». Choix de ma part : aujourd'hui seulement ; sur un jour passé le cadre reste dans la page (c'est là qu'on passe en revue les oublis).
 - Fait : bas fixé commun (« À confirmer » au-dessus, bloc en cours sous lui), hauteur mesurée pour garder la page lisible (CONVENTIONS §55). Test `tests/test_bas_ecran.py` (15 vérifications), suite complète au vert, 6 mutations détectées, capture iPhone vérifiée.
-- Commit : HASH **0.39.0**.
+- Commit : `5e5b619` **0.39.0**.
 
 ## 17 novembre 2026 (0.38.0, bandeau en cours en bas)
 
