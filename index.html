@@ -170,7 +170,12 @@ body.offline .toast { bottom: calc(var(--tabbar-h) + 104px + env(safe-area-inset
 .daytools { display: flex; gap: 10px; margin-bottom: 4px; }
 .daytools .btn { flex: 1; }
 .runbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--accent); color: var(--accent-ink);
-  border-radius: 14px; padding: 10px 14px; margin: 10px 0; }
+  border-radius: 14px; padding: 10px 14px; position: fixed; left: 12px; right: 12px; max-width: 696px; margin: 0 auto; z-index: 5;
+  bottom: calc(var(--tabbar-h) + 8px + env(safe-area-inset-bottom)); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+body.offline .runbar { bottom: calc(var(--tabbar-h) + 36px + env(safe-area-inset-bottom)); }
+body.hasrun main { padding-bottom: calc(var(--tabbar-h) + 190px + env(safe-area-inset-bottom)); }
+body.hasrun .toast { bottom: calc(var(--tabbar-h) + 150px + env(safe-area-inset-bottom)); }
+body.hasrun.offline .toast { bottom: calc(var(--tabbar-h) + 178px + env(safe-area-inset-bottom)); }
 .runbar small { display: block; opacity: .85; }
 .runbar .btn { background: var(--accent-ink); color: var(--accent); border-color: var(--accent-ink); font-weight: 600; }
 .tlwrap { position: relative; margin: 14px 0 0 46px; }
@@ -360,7 +365,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.37.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.38.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1849,7 +1854,9 @@ function renderDay() {
       '<button type="button" class="btn small primary" data-action="confirm-done" data-key="' + esc(it.key) + '">Fait</button> ' +
       '<button type="button" class="btn small" data-action="confirm-missed" data-key="' + esc(it.key) + '">Raté</button></span></li>').join('') + '</ul></div>';
   }
-  if (build.running) {
+  const runShown = !!build.running && selectedDate === dateKey(new Date());   // bandeau « en cours » : fixé au-dessus des onglets, jour d'aujourd'hui seulement (0.38.0)
+  document.body.classList.toggle('hasrun', runShown);
+  if (runShown) {
     const r = build.running;
     const rseg = r.segs.find((g) => g.end === null), rkid = rseg && r.children.find((c) => c.id === rseg.cid), since = rseg ? rseg.start : r.start;
     head += '<div class="runbar"><div><strong>' + esc(r.name) + (rkid ? ' · ' + esc(rkid.name) : (rseg && rseg.name ? ' · ' + esc(rseg.name) : '')) + '</strong><small>en cours depuis ' + formatTime(since) + ' · ' + formatDuration(Math.max(0, dayNow() - since)) +
@@ -1955,7 +1962,7 @@ function switchTab(name) {
   $('#panel-stats').hidden = name !== 'stats';
   $('#panel-settings').hidden = name !== 'settings';
   $('#subtitle').textContent = { day: 'Ton plan, recalé selon la réalité.', recap: 'Ta semaine type et le temps disponible.', stats: 'Le temps réel passé, par activité.', settings: 'Modifie, puis enregistre.' }[name];
-  if (name === 'day') renderDay();
+  if (name === 'day') renderDay(); else document.body.classList.remove('hasrun');
   if (name === 'stats') renderStats();
   if (name === 'recap') renderRecap(current, loadStatus);   // toujours recalculé : le Jour a pu changer (retrait d'un bloc, heures réelles)
   renderBackupBanner();

@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.37.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.38.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -295,6 +295,10 @@ Fini quand, sur l'iPhone : une minitâche suivie à quelques minutes d'un autre 
 ## 0.34.0 — Choisir un jour dans le calendrier — livré, à valider sur appareil
 Demande de l'utilisateur (6 novembre 2026) : caler des dates très à l'avance. Appui sur la date de l'onglet Jour = calendrier du système (CONVENTIONS §53). Onglet Jour seulement.
 Fini quand, sur l'iPhone : un appui sur la date ouvre le calendrier et choisir un jour lointain y emmène.
+
+## 0.38.0 — Bandeau « en cours » en bas de l'écran — livré, à valider sur appareil
+Demande de l'utilisateur (17 novembre 2026) : le bloc en cours juste au-dessus du menu du bas, menu toujours visible, pas besoin sur les autres jours (CONVENTIONS §54). Onglet Jour, aujourd'hui seulement.
+Fini quand, sur l'iPhone : un bloc en cours reste collé au-dessus des onglets pendant le défilement et « ■ Arrêter » l'arrête.
 
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.

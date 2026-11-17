@@ -460,3 +460,10 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Appelée par : bouton **Pause** et bouton **Je pars** (`live = true` : une action démarrée à la même minute est coupée aussi, durée minimale d'une minute) ; **Ajouter la pause** (heure de début de pause) et champ **Départ** (heure saisie), avec `live = false` : seule une action démarrée **avant** l'heure saisie est coupée, une action démarrée après est laissée telle quelle.
 - Ne coupe rien : « Je rentre chez moi », « Reprise », l'arrivée.
 - Tests : `tests/test_coupure_presence.py`.
+
+## 54. Bandeau « en cours » fixé au-dessus des onglets (0.38.0)
+
+- Besoin : arrêter le bloc en cours sans remonter en haut de la page. Le bandeau (`.runbar`, nom, « en cours depuis », « ■ Arrêter ») est `position: fixed` juste au-dessus du menu, qui reste toujours visible.
+- Seulement sur l'onglet Jour et le jour d'aujourd'hui (le bandeau fait partie du panneau Jour ; la condition sur la date est une garde redondante, un bloc n'étant « en cours » que le jour même). Rien sur les autres onglets.
+- Empilement : bannière « Hors ligne » (28 px) entre les onglets et le bandeau (`body.offline .runbar`) ; classe `body.hasrun` : marge basse de la page et toast relevés. La barre « Enregistrer » ne concerne que Réglages, où le bandeau n'est pas affiché.
+- Tests : `tests/test_bandeau_encours.py`.

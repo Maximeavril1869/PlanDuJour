@@ -60,6 +60,13 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 ## 6 novembre 2026 (blocs courts côte à côte, 0.33.1)
 - Demande de l'utilisateur : mettre côte à côte en décalé les minitâches qui se chevauchent. Cause : `layoutColumns` ignorait la hauteur mini de 22 px des blocs. **0.33.1** : colonnes calculées sur la fin dessinée (`visualEnd`). Test `test_blocs_courts_cote_a_cote` (échoue sans le correctif) ; 445 vérifications. À valider sur appareil.
 
+## 17 novembre 2026 (0.38.0, bandeau en cours en bas)
+
+- Demande : le bloc en cours juste au-dessus du menu du bas ; menu toujours visible ; pas utile sur les autres jours.
+- Fait : bandeau fixé au-dessus des onglets sur le Jour d'aujourd'hui (CONVENTIONS §54), empilé avec la bannière « Hors ligne ». Test `tests/test_bandeau_encours.py` (12 vérifications), suite complète au vert, capture iPhone vérifiée.
+- Constat : la condition « aujourd'hui » est redondante (un bloc n'est en cours que le jour même), non détectée par mutation, sans effet sur le comportement.
+- Commit : HASH **0.38.0**.
+
 ## 6 novembre 2026 (0.34.0, choix de la date)
 
 - Demande : pouvoir choisir un jour lointain dans un calendrier au lieu d'appuyer sur « › ». Décisions : onglet Jour seulement ; « Aujourd'hui » existait déjà et reste toujours visible.
