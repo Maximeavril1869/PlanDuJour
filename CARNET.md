@@ -60,6 +60,12 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 ## 6 novembre 2026 (blocs courts côte à côte, 0.33.1)
 - Demande de l'utilisateur : mettre côte à côte en décalé les minitâches qui se chevauchent. Cause : `layoutColumns` ignorait la hauteur mini de 22 px des blocs. **0.33.1** : colonnes calculées sur la fin dessinée (`visualEnd`). Test `test_blocs_courts_cote_a_cote` (échoue sans le correctif) ; 445 vérifications. À valider sur appareil.
 
+## 18 novembre 2026 (0.40.0, recherche prévu / fait)
+
+- Demande : « améliorer la recherche en distinguant fait et prévu ». Choix validés (« ok ») : deux groupes titrés, heure réelle pour un fait, pas de filtre.
+- Fait : groupes « Prévu » / « Fait ou passé » décidés sur le statut, statuts colorés (CONVENTIONS §56). Test `tests/test_recherche.py` (10 vérifications), suite complète au vert, 4 mutations (3 détectées ; l'heure réelle était déjà fournie par `buildDay`).
+- Commit : HASH **0.40.0**.
+
 ## 17 novembre 2026 (0.39.0, « À confirmer » en bas)
 
 - Demande : « pareil pour le à confirmer, sinon je ne le vois pas au-dessus du reste ». Choix de ma part : aujourd'hui seulement ; sur un jour passé le cadre reste dans la page (c'est là qu'on passe en revue les oublis).

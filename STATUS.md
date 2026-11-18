@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.39.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.40.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -303,6 +303,10 @@ Fini quand, sur l'iPhone : un bloc en cours reste collé au-dessus des onglets p
 ## 0.39.0 — « À confirmer » en bas de l'écran — livré, à valider sur appareil
 Demande de l'utilisateur (17 novembre 2026) : « À confirmer » comme le bloc en cours, sinon il ne le voit pas au-dessus du reste (CONVENTIONS §55). Aujourd'hui seulement ; sur un jour passé le cadre reste dans la page.
 Fini quand, sur l'iPhone : un bloc passé à confirmer apparaît au-dessus du bloc en cours, collé aux onglets, et « Fait » / « Raté » le retire.
+
+## 0.40.0 — Recherche : prévu et fait distingués — livré, à valider sur appareil
+Demande de l'utilisateur (18 novembre 2026) : distinguer le fait du prévu dans la recherche (CONVENTIONS §56). Deux groupes « Prévu » / « Fait ou passé », statuts colorés.
+Fini quand, sur l'iPhone : chercher « Trajet » montre d'abord les occurrences prévues, puis les faites, ratées ou reportées, chacune avec son statut.
 
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.

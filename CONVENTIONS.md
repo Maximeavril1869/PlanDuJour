@@ -475,3 +475,11 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Hauteur : `.confbar` limité à 38 % de l'écran, défilable. `setDockHeight()` mesure le bas fixé après chaque rendu et pose `--dock-h` : marge basse de la page et messages (toast) relevés d'autant ; bannière « Hors ligne » sous le bas fixé (`body.offline .dock`).
 - Constat : un bloc souple (« glisse si retard ») derrière un bloc en cours est décalé et n'est plus à confirmer tant que le bloc en cours dure ; c'est le comportement existant du recalage.
 - Tests : `tests/test_bas_ecran.py` ; `tests/test_bandeau_encours.py` adapté (le parent est fixé).
+
+## 56. Recherche : prévu et fait séparés (0.40.0)
+
+- La recherche d'une tâche (champ en haut du Jour) classe les résultats en deux groupes titrés : **« Prévu »** (statuts prévu et en cours, date croissante) puis **« Fait ou passé »** (fait, raté, reporté, abandonné, non fait ; le plus récent d'abord). Le groupe se décide sur le statut, pas sur la date : une tâche faite aujourd'hui est dans « Fait ou passé ».
+- Le statut est en gras, coloré (accent pour le prévu, grisé pour le passé). Un bloc fait montre son heure réelle ; ce n'est pas un code propre à la recherche : `buildDay` donne déjà l'heure réelle aux blocs faits (la ligne ajoutée dans `searchTasks` est une garde redondante, non détectée par mutation).
+- 80 résultats affichés au total, répartis dans l'ordre des groupes (Prévu d'abord).
+- Pas de filtre « Tous / Prévu / Fait » (choix de l'utilisateur : les groupes suffisent).
+- Tests : `tests/test_recherche.py`.
