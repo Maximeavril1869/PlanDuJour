@@ -487,6 +487,6 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 ## 57. Recherche dans le Récap, « Présence du jour » sous le profil, « Tâches » (0.41.0)
 
 - La recherche d'une tâche (§56) vit en haut de l'onglet **Récap** (`#recap-search`, résultats dans `#recap-search-res`), plus sur le Jour. « Ouvrir » ramène sur le Jour à la date trouvée et vide la recherche. Le Récap ne se redessine pas tout seul pendant que le champ a le focus.
-- Page du jour, ordre : navigation de date, profil de la journée, **barre « Présence du jour »**, puis les cartes « Présence au travail » et « Départ et retour ».
+- Page du jour, ordre : navigation de date, profil de la journée, **barre « Présence du jour »**, puis les cartes « Départ et retour » et « Présence au travail » (ordre inversé en 0.41.1).
 - La carte des activités sans heure s'appelle **« Tâches »** (Jour et Récap). Le mode d'activité « Sans heure » (Réglages) garde son nom.
 - Tests : `tests/test_recherche.py`, `tests/test_ordre_jour.py`.

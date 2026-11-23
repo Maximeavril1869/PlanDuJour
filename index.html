@@ -368,7 +368,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.41.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.41.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1863,7 +1863,7 @@ function renderDay() {
   if (removedActs.length) head += '<div class="btnrow removed-row"><span class="hours-help" style="margin:0">Retiré ce jour :</span>' + removedActs.map((a) => '<button type="button" class="btn small" data-action="restore-act" data-id="' + esc(a.id) + '">' + esc(a.name) + ' · Rétablir</button>').join('') + '</div>';
   if (loadStatus === 'empty') head += '<div class="banner info">App vierge : ajoute tes activités et enregistre-les dans l’onglet Réglages.</div>';
 
-  head += presenceHtml(wd1) + tripHtml();
+  head += tripHtml() + presenceHtml(wd1);          // « Départ et retour » avant « Présence au travail » (0.41.1)
   // Bas de l'écran (0.38.0 / 0.39.0) : « À confirmer » puis le bloc en cours, fixés au-dessus des onglets, aujourd'hui seulement.
   // Un autre jour (jours passés : tout est à confirmer), « À confirmer » reste dans la page.
   const isToday = selectedDate === dateKey(new Date());

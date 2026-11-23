@@ -18,7 +18,7 @@ Le script affiche `OK` ou `ECHEC` pour chaque vérification et se termine par le
 
 | Fichier | Vérifie |
 |---|---|
-| `test_ordre_jour.py` | Page du jour : « Présence du jour » juste sous le profil, avant les cartes de présence et de départ ; carte « Tâches » (Jour et Récap) |
+| `test_ordre_jour.py` | Page du jour : « Présence du jour » juste sous le profil, puis « Départ et retour », puis « Présence au travail » ; carte « Tâches » (Jour et Récap) |
 | `test_reinitialisation.py` | Réinitialisation : confirmation par mot, réglages vierges, effacement des jours et des copies, rechargement, ajout d'un bloc dans l'app vierge |
 | `test_pliage.py` | Cartes repliables fermées au départ (Réglages, page du jour : Présence, Sans heure, Revue du jour), dépliage au tap et conservation de l'état |
 | `test_regroupements.py` | Catégories en menus repliables fermés au départ : « Sans heure » (ordre, compteur, tri, état conservé) et Réglages (Activités, Tâches habituelles : ajout, suppression, ouverture sur erreur de saisie) |
