@@ -368,7 +368,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.40.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.41.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1547,7 +1547,7 @@ let recapDate = null;    // un jour de la semaine réelle affichée
 let recapDay = 1;   // jour de semaine affiché dans le récapitulatif
 
 function refreshRecapNow() {                          // la ligne « maintenant » du Récap suit l'heure (0.31.0 : aussi à l'ouverture de l'onglet et au retour dans l'app)
-  if (!$('#panel-recap').hidden && recapMode === 'reel' && recapDate === dateKey(new Date()) && nowMinutes() !== recapNowShown) renderRecap(current, loadStatus);
+  if (!$('#panel-recap').hidden && document.activeElement.id !== 'recap-search' && recapMode === 'reel' && recapDate === dateKey(new Date()) && nowMinutes() !== recapNowShown) renderRecap(current, loadStatus);
 }
 let recapNowShown = null;   // minute affichée par la ligne « maintenant » du Récap (null : pas de ligne)
 function renderRecap(s, status) {
@@ -1557,6 +1557,7 @@ function renderRecap(s, status) {
   if (status === 'unavailable') html += '<div class="banner warn">Le stockage du navigateur est indisponible (navigation privée ?). Tu peux saisir, mais rien ne sera conservé.</div>';
   const real = recapMode === 'reel';
   if (real && !recapDate) recapDate = dateKey(new Date());
+  html += '<input type="search" id="recap-search" placeholder="Rechercher une tâche…" autocomplete="off" value="' + esc(searchQ) + '" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:12px;background:transparent;color:inherit"><div id="recap-search-res">' + (searchQ ? searchResultsHtml() : '') + '</div>';   // recherche déplacée du Jour au Récap (0.41.0)
   html += '<div class="chips" style="margin:12px 0 4px">' + [['reel', 'Semaine réelle'], ['type', 'Semaine type']].map((m) =>
     '<button type="button" class="chip" data-recap-mode="' + m[0] + '" aria-pressed="' + (m[0] === recapMode) + '">' + m[1] + '</button>').join('') + '</div>';
   if (real) {
@@ -1598,7 +1599,7 @@ function renderRecap(s, status) {
   html += '<div class="card"><h2>' + (real ? esc(fmtDateLabel(recapDate)) : DAY_NAMES[recapDay] + ' (semaine type)') + ' <span class="v">· profil ' + esc(b.profile.name) + '</span></h2><ul class="tl">' + entries.map((e) => e.html).join('') + '</ul>' +
     (b.placed.length ? '' : '<p class="help">Aucune activité ce jour-là.</p>') + '</div>';
   if (b.pending.length && !real) {            // semaine réelle : seuls les temps réellement faits comptent, la carte n'a pas d'intérêt
-    html += '<div class="card"><h2>Sans heure</h2><ul class="rows">' + b.pending.map((it) =>
+    html += '<div class="card"><h2>Tâches</h2><ul class="rows">' + b.pending.map((it) =>
       '<li><span>' + esc(it.name) + (it.children.length ? '<small class="kids">' + esc(it.children.map((c) => c.name).join(' · ')) + '</small>' : '') + '</span></li>').join('') + '</ul></div>';
   }
   $('#panel-recap').innerHTML = html;
@@ -1841,8 +1842,7 @@ function setDockHeight() {
 function renderDay() {
   renderBackupBanner();
   const build = buildSelected();
-  let head = '<input type="search" id="day-search" placeholder="Rechercher une tâche…" autocomplete="off" value="' + esc(searchQ) + '" style="width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:transparent;color:inherit"><div id="day-search-res">' + (searchQ ? searchResultsHtml() : '') + '</div>' +
-    '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
+  let head = '<div class="daynav"><button type="button" class="icon-btn" data-day-nav="-1" aria-label="Jour précédent">‹</button>' +
     '<label class="daylabel daypick">' + esc(fmtDateLabel(selectedDate)) + ' ▾<input type="date" id="day-date" value="' + esc(selectedDate) + '" aria-label="Choisir un jour dans le calendrier"></label>' +
     '<button type="button" class="icon-btn" data-day-nav="1" aria-label="Jour suivant">›</button></div>' +
     '<div class="daytools"><button type="button" class="btn" data-day-nav="today">Aujourd’hui</button>' +
@@ -1853,17 +1853,17 @@ function renderDay() {
   head += '<label class="field profsel"><span class="lbl">Profil de la journée</span><select id="day-profile"><option value="">' + esc(habitual.name) + ' (habituel) · ' + hoursOf(habitual) + '</option>' +
     current.profiles.filter((p) => p.id !== habitual.id).map((p) => '<option value="' + esc(p.id) + '"' + (dayProf === p.id ? ' selected' : '') + '>' + esc(p.name) + ' · ' + hoursOf(p) + '</option>').join('') + '</select></label>' +
     (build.profile.note && !dayProf ? '<p class="hours-help">' + esc(build.profile.note) + '</p>' : '');
-  const removedActs = ((daysData.days[selectedDate] || {}).removed || []).map((id) => current.activities.find((a) => a.id === id)).filter((a) => a && a.days.includes(wd) && !build.profile.removes.includes(a.id));
-  if (removedActs.length) head += '<div class="btnrow removed-row"><span class="hours-help" style="margin:0">Retiré ce jour :</span>' + removedActs.map((a) => '<button type="button" class="btn small" data-action="restore-act" data-id="' + esc(a.id) + '">' + esc(a.name) + ' · Rétablir</button>').join('') + '</div>';
-  if (loadStatus === 'empty') head += '<div class="banner info">App vierge : ajoute tes activités et enregistre-les dans l’onglet Réglages.</div>';
-
   const wrk = workReport(daysData.days, current, selectedDate, selectedDate, selectedDate, dayNow()), wd1 = wrk.days[0];
-  head += presenceHtml(wd1) + tripHtml();
-  if (wrk.enabled && (wd1.target > 0 || wd1.minutes > 0)) {
+  if (wrk.enabled && (wd1.target > 0 || wd1.minutes > 0)) {          // « Présence du jour » : juste sous le profil de la journée (0.41.0)
     head += '<div class="workbar' + (wd1.target && wd1.minutes > wd1.target ? ' over' : '') + '"><span>Présence du jour<small>' + (dayNow() !== null && (daysData.days[selectedDate] || {}).presence && !daysData.days[selectedDate].presence.end ? 'présence en cours' : 'présence au travail') + '</small></span><strong>' + formatDuration(wd1.minutes) +
       (wd1.target ? ' / ' + formatDuration(wd1.target) : '') + '</strong></div>' +
       (wd1.target ? '<p class="hours-help" style="margin:0 0 6px">' + (wd1.minutes >= wd1.target ? 'Cible atteinte (' + signed(wd1.minutes - wd1.target) + ').' : 'Il reste ' + formatDuration(wd1.target - wd1.minutes) + '.') + '</p>' : '<p class="hours-help" style="margin:0 0 6px">Jour sans cible : tout est du hors-horaires.</p>');
   }
+  const removedActs = ((daysData.days[selectedDate] || {}).removed || []).map((id) => current.activities.find((a) => a.id === id)).filter((a) => a && a.days.includes(wd) && !build.profile.removes.includes(a.id));
+  if (removedActs.length) head += '<div class="btnrow removed-row"><span class="hours-help" style="margin:0">Retiré ce jour :</span>' + removedActs.map((a) => '<button type="button" class="btn small" data-action="restore-act" data-id="' + esc(a.id) + '">' + esc(a.name) + ' · Rétablir</button>').join('') + '</div>';
+  if (loadStatus === 'empty') head += '<div class="banner info">App vierge : ajoute tes activités et enregistre-les dans l’onglet Réglages.</div>';
+
+  head += presenceHtml(wd1) + tripHtml();
   // Bas de l'écran (0.38.0 / 0.39.0) : « À confirmer » puis le bloc en cours, fixés au-dessus des onglets, aujourd'hui seulement.
   // Un autre jour (jours passés : tout est à confirmer), « À confirmer » reste dans la page.
   const isToday = selectedDate === dateKey(new Date());
@@ -1892,7 +1892,7 @@ function renderDay() {
       (it.children.length ? '<div class="kidbtns">' + it.children.map((c) => kidRowHtml(it, c, dayNow() !== null)).join('') + '</div>' : (dayNow() !== null ? '<div><input type="text" class="passname" data-passname="' + esc(it.key) + '" maxlength="60" placeholder="Dossier (facultatif)" aria-label="Dossier du prochain passage de ' + esc(it.name) + '" value="' + esc(passDraft[it.key] || '') + '"></div>' : '')) + '</span><span>' +
       (dayNow() !== null && !it.children.length ? '<button type="button" class="btn small primary" data-action="start" data-key="' + esc(it.key) + '">▶ Démarrer</button> ' : '') +
       '<button type="button" class="btn small" data-action="open-block" data-key="' + esc(it.key) + '">Détails</button></span></li>';
-    head += '<details class="card fold" data-fid="card-sansheure"' + (sansOpen ? ' open' : '') + '><summary><h2>Sans heure · ' + sansList.length + '</h2></summary>' +
+    head += '<details class="card fold" data-fid="card-sansheure"' + (sansOpen ? ' open' : '') + '><summary><h2>Tâches · ' + sansList.length + '</h2></summary>' +
       catBuckets(sansList, current.categories || [], (it) => it.cat, (it) => it.name, true).map((g) =>
         grpHtml('sans-' + g.id, g.name, g.items.length, sansCatOpen.has('sans-' + g.id), '<ul class="rows">' + g.items.map(sansLi).join('') + '</ul>')).join('') + '</details>';
   }
@@ -2810,8 +2810,6 @@ function bindDayEvents() {
       if (target === dateKey(new Date())) scrollToNow();
       return;
     }
-    const go = e.target.closest('[data-search-go]');
-    if (go) { closePick(); reviewOpen = null; selectedDate = go.dataset.searchGo; searchQ = ''; closePanel(); renderDay(); window.scrollTo(0, 0); return; }
     const act = e.target.closest('[data-action]');
     if (act) {
       const a = act.dataset.action;
@@ -2908,9 +2906,6 @@ function bindDayEvents() {
   });
   panel.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.matches && e.target.matches('#sub-label, #sub-action')) { e.preventDefault(); addSub(); }
-  });
-  panel.addEventListener('input', (e) => {
-    if (e.target.id === 'day-search') { searchQ = e.target.value; $('#day-search-res').innerHTML = searchResultsHtml(); }
   });
   panel.addEventListener('toggle', (e) => {
     const f = e.target.dataset && e.target.dataset.fid;
@@ -3013,7 +3008,12 @@ function bindEvents() {
     else { const d = parseDateKey(statsAnchor); statsAnchor = dateKey(new Date(d.getFullYear(), d.getMonth() + Number(v), 1)); }
     renderStats();
   });
+  $('#panel-recap').addEventListener('input', (e) => {        // recherche d'une tâche (déplacée du Jour au Récap en 0.41.0)
+    if (e.target.id === 'recap-search') { searchQ = e.target.value; $('#recap-search-res').innerHTML = searchResultsHtml(); }
+  });
   $('#panel-recap').addEventListener('click', (e) => {
+    const go = e.target.closest('[data-search-go]');
+    if (go) { closePick(); reviewOpen = null; selectedDate = go.dataset.searchGo; searchQ = ''; closePanel(); switchTab('day'); return; }   // « Ouvrir » : retour sur la page du jour, à la date trouvée
     const b = e.target.closest('[data-recap-day]');
     if (b) { recapDay = Number(b.dataset.recapDay); renderRecap(current, loadStatus); return; }
     const m = e.target.closest('[data-recap-mode]'), dt = e.target.closest('[data-recap-date]'), nv = e.target.closest('[data-recap-nav]');
@@ -3615,7 +3615,7 @@ function init() {
   setInterval(() => {
     renderBackupBanner();                                  // le bandeau suit le changement de jour, quel que soit l'onglet
     refreshRecapNow();                                     // la ligne « maintenant » avance
-    if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && document.activeElement.id !== 'day-search' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
+    if (!$('#panel-day').hidden && !panelOpen && reviewPick === null && document.activeElement.id !== 'day-profile' && !(document.activeElement.dataset && document.activeElement.dataset.pres) && dayNow() !== null) renderDay();
   }, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshRecapNow(); renderBackupBanner(); } });   // retour dans l'app après une mise en veille : l'heure affichée est rattrapée tout de suite
   window.addEventListener('pageshow', () => { refreshRecapNow(); });

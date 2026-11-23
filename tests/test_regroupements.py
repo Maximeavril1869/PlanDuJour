@@ -47,7 +47,7 @@ def test_sans_heure(browser):
     pg = seeded_page(browser)
     fids = pg.evaluate("() => [...document.querySelectorAll('details[data-fid=card-sansheure] details.grp')].map((d) => d.dataset.fid)")
     check('un menu par catégorie, dans l’ordre des catégories, « Sans catégorie » en dernier', fids == ['sans-cat-admin', 'sans-cat-bureau', 'sans-none'], fids)
-    check('la carte « Sans heure » est fermée au départ', pg.evaluate("() => document.querySelector('details[data-fid=card-sansheure]').open") is False)
+    check('la carte « Tâches » est fermée au départ', pg.evaluate("() => document.querySelector('details[data-fid=card-sansheure]').open") is False)
     pg.click('details[data-fid=card-sansheure] > summary')
     check('toutes les catégories sont fermées au départ', opened(pg, 'details[data-fid=card-sansheure] details.grp') == [False, False, False])
     titres = pg.evaluate("() => [...document.querySelectorAll('details[data-fid=card-sansheure] details.grp > summary')].map((s) => s.textContent.trim())")

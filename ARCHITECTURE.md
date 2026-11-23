@@ -61,8 +61,8 @@ Quatre onglets : **Jour**, **Récapitulatif**, **Stats**, **Réglages**.
 
 | Onglet | Rôle | Fonctions principales |
 |---|---|---|
-| Jour | Plan de la journée en frise (avec ligne « maintenant » et lignes de repère : départ et retour de chez soi, arrivée, pauses et départ du travail), chrono, présence, départ et retour, sous-tâches, revue du jour, recherche, « Sans heure » regroupé par catégorie | `renderDay` |
-| Récapitulatif | Semaine réelle (vrais profils, congés, reports) ou semaine type | `renderRecap` |
+| Jour | Plan de la journée en frise (avec ligne « maintenant » et lignes de repère : départ et retour de chez soi, arrivée, pauses et départ du travail), chrono, présence, départ et retour, sous-tâches, revue du jour, « Tâches » (ex-« Sans heure ») regroupées par catégorie | `renderDay` |
+| Récapitulatif | Recherche d’une tâche, puis semaine réelle (vrais profils, congés, reports) ou semaine type | `renderRecap` |
 | Stats | Jour / semaine / mois : travail (présence) face à 7 h 42, arbre Travail / Perso / Hors › catégories › activités avec un total à chaque niveau (0.24.0), puis par activité | `renderStats`, `statsTree` |
 | Réglages | Profils, congés, activités, catégories, tâches habituelles, sauvegarde, export calendrier | éditeurs de la section 6 |
 

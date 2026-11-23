@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.40.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.41.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -307,6 +307,11 @@ Fini quand, sur l'iPhone : un bloc passé à confirmer apparaît au-dessus du bl
 ## 0.40.0 — Recherche : prévu et fait distingués — livré, à valider sur appareil
 Demande de l'utilisateur (18 novembre 2026) : distinguer le fait du prévu dans la recherche (CONVENTIONS §56). Deux groupes « Prévu » / « Fait ou passé », statuts colorés.
 Fini quand, sur l'iPhone : chercher « Trajet » montre d'abord les occurrences prévues, puis les faites, ratées ou reportées, chacune avec son statut.
+
+## 0.41.0 — Recherche déplacée dans le Récap, « Présence du jour » sous le profil, « Tâches » — livré, à valider sur appareil
+Demande de l'utilisateur (23 novembre 2026) : (1) la barre de recherche quitte l'onglet Jour et passe dans le Récap ; (2) « Présence du jour » se place juste sous « Profil de la journée » ; (3) « Sans heure » devient « Tâches ».
+Fini quand, sur l'iPhone : l'onglet Jour n'a plus de champ de recherche ; l'onglet Récap commence par « Rechercher une tâche… », taper 2 lettres liste Prévu / Fait ou passé, « Ouvrir » ramène sur l'onglet Jour à la date trouvée (recherche vidée) ; sur le Jour, la barre « Présence du jour » suit directement le sélecteur de profil, avant les cartes « Présence au travail » et « Départ et retour » ; la carte repliable s'intitule « Tâches · n » (et « Tâches » dans le Récap, semaine type).
+Non changé : le choix « Sans heure » du comportement d'une activité dans Réglages (c'est le nom du mode, pas de la carte). Tests : `tests/test_recherche.py` adapté, `tests/test_ordre_jour.py` (7 vérifications) ; toute la suite passe.
 
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.

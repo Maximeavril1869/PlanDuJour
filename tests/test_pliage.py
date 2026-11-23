@@ -27,10 +27,10 @@ def test_pliage(browser):
 
     check('page du jour : « Présence au travail » fermée', pg.evaluate("() => document.querySelector('details[data-fid=card-pres]').open") is False)
     sans = pg.locator('details[data-fid=card-sansheure]')
-    check('page du jour : la carte « Sans heure » existe, repliable', sans.count() == 1)
-    check('page du jour : « Sans heure » fermée au départ', pg.evaluate("() => document.querySelector('details[data-fid=card-sansheure]').open") is False)
+    check('page du jour : la carte « Tâches » existe, repliable', sans.count() == 1)
+    check('page du jour : « Tâches » fermée au départ', pg.evaluate("() => document.querySelector('details[data-fid=card-sansheure]').open") is False)
     nb = pg.evaluate("() => document.querySelectorAll('details[data-fid=card-sansheure] li').length")
-    check('le titre indique le nombre de tâches sans heure de la liste', nb >= 1 and ('Sans heure · %d' % nb) in pg.inner_text('details[data-fid=card-sansheure] summary'), nb)
+    check('le titre indique le nombre de tâches sans heure de la liste', nb >= 1 and ('Tâches · %d' % nb) in pg.inner_text('details[data-fid=card-sansheure] summary'), nb)
     pg.click('details[data-fid=card-sansheure] summary')
     check('un tap sur le titre déplie la carte', pg.evaluate("() => document.querySelector('details[data-fid=card-sansheure]').open") is True)
     pg.click('[data-day-nav=today]')

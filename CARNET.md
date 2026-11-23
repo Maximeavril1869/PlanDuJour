@@ -4,7 +4,9 @@ Journal daté de toutes les opérations sur le projet, pour savoir où il en est
 
 Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECTURE.md), [CONVENTIONS.md](CONVENTIONS.md).
 
-## Où en est le projet (16 novembre 2026)
+## Où en est le projet (23 novembre 2026)
+
+- Version **0.41.0** : recherche déplacée dans le Récap, « Présence du jour » sous le profil de la journée, carte « Sans heure » renommée « Tâches » (voir l'entrée du 23 novembre) ; à valider sur iPhone et iPad. Avant : 0.40.0 (recherche : prévu et fait distingués).
 
 - Version **0.37.0** : le départ en pause et le départ du travail coupent les actions « sans heure » en cours (voir l'entrée du 16 novembre) ; à valider sur iPhone et iPad. Avant : **0.36.0** (bannière « Hors ligne » visible sur tous les onglets, à valider sur iPhone et iPad : voir l'entrée du 12 novembre, soir). Synchronisation avec un compte (0.35.0 et 0.35.1) validée sur appareils le 12 novembre ; la **0.35.0** (synchronisation avec un compte, voir l'entrée du 11 novembre) ; la **0.34.0** était poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
@@ -20,6 +22,14 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
 - Tests : 536 vérifications (21 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+
+## 23 novembre 2026 (0.41.0, recherche dans le Récap, présence sous le profil, « Tâches »)
+
+- Demande de l'utilisateur : (1) enlever la barre de recherche de l'onglet Jour et la mettre dans le Récap ; (2) mettre « Présence du jour » sous « Profil de la journée » ; (3) renommer « Sans heure » en « Tâches ».
+- Lecture retenue pour (2) : la barre « Présence du jour » (temps de présence face à la cible) remonte juste sous le sélecteur de profil, avant la carte repliable « Présence au travail » et « Départ et retour ».
+- Fait : champ `#recap-search` et résultats `#recap-search-res` en haut du Récap (`renderRecap`) ; « Ouvrir » appelle `switchTab('day')` à la date trouvée et vide la recherche ; le rafraîchissement du Récap à la minute est suspendu pendant la saisie dans le champ. Titres des cartes : « Tâches · n » (Jour) et « Tâches » (Récap, semaine type). Le libellé du mode « Sans heure » dans Réglages est inchangé.
+- Tests : `tests/test_recherche.py` adapté, `tests/test_ordre_jour.py` ajouté (ordre et libellés) ; `test_pliage`, `test_regroupements`, `test_stockage` ajustés ; toute la suite passe (26 fichiers, en séquence).
+- À valider sur iPhone et iPad : saisie dans le champ du Récap (clavier, pas de perte de focus), « Ouvrir » qui ramène sur le Jour.
 
 ## 16 novembre 2026 (0.37.0, la pause et le départ coupent l'action en cours)
 

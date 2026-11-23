@@ -71,7 +71,7 @@ def test_erreur_et_absence(browser):
         check('« %s » : « non disponible », l’app fonctionne' % name, 'non disponible' in info(pg) and pg.locator('#backup-info').count() == 1, info(pg))
         check('« %s » : aucune erreur JavaScript (pas de rejet non géré)' % name, not pg.errors, pg.errors)
         pg.click('#tab-day')
-        check('« %s » : la page du jour s’affiche' % name, pg.locator('#day-search').count() == 1)
+        check('« %s » : la page du jour s’affiche' % name, pg.locator('#day-profile').count() == 1)
         pg.close()
 
 
