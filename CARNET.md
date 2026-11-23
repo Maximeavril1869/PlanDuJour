@@ -28,6 +28,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Demande de l'utilisateur : (1) enlever la barre de recherche de l'onglet Jour et la mettre dans le Récap ; (2) mettre « Présence du jour » sous « Profil de la journée » ; (3) renommer « Sans heure » en « Tâches ».
 - Lecture retenue pour (2) : la barre « Présence du jour » (temps de présence face à la cible) remonte juste sous le sélecteur de profil, avant la carte repliable « Présence au travail » et « Départ et retour ».
 - Fait : champ `#recap-search` et résultats `#recap-search-res` en haut du Récap (`renderRecap`) ; « Ouvrir » appelle `switchTab('day')` à la date trouvée et vide la recherche ; le rafraîchissement du Récap à la minute est suspendu pendant la saisie dans le champ. Titres des cartes : « Tâches · n » (Jour) et « Tâches » (Récap, semaine type). Le libellé du mode « Sans heure » dans Réglages est inchangé.
+- Commit `c4692d8`.
 - Tests : `tests/test_recherche.py` adapté, `tests/test_ordre_jour.py` ajouté (ordre et libellés) ; `test_pliage`, `test_regroupements`, `test_stockage` ajustés ; toute la suite passe (26 fichiers, en séquence).
 - À valider sur iPhone et iPad : saisie dans le champ du Récap (clavier, pas de perte de focus), « Ouvrir » qui ramène sur le Jour.
 
