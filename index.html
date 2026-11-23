@@ -368,7 +368,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.41.1';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.41.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -1523,7 +1523,7 @@ function renderForm(s) {
       '<button type="button" class="btn" data-action="add-tpl">+ Ajouter une tâche habituelle</button></details>' +
     '<details class="card fold" data-fid="card-cal"' + (foldClosed.has('card-cal') ? '' : ' open') + '><summary><h2>Calendrier</h2></summary><div data-nodirty>' +
       '<p class="help">N’exporte que les blocs pour lesquels tu as coché « Exporter vers Calendrier » (dans l’activité, la tâche habituelle ou le bloc ponctuel). Génère un fichier .ics ; dans la feuille de partage, choisis « Calendrier ». Le rappel est facultatif. Pour aujourd’hui, le plan exporté est celui de l’app à cet instant (heures réelles, blocs recalés) ; réexporter met à jour les événements déjà ajoutés, mais un bloc retiré du plan reste dans Calendrier.</p>' +
-      '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="today">Aujourd’hui</option><option value="tomorrow">Demain</option><option value="week0">7 jours à partir d’aujourd’hui</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
+      '<div class="rowgrid"><label class="field"><span class="lbl">Période</span><select id="cal-period"><option value="week0">7 jours à partir d’aujourd’hui</option><option value="today">Aujourd’hui</option><option value="tomorrow">Demain</option><option value="week">7 jours à partir de demain</option></select></label></div>' +
       '<button type="button" class="btn primary" data-action="cal-shortcut">Envoyer vers Raccourcis</button> <button type="button" class="btn" data-action="cal-export">Exporter un fichier .ics</button>' +
       '<p class="help">« Envoyer vers Raccourcis » copie les événements puis lance le raccourci « Plan du jour » : un événement déjà envoyé est retrouvé et mis à jour (titre, heures), un nouveau est créé. Tes réglages faits dans Calendrier (alertes, lieu, trajet) sont conservés ; un bloc retiré du plan reste dans Calendrier.</p></div></details>' +
     '<div class="card"><h2>Synchronisation</h2><div id="sync-box" data-nodirty></div></div>' +

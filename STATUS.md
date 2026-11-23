@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.41.1**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.41.2**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -315,6 +315,9 @@ Non changé : le choix « Sans heure » du comportement d'une activité dans Ré
 
 ## 0.41.1 — « Départ et retour » avant « Présence au travail » — livré, à valider sur appareil
 Demande de l'utilisateur (23 novembre 2026) : inverser l'ordre des deux cartes. Page du jour : profil, « Présence du jour », « Départ et retour », « Présence au travail ». Test : `tests/test_ordre_jour.py`.
+
+## 0.41.2 — Export Calendrier : « 7 jours à partir d'aujourd'hui » en premier choix — livré, à valider sur appareil
+Demande de l'utilisateur (23 novembre 2026) : la liste « Période » de l'export Calendrier commence par « 7 jours à partir d'aujourd'hui », choisi au départ. Ordre : 7 jours dès aujourd'hui, Aujourd'hui, Demain, 7 jours dès demain. Test : `tests/test_export_jour.py`.
 
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.

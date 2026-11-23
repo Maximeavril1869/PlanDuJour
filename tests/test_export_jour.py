@@ -61,7 +61,8 @@ def test_options(browser):
     print('Choix de période')
     pg = page(browser, [ponctuel('p1', 'Bloc test', 840, 60, toCal=True)])
     opts = pg.evaluate("() => [...document.querySelectorAll('#cal-period option')].map((o) => [o.value, o.textContent])")
-    check('quatre périodes dont « Aujourd’hui » et « 7 jours à partir d’aujourd’hui »', [o[0] for o in opts] == ['today', 'tomorrow', 'week0', 'week'] and opts[0][1] == 'Aujourd’hui', opts)
+    check('quatre périodes, « 7 jours à partir d’aujourd’hui » en premier choix (0.41.2)', [o[0] for o in opts] == ['week0', 'today', 'tomorrow', 'week'] and opts[0][1] == '7 jours à partir d’aujourd’hui', opts)
+    check('le choix affiché au départ est « 7 jours à partir d’aujourd’hui »', pg.input_value('#cal-period') == 'week0', pg.input_value('#cal-period'))
     pg.close()
 
 
