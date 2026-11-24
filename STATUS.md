@@ -1,6 +1,6 @@
 # STATUS — Plan du jour
 
-Version actuelle : **0.41.2**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
+Version actuelle : **0.42.0**. Règles de travail : voir `CONVENTIONS.md`. Journal daté : voir `CARNET.md`. Le tableau ci-dessous s'arrête au lot 4 ; les lots 5 à 9 et les correctifs suivants sont décrits plus bas, version par version.
 
 ## Lots
 
@@ -318,6 +318,10 @@ Demande de l'utilisateur (23 novembre 2026) : inverser l'ordre des deux cartes. 
 
 ## 0.41.2 — Export Calendrier : « 7 jours à partir d'aujourd'hui » en premier choix — livré, à valider sur appareil
 Demande de l'utilisateur (23 novembre 2026) : la liste « Période » de l'export Calendrier commence par « 7 jours à partir d'aujourd'hui », choisi au départ. Ordre : 7 jours dès aujourd'hui, Aujourd'hui, Demain, 7 jours dès demain. Test : `tests/test_export_jour.py`.
+
+## 0.42.0 — Plusieurs tâches « sans heure » en même temps — livré, à valider sur appareil
+Demande de l'utilisateur (24 novembre 2026) : lancer plusieurs chronos à la fois (coder et traiter des dossiers en même temps, par exemple). Réponses aux questions : les tâches sans heure se cumulent, chacune garde son temps complet, côte à côte sur la frise ; Pause et « Je pars » coupent tous les chronos sans heure.
+Fini quand, sur l'iPhone : démarrer une tâche sans heure ne coupe plus les autres tâches sans heure ; une barre « en cours » par tâche, chacune avec son « Arrêter » ; pas d'alerte « chevauche » entre deux tâches sans heure ; changer de sous-activité d'une même tâche coupe la précédente de cette tâche seulement ; un bloc à heure fixe ou prévue en cours est toujours coupé quand on démarre une tâche sans heure. Test : `tests/test_chronos_simultanes.py` (15 vérifications).
 
 ## Prochains lots décidés (arborescence, 2 novembre 2026)
 Décisions : arbre à plusieurs niveaux, **table unique à parent unique** (jamais plusieurs parents, sinon un temps serait compté deux fois) ; profondeur plafonnée à 8 ; **pas de racines imposées** ; le temps est enregistré au niveau le plus fin (activité ou sous-activité) ; le statut Travail / Perso / Hors est porté par la racine et hérité (0.23.1) ; le temps de travail réel vient de la présence ; une activité sans catégorie compte comme Hors.

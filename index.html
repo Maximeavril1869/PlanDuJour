@@ -368,7 +368,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 'use strict';
 
 // ==== 1. CONFIG ====
-const APP_VERSION = '0.41.2';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
+const APP_VERSION = '0.42.0';          // identique à VERSION dans sw.js (CONVENTIONS.md §10)
 const DEFAULT_CARRY = ['act-sax', 'act-menage', 'act-concentration'];   // « À reporter » coché par défaut (réglages sans ce champ)
 const DATA_VERSION = 3;               // réglages : 1 = lot 1, 2 = lot 2, 3 = activités uniques
 const STORAGE_KEY = 'plandujour.reglages';
@@ -918,7 +918,7 @@ function resolveProfile(settings, weekday, profileId, date) {
 
 function buildDay(settings, dayData, weekday, nowMin, past, date) {
   const prof = resolveProfile(settings, weekday, dayData.profile, date);
-  const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, largestGap: 0, toConfirm: [], missed: [], reopen: [], relax: null, review: [], reviewed: [] };
+  const out = { profile: prof, placed: [], pending: [], gaps: [], warnings: [], running: null, runningList: [], largestGap: 0, toConfirm: [], missed: [], reopen: [], relax: null, review: [], reviewed: [] };
   const items = [];
   settings.activities.forEach((a) => {
     if (a.days.includes(weekday) && !prof.removes.includes(a.id) && !(dayData.removed || []).includes(a.id)) items.push({ key: 'act:' + a.id, id: a.id, kind: 'act', name: a.name, mode: a.mode, entry: a.entry, confirm: a.confirm === true, carry: a.carry === true, cat: a.cat || null, parallel: a.parallel === true, toCal: a.toCal === true, alarm: a.alarm === undefined ? null : a.alarm, children: a.children || [], from: null, plannedStart: a.mode === 'free' ? null : a.start, minutes: a.duration });
@@ -961,7 +961,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
     it.start = start; it.end = end; it.state = state;
     it.shift = it.plannedStart !== null && r.start === null && start > it.plannedStart ? start - it.plannedStart : 0;
     cursor = Math.max(cursor, end);
-    if (state === 'running') out.running = it;
+    if (state === 'running') { out.running = it; out.runningList.push(it); }
     if (state === 'done' && it.mode === 'free') out.reopen.push(it);   // sans heure terminé : reste proposé (nouveau passage, ou sous-activité suivante)
     if (it.confirm && state === 'planned' && (past === true || (nowMin !== null && end <= nowMin))) out.toConfirm.push(it);
   });
@@ -971,7 +971,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   // Créneaux réels : un bloc à sous-activités compte un créneau par temps chronométré (pas une plage continue du premier au dernier).
   const spans = [];
   timed.forEach((it) => {
-    if (it.segs.length && !it.real.missed) it.segs.forEach((g) => { const open = g.end === null; spans.push({ owner: it, seg: g, open: open, key: it.key, name: it.name, parallel: it.parallel, start: g.start, end: open ? Math.max(g.start + 1, nowMin !== null ? nowMin : g.start + 1) : g.end }); });
+    if (it.segs.length && !it.real.missed) it.segs.forEach((g) => { const open = g.end === null; spans.push({ owner: it, seg: g, open: open, key: it.key, name: it.name, parallel: it.parallel, free: it.mode === 'free', start: g.start, end: open ? Math.max(g.start + 1, nowMin !== null ? nowMin : g.start + 1) : g.end }); });
     else spans.push({ owner: it, seg: null, open: false, key: it.key, name: it.name, parallel: it.parallel, start: it.start, end: it.end });
   });
   const byStart = spans.sort((a, b) => a.start - b.start || a.end - b.end);
@@ -980,7 +980,7 @@ function buildDay(settings, dayData, weekday, nowMin, past, date) {
   let prevEnd = prof.wake !== null ? prof.wake : (sweep.length ? sweep[0].start : 0), prev = null, blocksEnd = 0;
   sweep.forEach((it) => {
     if (it.start > prevEnd) out.gaps.push({ from: prevEnd, to: it.start, minutes: it.start - prevEnd, last: false });
-    else if (!it.mark && prev && it.start < prevEnd && !prev.parallel && !it.parallel) out.warnings.push('« ' + prev.name + ' » (' + formatTime(prev.start) + '–' + formatTime(prev.end) + ') chevauche « ' + it.name + ' » (' + formatTime(it.start) + '–' + formatTime(it.end) + ').');
+    else if (!it.mark && prev && it.start < prevEnd && !prev.parallel && !it.parallel && !(prev.free && it.free)) out.warnings.push('« ' + prev.name + ' » (' + formatTime(prev.start) + '–' + formatTime(prev.end) + ') chevauche « ' + it.name + ' » (' + formatTime(it.start) + '–' + formatTime(it.end) + ').');
     if (it.mark) { prevEnd = Math.max(prevEnd, it.end); return; }
     blocksEnd = Math.max(blocksEnd, it.end);
     if (it.end > prevEnd || prev === null) { prevEnd = Math.max(prevEnd, it.end); prev = it; }
@@ -1873,17 +1873,16 @@ function renderDay() {
     '<button type="button" class="btn small" data-action="confirm-missed" data-key="' + esc(it.key) + '">Raté</button></span></li>').join('') + '</ul>' : '';
   if (confHtml && !isToday) head += '<div class="card">' + confHtml + '</div>';
   let dock = isToday && confHtml ? '<div class="confbar card">' + confHtml + '</div>' : '';
-  if (build.running && isToday) {
-    const r = build.running;
+  if (isToday) build.runningList.forEach((r) => {            // une barre par tâche en cours (plusieurs tâches sans heure peuvent tourner ensemble, 0.42.0)
     const rseg = r.segs.find((g) => g.end === null), rkid = rseg && r.children.find((c) => c.id === rseg.cid), since = rseg ? rseg.start : r.start;
     dock += '<div class="runbar"><div><strong>' + esc(r.name) + (rkid ? ' · ' + esc(rkid.name) : (rseg && rseg.name ? ' · ' + esc(rseg.name) : '')) + '</strong><small>en cours depuis ' + formatTime(since) + ' · ' + formatDuration(Math.max(0, dayNow() - since)) +
       (r.mode === 'free' ? '' : ' (prévu ' + formatDuration(r.minutes) + ')') + '</small></div><button type="button" class="btn" data-action="stop" data-key="' + esc(r.key) + '">■ Arrêter</button></div>';
-  }
+  });
   if (dock) head += '<div class="dock" id="day-dock">' + dock + '</div>';
-  if (build.running && build.running.children.length) {
-    const rr = build.running, ropen = rr.segs.find((g) => g.end === null);
-    head += '<div class="childbtns">' + rr.children.map((c) => { const on = ropen && ropen.cid === c.id; return '<button type="button" class="btn small ' + (on ? 'danger' : '') + '" data-action="child-go" data-key="' + esc(rr.key) + '" data-cid="' + esc(c.id) + '">' + (on ? '■ ' : '▶ ') + esc(c.name) + '</button>'; }).join('') + '</div>';
-  }
+  build.runningList.filter((rr) => rr.children.length).forEach((rr) => {
+    const ropen = rr.segs.find((g) => g.end === null);
+    head += '<div class="childbtns">' + (build.runningList.length > 1 ? '<span class="v">' + esc(rr.name) + '</span> ' : '') + rr.children.map((c) => { const on = ropen && ropen.cid === c.id; return '<button type="button" class="btn small ' + (on ? 'danger' : '') + '" data-action="child-go" data-key="' + esc(rr.key) + '" data-cid="' + esc(c.id) + '">' + (on ? '■ ' : '▶ ') + esc(c.name) + '</button>'; }).join('') + '</div>';
+  });
   head += pickHtml(build) + reviewHtml(build, dateKey(new Date()));
   if (build.pending.length || build.reopen.length) {
     const sansList = build.pending.concat(build.reopen);
@@ -2177,6 +2176,16 @@ function closeRunning(day, now, exceptKey) {
   });
   Object.keys(day.segs).forEach((k) => day.segs[k].forEach((g) => { if (g.end === null) { g.end = Math.min(1439, Math.max(now, g.start + 1)); markKidDone(day, k, g.cid); } }));
 }
+// Démarrage d'une tâche sans heure (0.42.0) : plusieurs tâches sans heure peuvent tourner en même temps. On ne coupe que la même tâche
+// (une seule sous-activité ou passage à la fois par tâche) et les blocs qui ne sont pas « sans heure » (heure fixe ou prévue), comme avant.
+function closeForFreeStart(day, now, key) {
+  const keep = (k) => { const it = findItem(k); return k !== key && !!it && it.mode === 'free'; };
+  Object.keys(day.real).forEach((k) => {
+    const r = day.real[k];
+    if (!keep(k) && r.start !== null && r.end === null) r.end = Math.min(1439, Math.max(now, r.start + 1));
+  });
+  Object.keys(day.segs).forEach((k) => day.segs[k].forEach((g) => { if (g.end === null && !keep(k)) { g.end = Math.min(1439, Math.max(now, g.start + 1)); markKidDone(day, k, g.cid); } }));
+}
 // Départ en pause ou départ du travail (0.37.0) : coupe à l'heure `at` les actions « sans heure » en cours (passages, sous-activités, ancien temps réel ouvert).
 // Les blocs à heure fixe ou prévue ne sont pas touchés. Une action démarrée après `at` (heure passée saisie à la main) est laissée telle quelle ;
 // `live` (bouton, heure du moment) : une action démarrée à la même minute est coupée aussi. La reprise ne relance rien.
@@ -2196,8 +2205,8 @@ function startNow(key) {
   const now = dayNow();
   if (now === null) return;
   const day = ensureDay();
-  if (isPlain(findItem(key))) {                      // sans heure : un nouveau passage à chaque démarrage
-    closeRunning(day, now, null);
+  if (isPlain(findItem(key))) {                      // sans heure : un nouveau passage à chaque démarrage ; les autres tâches sans heure en cours continuent (0.42.0)
+    closeForFreeStart(day, now, key);
     toPasses(day, key);
     if (!day.segs[key]) day.segs[key] = [];
     const nm = cleanPassName(passDraft[key]), pass = { cid: '', start: now, end: null };
@@ -2219,7 +2228,8 @@ function toggleChild(key, cid) {
   const day = ensureDay();
   const list = day.segs[key] || [];
   const open = list.find((g) => g.cid === cid && g.end === null);
-  closeRunning(day, now, null);
+  const cur = findItem(key);
+  if (cur && cur.mode === 'free') closeForFreeStart(day, now, key); else closeRunning(day, now, null);   // 0.42.0 : une tâche sans heure n'arrête plus les autres
   if (!open) { if (!day.segs[key]) day.segs[key] = []; day.segs[key].push({ cid: cid, start: now, end: null }); }
   persistDays();
   renderChildren();

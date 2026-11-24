@@ -6,7 +6,7 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 
 ## Où en est le projet (23 novembre 2026)
 
-- Version **0.41.2** : export Calendrier, « 7 jours à partir d'aujourd'hui » en premier choix et choix par défaut (entrée du 23 novembre, soir). Avant : **0.41.1** : « Départ et retour » placé avant « Présence au travail » (voir l'entrée du 23 novembre). Avant : **0.41.0** : recherche déplacée dans le Récap, « Présence du jour » sous le profil de la journée, carte « Sans heure » renommée « Tâches » (voir l'entrée du 23 novembre) ; à valider sur iPhone et iPad. Avant : 0.40.0 (recherche : prévu et fait distingués).
+- Version **0.42.0** : plusieurs tâches sans heure en même temps (entrée du 24 novembre). Avant : **0.41.2** : export Calendrier, « 7 jours à partir d'aujourd'hui » en premier choix et choix par défaut (entrée du 23 novembre, soir). Avant : **0.41.1** : « Départ et retour » placé avant « Présence au travail » (voir l'entrée du 23 novembre). Avant : **0.41.0** : recherche déplacée dans le Récap, « Présence du jour » sous le profil de la journée, carte « Sans heure » renommée « Tâches » (voir l'entrée du 23 novembre) ; à valider sur iPhone et iPad. Avant : 0.40.0 (recherche : prévu et fait distingués).
 
 - Version **0.37.0** : le départ en pause et le départ du travail coupent les actions « sans heure » en cours (voir l'entrée du 16 novembre) ; à valider sur iPhone et iPad. Avant : **0.36.0** (bannière « Hors ligne » visible sur tous les onglets, à valider sur iPhone et iPad : voir l'entrée du 12 novembre, soir). Synchronisation avec un compte (0.35.0 et 0.35.1) validée sur appareils le 12 novembre ; la **0.35.0** (synchronisation avec un compte, voir l'entrée du 11 novembre) ; la **0.34.0** était poussée sur GitHub Pages (validées sur iPhone les 4 et 5 novembre : 0.30.0 points 1, 2 et 4, 0.31.0, 0.31.1, 0.32.0, 0.32.1 ; 0.30.0 point 3 (titre « Tâche · Nom » dans l'agenda via Raccourcis) non vérifié, l'utilisateur pense ne jamais l'utiliser ; chevauchement visuel des minitâches : accepté par l'utilisateur). Raccourci 0.29.0 reconstruit et validé sur iPhone (agenda cible Travail, voir `RACCOURCI.md`). Données de l'iPhone réinitialisées par l'utilisateur : base saine. L'iPad n'a pas été touché (anciennes données, sans effet : les champs retirés ne sont plus recopiés au chargement et rien n'est exporté sans la case `toCal`, d'après la lecture du code).
 - Calendrier : export seul, par case à cocher ; plus d'import. À tester : un bloc coché exporté en `.ics` vers le calendrier « Plan du jour » (ajout dans Calendrier), après suppression des anciens `.ics`.
@@ -22,6 +22,15 @@ Voir aussi : [STATUS.md](STATUS.md) (état par lot), [ARCHITECTURE.md](ARCHITECT
 - Livré : lots 1 à 9 et leurs correctifs (voir détail ci-dessous). Presque tout reste **à valider sur appareil** (iPhone, iPad).
 - Abandonné : lot 5 bis (chrono sur chaque sous-tâche libre du jour), remplacé par les sous-activités cochables.
 - Tests : 536 vérifications (21 fichiers). Lancer avec `PYTHONDONTWRITEBYTECODE=1`. `.gitignore` en place, `.pyc` retirés du suivi.
+
+## 24 novembre 2026 (0.42.0, plusieurs chronos en même temps)
+
+- Question de l'utilisateur : « je ne peux pas lancer 2 compteurs en même temps avec l'option "peut faire autre chose en même temps" ? ». Constat : non ; cette case (`parallel`) ne fait que supprimer l'alerte de chevauchement, et démarrer un chrono coupait tous les autres (`closeRunning`).
+- Questions posées et réponses : (1) qui peut cumuler : les tâches sans heure, sans condition de case (« je code et je fais des dossiers en même temps ») ; (2) comptage : chacune cumule son temps complet, affichées côte à côte (déjà géré par la frise) ; (3) Pause et « Je pars » : coupent tous les chronos sans heure.
+- Fait : `closeForFreeStart(day, now, key)` : démarrer une tâche sans heure (passage ou sous-activité) ne coupe que la même tâche et les blocs non « sans heure » ; `buildDay` expose `runningList` (toutes les tâches en cours) ; une barre « en cours » par tâche et les boutons de sous-activités de chacune ; plus d'alerte « chevauche » entre deux tâches sans heure (`free` sur les créneaux). La case « On peut faire autre chose pendant » est inchangée (elle ne concerne toujours que l'alerte).
+- Choix non demandé, à confirmer : un bloc à heure fixe ou prévue dont le chrono tourne est toujours coupé au démarrage d'une tâche sans heure (comportement d'avant, inchangé), et démarrer un bloc à heure fixe coupe tout comme avant.
+- Tests : `tests/test_chronos_simultanes.py` (15 vérifications) ; toute la suite passe.
+- À valider sur iPhone et iPad : deux tâches lancées ensemble (deux barres en cours, deux « Arrêter »), frise côte à côte, Pause qui coupe tout.
 
 ## 23 novembre 2026 (0.41.0, recherche dans le Récap, présence sous le profil, « Tâches »)
 

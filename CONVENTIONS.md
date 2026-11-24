@@ -484,6 +484,15 @@ Toute carte ou ligne repliable est **fermée à l'ouverture de l'app** : Réglag
 - Pas de filtre « Tous / Prévu / Fait » (choix de l'utilisateur : les groupes suffisent).
 - Tests : `tests/test_recherche.py`.
 
+## 58. Plusieurs tâches « sans heure » en même temps (0.42.0)
+
+- Démarrer une tâche sans heure (passage, ou sous-activité d'une tâche sans heure) **ne coupe pas** les autres tâches sans heure en cours (`closeForFreeStart`). Chacune cumule son temps complet ; la frise les place côte à côte ; aucune alerte « chevauche » entre deux tâches sans heure (`free` sur les créneaux de `buildDay`).
+- Au sein d'une même tâche, une seule sous-activité (ou un seul passage) tourne à la fois : en démarrer une autre coupe la précédente.
+- Un bloc à heure fixe ou prévue dont le chrono tourne est coupé au démarrage d'une tâche sans heure, et inversement démarrer un tel bloc coupe tous les chronos (comportement d'avant, `closeRunning`).
+- `buildDay().runningList` liste toutes les tâches en cours (`running` garde la dernière, pour compatibilité) ; le bandeau du bas a une barre par tâche en cours. Pause et « Je pars » (§ 0.37.0) coupent tous les chronos sans heure.
+- La case « On peut faire autre chose pendant » (`parallel`) reste réservée à l'alerte de chevauchement des blocs à heure.
+- Test : `tests/test_chronos_simultanes.py`.
+
 ## 57. Recherche dans le Récap, « Présence du jour » sous le profil, « Tâches » (0.41.0)
 
 - La recherche d'une tâche (§56) vit en haut de l'onglet **Récap** (`#recap-search`, résultats dans `#recap-search-res`), plus sur le Jour. « Ouvrir » ramène sur le Jour à la date trouvée et vide la recherche. Le Récap ne se redessine pas tout seul pendant que le champ a le focus.
